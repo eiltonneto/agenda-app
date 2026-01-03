@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TipoReceita {
+  VENDA
+  SERVICO
+  ALUGUEL
+  OUTRO
+}
+
+enum StatusReceita {
+  PENDENTE
+  RECEBIDA
+  CANCELADA
+}
+
+enum CategoriaDespesa {
+  FIXA
+  VARIAVEL
+  COMPRA_PRODUTO
+  MANUTENCAO
+  OUTRO
+}
+
+enum StatusDespesa {
+  PENDENTE
+  PAGA
+  ATRASADA
+}
+
+enum TipoEvento {
+  RACHA
+  EVENTO_CLUBE
+  FESTA
+  REUNIAO
+  MANUTENCAO
+  OUTRO
+}
+
+enum TipoNotificacao {
+  EVENTO
+  DESPESA
+}
+
+model Usuario {
+  id        Int       @id @default(autoincrement())
+  nome      String
+  email     String    @unique
+  senhaHash String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  receitas     Receita[]
+  despesas     Despesa[]
+  eventos      Evento[]
+  notificacoes Notificacao[]
+}
+
+model Receita {
+  id           Int           @id @default(autoincrement())
+  tipo         TipoReceita
+  descricao    String
+  valor        Decimal       @db.Decimal(10,2)
+  dataPrevista DateTime?
+  dataRecebida DateTime?
+  status       StatusReceita @default(PENDENTE)
+  usuarioId    Int
+  usuario      Usuario       @relation(fields: [usuarioId], references: [id])
+  createdAt    DateTime      @default(now())
+}
+
+model Despesa {
+  id             Int             @id @default(autoincrement())
+  categoria      CategoriaDespesa
+  descricao      String
+  valor        Decimal       @db.Decimal(10,2)
+  dataVencimento DateTime
+  dataPagamento  DateTime?
+  status         StatusDespesa   @default(PENDENTE)
+  usuarioId      Int
+  usuario        Usuario         @relation(fields: [usuarioId], references: [id])
+  createdAt      DateTime        @default(now())
+}
+
+model Evento {
+  id         Int        @id @default(autoincrement())
+  titulo     String
+  tipo       TipoEvento
+  inicio     DateTime
+  fim        DateTime
+  cor        String
+  observacao String?
+
+  lembreteMinutosAntes1 Int?
+  lembreteMinutosAntes2 Int?
+
+  usuarioId  Int
+  usuario    Usuario    @relation(fields: [usuarioId], references: [id])
+
+  createdAt  DateTime   @default(now())
+}
+
+
+
+
+model Notificacao {
+  id            Int            @id @default(autoincrement())
+  tipo          TipoNotificacao
+  titulo        String
+  mensagem      String
+  disparoEm     DateTime
+  lida          Boolean        @default(false)
+
+  referenciaTipo String?
+  referenciaId   Int?
+
+  usuarioId      Int
+  usuario        Usuario       @relation(fields: [usuarioId], references: [id])
+
+  createdAt      DateTime      @default(now())
+}
