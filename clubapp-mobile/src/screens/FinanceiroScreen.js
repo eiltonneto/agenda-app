@@ -9,13 +9,13 @@ import { format, addMonths, subMonths, isValid, parseISO, setMonth, setYear } fr
 import { ptBR } from "date-fns/locale";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../services/api";
+import { useTheme } from "../context/ThemeContext"; // <--- 1. Importar Tema
 
 const CATEGORIAS_DESPESA = ["FIXA", "VARIAVEL", "COMPRA_PRODUTO", "MANUTENCAO", "OUTRO"];
 const TIPOS_RECEITA = ["VENDA", "SERVICO", "ALUGUEL", "OUTRO"];
 const MESES_CURTOS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-// Função auxiliar para alertas
 function exibirAlerta(titulo, mensagem) {
     if (Platform.OS === 'web') {
         window.alert(`${titulo}\n\n${mensagem}`);
@@ -25,13 +25,16 @@ function exibirAlerta(titulo, mensagem) {
 }
 
 export default function FinanceiroScreen() {
+  // --- TEMA ---
+  const { theme, isDark } = useTheme();
+  const colors = theme.colors;
+
   const [loading, setLoading] = useState(false);
   const [dataReferencia, setDataReferencia] = useState(new Date());
   const [abaAtiva, setAbaAtiva] = useState("DESPESA"); 
   const [resumo, setResumo] = useState({ receitas: 0, despesas: 0, saldo: 0 });
   const [transacoes, setTransacoes] = useState([]);
   
-  // --- SELEÇÃO MÚLTIPLA ---
   const [selectedIds, setSelectedIds] = useState([]);
 
   const [modalVisivel, setModalVisivel] = useState(false);
@@ -70,7 +73,6 @@ export default function FinanceiroScreen() {
 
   useFocusEffect(useCallback(() => { carregarDados(); }, [carregarDados]));
 
-  // --- Lógica de Seleção ---
   function toggleSelection(id) {
     if (selectedIds.includes(id)) setSelectedIds(selectedIds.filter(i => i !== id));
     else setSelectedIds([...selectedIds, id]);
@@ -78,7 +80,7 @@ export default function FinanceiroScreen() {
 
   function handleCardPress(item) {
       if (selectedIds.length > 0) toggleSelection(item.id);
-      else toggleStatus(item); // Se não selecionando, alterna status
+      else toggleStatus(item); 
   }
 
   function handleLongPress(item) {
@@ -110,7 +112,6 @@ export default function FinanceiroScreen() {
       }
   }
 
-  // Função para exclusão individual (botão de lixeira no card)
   async function excluirItemIndividual(id) {
       const confirmar = async () => {
           try {
@@ -130,7 +131,7 @@ export default function FinanceiroScreen() {
   function abrirModalCriacao() { setTransacaoEditando(null); setDescricao(""); setValor(""); setCategoria("OUTRO"); setDataVencimento(format(new Date(), "yyyy-MM-dd")); setStatus("PENDENTE"); setModalVisivel(true); }
   
   function abrirModalEdicao(item) {
-    if (selectedIds.length > 0) return; // Não abre se estiver selecionando
+    if (selectedIds.length > 0) return; 
     setTransacaoEditando(item); setDescricao(item.descricao); setValor(String(item.valor)); setCategoria(abaAtiva === "RECEITA" ? item.tipo : item.categoria); setStatus(item.status);
     const rawData = abaAtiva === "RECEITA" ? item.dataPrevista : item.dataVencimento;
     try { const d = parseISO(rawData); setDataVencimento(isValid(d) ? format(d, "yyyy-MM-dd") : ""); } catch { setDataVencimento(""); }
@@ -161,45 +162,53 @@ export default function FinanceiroScreen() {
   }
 
   function formatarDataVisual(dataISO) { if (!dataISO) return "--/--"; const [ano, mes, dia] = dataISO.split('T')[0].split('-'); return `${dia}/${mes}`; }
-  const corAba = abaAtiva === "RECEITA" ? "#2ECC71" : "#E74C3C";
+  const corAba = abaAtiva === "RECEITA" ? "#26A69A" : "#EF5350";
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
+      
       {/* HEADER DINÂMICO (SELEÇÃO) */}
       {selectedIds.length > 0 ? (
-          <View style={styles.headerSelection}>
-              <TouchableOpacity onPress={() => setSelectedIds([])}><Ionicons name="close" size={24} color="#333" /></TouchableOpacity>
-              <Text style={styles.textSelection}>{selectedIds.length} selecionado(s)</Text>
-              <TouchableOpacity onPress={excluirSelecionados}><Ionicons name="trash" size={24} color="#E74C3C" /></TouchableOpacity>
+          <View style={[styles.headerSelection, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+              <TouchableOpacity onPress={() => setSelectedIds([])}><Ionicons name="close" size={24} color={colors.text} /></TouchableOpacity>
+              <Text style={[styles.textSelection, { color: colors.text }]}>{selectedIds.length} selecionado(s)</Text>
+              <TouchableOpacity onPress={excluirSelecionados}><Ionicons name="trash" size={24} color={colors.danger} /></TouchableOpacity>
           </View>
       ) : (
-          <View style={styles.headerMes}>
-            <TouchableOpacity onPress={() => mudarMes("anterior")}><Ionicons name="chevron-back" size={24} color="#333" /></TouchableOpacity>
-            <TouchableOpacity onPress={abrirPickerData}><View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}><Text style={styles.textoMes}>{format(dataReferencia, "MMMM yyyy", { locale: ptBR }).toUpperCase()}</Text><Ionicons name="chevron-down" size={16} color="#333" /></View></TouchableOpacity>
-            <TouchableOpacity onPress={() => mudarMes("proximo")}><Ionicons name="chevron-forward" size={24} color="#333" /></TouchableOpacity>
+          <View style={[styles.headerMes, { backgroundColor: colors.surface }]}>
+            <TouchableOpacity onPress={() => mudarMes("anterior")}><Ionicons name="chevron-back" size={24} color={colors.text} /></TouchableOpacity>
+            <TouchableOpacity onPress={abrirPickerData}>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>
+                    <Text style={[styles.textoMes, { color: colors.text }]}>{format(dataReferencia, "MMMM yyyy", { locale: ptBR }).toUpperCase()}</Text>
+                    <Ionicons name="chevron-down" size={16} color={colors.text} />
+                </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => mudarMes("proximo")}><Ionicons name="chevron-forward" size={24} color={colors.text} /></TouchableOpacity>
           </View>
       )}
 
       {selectedIds.length === 0 && (
-          <View style={styles.cardResumo}>
-            <Text style={styles.labelSaldo}>Saldo em Caixa (Realizado)</Text>
+          <View style={[styles.cardResumo, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.labelSaldo, { color: colors.textSecondary }]}>Saldo em Caixa (Realizado)</Text>
             <Text style={[styles.valorSaldo, { color: resumo.saldo >= 0 ? "#2ECC71" : "#E74C3C" }]}>{currencyFormatter.format(resumo.saldo)}</Text>
             <View style={styles.rowResumo}>
-              <View style={styles.itemResumo}><Text style={styles.labelResumo}>Entradas</Text><Text style={styles.valorResumo}>{currencyFormatter.format(resumo.receitas)}</Text></View>
-              <View style={styles.itemResumo}><Text style={styles.labelResumo}>Saídas</Text><Text style={styles.valorResumo}>{currencyFormatter.format(resumo.despesas)}</Text></View>
+              <View style={styles.itemResumo}><Text style={[styles.labelResumo, { color: colors.textSecondary }]}>Entradas</Text><Text style={[styles.valorResumo, { color: colors.text }]}>{currencyFormatter.format(resumo.receitas)}</Text></View>
+              <View style={styles.itemResumo}><Text style={[styles.labelResumo, { color: colors.textSecondary }]}>Saídas</Text><Text style={[styles.valorResumo, { color: colors.text }]}>{currencyFormatter.format(resumo.despesas)}</Text></View>
             </View>
           </View>
       )}
 
       {selectedIds.length === 0 && (
-          <View style={styles.tabsContainer}>
-            <TouchableOpacity style={[styles.tab, abaAtiva === "DESPESA" && styles.tabAtivaDespesa]} onPress={() => trocarAba("DESPESA")}><Text style={[styles.tabTexto, abaAtiva === "DESPESA" && {color:"#fff"}]}>SAÍDAS</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.tab, abaAtiva === "RECEITA" && styles.tabAtivaReceita]} onPress={() => trocarAba("RECEITA")}><Text style={[styles.tabTexto, abaAtiva === "RECEITA" && {color:"#fff"}]}>ENTRADAS</Text></TouchableOpacity>
+          <View style={[styles.tabsContainer, { backgroundColor: colors.surface }]}>
+            <TouchableOpacity style={[styles.tab, abaAtiva === "DESPESA" && styles.tabAtivaDespesa]} onPress={() => trocarAba("DESPESA")}><Text style={[styles.tabTexto, {color: colors.text}, abaAtiva === "DESPESA" && {color:"#fff"}]}>SAÍDAS</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.tab, abaAtiva === "RECEITA" && styles.tabAtivaReceita]} onPress={() => trocarAba("RECEITA")}><Text style={[styles.tabTexto, {color: colors.text}, abaAtiva === "RECEITA" && {color:"#fff"}]}>ENTRADAS</Text></TouchableOpacity>
           </View>
       )}
 
       {loading ? <ActivityIndicator size="large" color={corAba} style={{marginTop:20}} /> : (
-        <FlatList data={transacoes} keyExtractor={(item) => String(item.id)} contentContainerStyle={{ padding: 16, paddingBottom: 80 }} ListEmptyComponent={<Text style={styles.vazio}>Nenhum lançamento.</Text>} renderItem={({ item }) => {
+        <FlatList data={transacoes} keyExtractor={(item) => String(item.id)} contentContainerStyle={{ padding: 16, paddingBottom: 80 }} 
+        ListEmptyComponent={<Text style={[styles.vazio, { color: colors.textSecondary }]}>Nenhum lançamento.</Text>} 
+        renderItem={({ item }) => {
             const isRec = abaAtiva === "RECEITA"; const isDone = item.status === "PAGA" || item.status === "RECEBIDA";
             const rawData = isRec ? item.dataPrevista : item.dataVencimento; const dataFormatada = formatarDataVisual(rawData);
             const saldoPrevisto = isRec ? Number(resumo.saldo) + Number(item.valor) : Number(resumo.saldo) - Number(item.valor);
@@ -210,15 +219,15 @@ export default function FinanceiroScreen() {
               <TouchableOpacity 
                 style={[
                     styles.cardItem, 
-                    isDone && styles.cardItemDone,
-                    selecionado && styles.cardSelecionado // Estilo destaque
+                    { backgroundColor: colors.surface },
+                    isDone && { backgroundColor: isDark ? '#1f1f1f' : '#f9f9f9', opacity: 0.7 },
+                    selecionado && { backgroundColor: isDark ? '#1A3B5C' : '#E3F2FD', borderColor: colors.primary, borderWidth: 1 }
                 ]}
                 onPress={() => handleCardPress(item)}
                 onLongPress={() => handleLongPress(item)}
               >
-                {/* Se selecionado, mostra check. Se não, mostra o botão de status (bolinha) */}
                 {selecionado ? (
-                    <Ionicons name="checkmark-circle" size={28} color="#0A7AFF" />
+                    <Ionicons name="checkmark-circle" size={28} color={colors.primary} />
                 ) : (
                     <TouchableOpacity onPress={() => toggleStatus(item)} style={styles.iconStatus}>
                         <Ionicons name={isDone ? "checkmark-circle" : "ellipse-outline"} size={28} color={isDone ? (isRec ? "#2ECC71" : "#E74C3C") : "#ccc"} />
@@ -226,18 +235,17 @@ export default function FinanceiroScreen() {
                 )}
 
                 <View style={{ flex: 1, paddingHorizontal: 10 }}>
-                  <Text style={[styles.descItem, isDone && styles.textDone]}>{item.descricao}</Text>
-                  <Text style={styles.catItem}>{isRec ? item.tipo : item.categoria} • {dataFormatada}</Text>
+                  <Text style={[styles.descItem, { color: colors.text }, isDone && styles.textDone]}>{item.descricao}</Text>
+                  <Text style={[styles.catItem, { color: colors.textSecondary }]}>{isRec ? item.tipo : item.categoria} • {dataFormatada}</Text>
                   {!isDone && (<Text style={{ fontSize: 10, color: '#F39C12', marginTop: 4, fontWeight: 'bold' }}>Previsto: {currencyFormatter.format(saldoPrevisto)}</Text>)}
                 </View>
                 <View style={{ alignItems: "flex-end", gap: 10 }}>
                   <Text style={[styles.valorItem, { color: isRec ? "#2ECC71" : "#E74C3C" }, isDone && styles.textDone]}>{currencyFormatter.format(item.valor)}</Text>
                   
-                  {/* Botões de Ação (Editar/Excluir) somem se estiver selecionando */}
                   {!selecionado && selectedIds.length === 0 && (
                       <View style={{ flexDirection: 'row', gap: 15 }}>
-                         <TouchableOpacity onPress={() => abrirModalEdicao(item)}><Ionicons name="pencil" size={18} color="#666" /></TouchableOpacity>
-                         <TouchableOpacity onPress={() => excluirItemIndividual(item.id)}><Ionicons name="trash-outline" size={18} color="#E74C3C" /></TouchableOpacity>
+                          <TouchableOpacity onPress={() => abrirModalEdicao(item)}><Ionicons name="pencil" size={18} color={colors.textSecondary} /></TouchableOpacity>
+                          <TouchableOpacity onPress={() => excluirItemIndividual(item.id)}><Ionicons name="trash-outline" size={18} color={colors.danger} /></TouchableOpacity>
                       </View>
                   )}
                 </View>
@@ -247,81 +255,137 @@ export default function FinanceiroScreen() {
         />
       )}
       
-      {/* Botão de adicionar some se estiver selecionando */}
       {selectedIds.length === 0 && (
           <TouchableOpacity style={[styles.fab, { backgroundColor: corAba }]} onPress={abrirModalCriacao}><Ionicons name="add" size={30} color="#fff" /></TouchableOpacity>
       )}
 
+      {/* MODAL TRANSAÇÃO */}
       <Modal visible={modalVisivel} transparent animationType="slide">
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.overlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <Text style={[styles.modalTitle, { color: corAba }]}>{transacaoEditando ? "Editar" : "Nova"} {abaAtiva === "RECEITA" ? "Receita" : "Despesa"}</Text>
             <ScrollView>
-                <Text style={styles.labelInput}>Descrição</Text><TextInput style={styles.input} value={descricao} onChangeText={setDescricao} placeholder="Ex: Conta de Luz" />
+                <Text style={[styles.labelInput, { color: colors.textSecondary }]}>Descrição</Text>
+                <TextInput style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]} value={descricao} onChangeText={setDescricao} placeholder="Ex: Conta de Luz" placeholderTextColor={colors.textSecondary}/>
+                
                 <View style={{ flexDirection: "row", gap: 10 }}>
-                    <View style={{ flex: 1 }}><Text style={styles.labelInput}>Valor (R$)</Text><TextInput style={styles.input} value={valor} onChangeText={setValor} keyboardType="numeric" placeholder="0.00"/></View>
-                    <View style={{ flex: 1 }}><Text style={styles.labelInput}>Data (AAAA-MM-DD)</Text><TextInput style={styles.input} value={dataVencimento} onChangeText={setDataVencimento} placeholder="2026-01-20"/></View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.labelInput, { color: colors.textSecondary }]}>Valor (R$)</Text>
+                        <TextInput style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]} value={valor} onChangeText={setValor} keyboardType="numeric" placeholder="0.00" placeholderTextColor={colors.textSecondary}/>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.labelInput, { color: colors.textSecondary }]}>Data (AAAA-MM-DD)</Text>
+                        <TextInput style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]} value={dataVencimento} onChangeText={setDataVencimento} placeholder="2026-01-20" placeholderTextColor={colors.textSecondary}/>
+                    </View>
                 </View>
-                <Text style={styles.labelInput}>Categoria</Text><View style={styles.chipsContainer}>{(abaAtiva === "RECEITA" ? TIPOS_RECEITA : CATEGORIAS_DESPESA).map((cat) => (<TouchableOpacity key={cat} style={[styles.chip, categoria === cat && { backgroundColor: corAba }]} onPress={() => setCategoria(cat)}><Text style={[styles.chipText, categoria === cat && { color: "#fff" }]}>{cat}</Text></TouchableOpacity>))}</View>
-                <Text style={styles.labelInput}>Status</Text><View style={styles.chipsContainer}><TouchableOpacity style={[styles.chip, status === "PENDENTE" && { backgroundColor: "#999" }]} onPress={() => setStatus("PENDENTE")}><Text style={{ color: status === "PENDENTE" ? "#fff" : "#333" }}>Pendente</Text></TouchableOpacity><TouchableOpacity style={[styles.chip, status !== "PENDENTE" && { backgroundColor: corAba }]} onPress={() => setStatus(abaAtiva === "RECEITA" ? "RECEBIDA" : "PAGA")}><Text style={{ color: status !== "PENDENTE" ? "#fff" : "#333" }}>{abaAtiva === "RECEITA" ? "Recebido" : "Pago"}</Text></TouchableOpacity></View>
+
+                <Text style={[styles.labelInput, { color: colors.textSecondary }]}>Categoria</Text>
+                <View style={styles.chipsContainer}>
+                    {(abaAtiva === "RECEITA" ? TIPOS_RECEITA : CATEGORIAS_DESPESA).map((cat) => (
+                        <TouchableOpacity key={cat} style={[styles.chip, { backgroundColor: isDark ? '#333' : '#eee' }, categoria === cat && { backgroundColor: corAba }]} onPress={() => setCategoria(cat)}>
+                            <Text style={[styles.chipText, { color: colors.text }, categoria === cat && { color: "#fff" }]}>{cat}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
+                <Text style={[styles.labelInput, { color: colors.textSecondary }]}>Status</Text>
+                <View style={styles.chipsContainer}>
+                    <TouchableOpacity style={[styles.chip, { backgroundColor: isDark ? '#333' : '#eee' }, status === "PENDENTE" && { backgroundColor: "#999" }]} onPress={() => setStatus("PENDENTE")}>
+                        <Text style={{ color: status === "PENDENTE" ? "#fff" : colors.text }}>Pendente</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.chip, { backgroundColor: isDark ? '#333' : '#eee' }, status !== "PENDENTE" && { backgroundColor: corAba }]} onPress={() => setStatus(abaAtiva === "RECEITA" ? "RECEBIDA" : "PAGA")}>
+                        <Text style={{ color: status !== "PENDENTE" ? "#fff" : colors.text }}>{abaAtiva === "RECEITA" ? "Recebido" : "Pago"}</Text>
+                    </TouchableOpacity>
+                </View>
+
                 <TouchableOpacity style={[styles.btnSalvar, { backgroundColor: corAba }]} onPress={salvarTransacao}><Text style={styles.txtSalvar}>{transacaoEditando ? "Atualizar" : "Salvar"}</Text></TouchableOpacity>
-                <TouchableOpacity onPress={() => setModalVisivel(false)}><Text style={styles.txtCancelar}>Cancelar</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => setModalVisivel(false)}><Text style={[styles.txtCancelar, { color: colors.textSecondary }]}>Cancelar</Text></TouchableOpacity>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={modalDataVisivel} transparent animationType="fade"><View style={styles.overlayCentralizado}><View style={styles.pickerModal}><View style={styles.pickerHeader}><TouchableOpacity onPress={() => setPickerAno(pickerAno - 1)}><Ionicons name="chevron-back" size={24} color="#333" /></TouchableOpacity><Text style={styles.pickerAnoTexto}>{pickerAno}</Text><TouchableOpacity onPress={() => setPickerAno(pickerAno + 1)}><Ionicons name="chevron-forward" size={24} color="#333" /></TouchableOpacity></View><View style={styles.mesesGrid}>{MESES_CURTOS.map((mes, index) => (<TouchableOpacity key={index} style={styles.mesBotao} onPress={() => selecionarMesAno(index)}><Text style={styles.mesTexto}>{mes.toUpperCase()}</Text></TouchableOpacity>))}</View><TouchableOpacity onPress={() => setModalDataVisivel(false)} style={styles.pickerFechar}><Text style={{color: "#E74C3C", fontWeight: 'bold'}}>Fechar</Text></TouchableOpacity></View></View></Modal>
+      {/* MODAL PICKER DATA */}
+      <Modal visible={modalDataVisivel} transparent animationType="fade">
+          <View style={styles.overlayCentralizado}>
+              <View style={[styles.pickerModal, { backgroundColor: colors.surface }]}>
+                  <View style={styles.pickerHeader}>
+                      <TouchableOpacity onPress={() => setPickerAno(pickerAno - 1)}><Ionicons name="chevron-back" size={24} color={colors.text} /></TouchableOpacity>
+                      <Text style={[styles.pickerAnoTexto, { color: colors.text }]}>{pickerAno}</Text>
+                      <TouchableOpacity onPress={() => setPickerAno(pickerAno + 1)}><Ionicons name="chevron-forward" size={24} color={colors.text} /></TouchableOpacity>
+                  </View>
+                  <View style={styles.mesesGrid}>
+                      {MESES_CURTOS.map((mes, index) => (
+                          <TouchableOpacity key={index} style={[styles.mesBotao, { backgroundColor: isDark ? '#333' : '#f2f2f2' }]} onPress={() => selecionarMesAno(index)}>
+                              <Text style={[styles.mesTexto, { color: colors.text }]}>{mes.toUpperCase()}</Text>
+                          </TouchableOpacity>
+                      ))}
+                  </View>
+                  <TouchableOpacity onPress={() => setModalDataVisivel(false)} style={styles.pickerFechar}><Text style={{color: colors.danger, fontWeight: 'bold'}}>Fechar</Text></TouchableOpacity>
+              </View>
+          </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F2F2F2" },
-  // Header Selection
-  headerSelection: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  textSelection: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  cardSelecionado: { backgroundColor: '#E3F2FD', borderColor: '#0A7AFF', borderWidth: 1 },
+  container: { flex: 1 },
+  headerSelection: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
+  textSelection: { fontSize: 18, fontWeight: 'bold' },
   
-  headerMes: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, backgroundColor: "#fff" },
-  textoMes: { fontSize: 16, fontWeight: "bold", color: "#333" },
-  cardResumo: { backgroundColor: "#fff", margin: 16, padding: 20, borderRadius: 12, alignItems: "center", elevation: 2 },
-  labelSaldo: { fontSize: 14, color: "#666", marginBottom: 4 },
+  headerMes: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16 },
+  textoMes: { fontSize: 16, fontWeight: "bold" },
+  cardResumo: { margin: 16, padding: 20, borderRadius: 12, alignItems: "center", elevation: 2 },
+  labelSaldo: { fontSize: 14, marginBottom: 4 },
   valorSaldo: { fontSize: 32, fontWeight: "bold", marginBottom: 20 },
   rowResumo: { flexDirection: "row", width: "100%", justifyContent: "space-around" },
   itemResumo: { alignItems: "center" },
-  labelResumo: { fontSize: 12, color: "#666" },
-  valorResumo: { fontSize: 16, fontWeight: "bold", marginTop: 4, color: "#333" },
-  tabsContainer: { flexDirection: "row", marginHorizontal: 16, marginBottom: 10, backgroundColor: "#fff", borderRadius: 8, padding: 4 },
-  tab: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 6 },
-  tabAtivaDespesa: { backgroundColor: "#E74C3C" },
-  tabAtivaReceita: { backgroundColor: "#2ECC71" },
-  tabTexto: { fontWeight: "bold", color: "#666", fontSize: 12 },
-  vazio: { textAlign: "center", marginTop: 40, color: "#999" },
-  cardItem: { backgroundColor: "#fff", flexDirection: "row", alignItems: "center", padding: 16, marginBottom: 10, borderRadius: 10 },
-  cardItemDone: { opacity: 0.6, backgroundColor: "#f9f9f9" },
+  labelResumo: { fontSize: 12 },
+  valorResumo: { fontSize: 16, fontWeight: "bold", marginTop: 4 },
+  tabsContainer: { flexDirection: "row", marginHorizontal: 16, marginBottom: 10, borderRadius: 8, padding: 4 },
+  tab: { 
+    flex: 1, paddingVertical: 10,
+     alignItems: "center", 
+     borderRadius: 6
+   },
+
+  tabAtivaDespesa: { 
+    backgroundColor:
+     "#EF5350"
+   },
+
+  tabAtivaReceita: { 
+    backgroundColor: "#26A69A"
+  },
+  tabTexto: { 
+    fontWeight: "bold", 
+    fontSize: 12 
+  },
+  vazio: { textAlign: "center", marginTop: 40 },
+  cardItem: { flexDirection: "row", alignItems: "center", padding: 16, marginBottom: 10, borderRadius: 10 },
   textDone: { textDecorationLine: "line-through", color: "#999" },
-  descItem: { fontWeight: "bold", fontSize: 14, color: "#333" },
-  catItem: { fontSize: 12, color: "#999", marginTop: 2 },
+  descItem: { fontWeight: "bold", fontSize: 14 },
+  catItem: { fontSize: 12, marginTop: 2 },
   valorItem: { fontWeight: "bold", fontSize: 14 },
   fab: { position: "absolute", bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", elevation: 5 },
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
   overlayCentralizado: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: 'center' },
-  modalContent: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, maxHeight: "80%" },
+  modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, maxHeight: "80%" },
   modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 16, textAlign: "center" },
-  labelInput: { fontSize: 12, color: "#666", marginBottom: 6, fontWeight: "600" },
-  input: { backgroundColor: "#f5f5f5", borderRadius: 8, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: "#eee" },
+  labelInput: { fontSize: 12, marginBottom: 6, fontWeight: "600" },
+  input: { borderRadius: 8, padding: 12, marginBottom: 16, borderWidth: 1 },
   chipsContainer: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 },
-  chip: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: "#eee", borderRadius: 20 },
-  chipText: { fontSize: 12, color: "#333" },
+  chip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
+  chipText: { fontSize: 12 },
   btnSalvar: { padding: 16, borderRadius: 10, alignItems: "center", marginBottom: 10 },
   txtSalvar: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  txtCancelar: { textAlign: "center", color: "#666", padding: 10 },
-  pickerModal: { backgroundColor: "#fff", borderRadius: 16, padding: 20, alignItems: 'center', width: '90%' },
+  txtCancelar: { textAlign: "center", padding: 10 },
+  pickerModal: { borderRadius: 16, padding: 20, alignItems: 'center', width: '90%' },
   pickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 20 },
-  pickerAnoTexto: { fontSize: 22, fontWeight: 'bold', color: '#333' },
+  pickerAnoTexto: { fontSize: 22, fontWeight: 'bold' },
   mesesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10 },
-  mesBotao: { width: '30%', paddingVertical: 12, alignItems: 'center', backgroundColor: '#f2f2f2', borderRadius: 8 },
-  mesTexto: { fontWeight: 'bold', color: '#555' },
+  mesBotao: { width: '30%', paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
+  mesTexto: { fontWeight: 'bold' },
   pickerFechar: { marginTop: 20, padding: 10 },
 });

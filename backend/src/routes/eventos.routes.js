@@ -87,58 +87,61 @@ router.put("/:id", async (req, res) => {
 // ======================================================
 // 📌 EXCLUSÃO EM MASSA (NOVO)
 // ======================================================
+// Rota de EXCLUSÃO EM MASSA (Atualizada)
 router.post("/excluir-massa", async (req, res) => {
     try {
-        const { ids } = req.body; // Array de IDs [1, 2, 5]
+        const { ids } = req.body;
+        if (!ids) return res.status(400).json({ error: "IDs inválidos" });
 
-        if (!ids || !Array.isArray(ids) || ids.length === 0) {
-            return res.status(400).json({ error: "IDs inválidos." });
+        // 1. Limpa Financeiro (lógica anterior...)
+        const eventos = await prisma.evento.findMany({ where: { id: { in: ids }, usuarioId: req.userId } });
+        for (const ev of eventos) {
+            const desc = `(Agenda) ${ev.titulo}`;
+            await prisma.receita.deleteMany({ where: { descricao: desc } });
+            await prisma.despesa.deleteMany({ where: { descricao: desc } });
         }
 
-        // 1. Busca os eventos para pegar os títulos (para deletar financeiro)
-        const eventosParaDeletar = await prisma.evento.findMany({
-            where: { id: { in: ids }, usuarioId: req.userId }
+        // 2. [NOVO] Limpa Notificações em massa
+        await prisma.notificacao.deleteMany({
+            where: {
+                referenciaTipo: 'EVENTO',
+                referenciaId: { in: ids },
+                usuarioId: req.userId
+            }
         });
 
-        // 2. Loop para deletar financeiro vinculado
-        for (const evento of eventosParaDeletar) {
-            const descricaoFin = `(Agenda) ${evento.titulo}`;
-            
-            // Deleta receitas vinculadas
-            await prisma.receita.deleteMany({
-                where: { descricao: descricaoFin, usuarioId: req.userId, dataPrevista: evento.inicio }
-            });
-            // Deleta despesas vinculadas
-            await prisma.despesa.deleteMany({
-                where: { descricao: descricaoFin, usuarioId: req.userId, dataVencimento: evento.inicio }
-            });
-        }
-
-        // 3. Deleta os eventos
-        await prisma.evento.deleteMany({
-            where: { id: { in: ids }, usuarioId: req.userId }
-        });
-
-        return res.json({ message: "Itens excluídos com sucesso." });
-    } catch (error) {
-        console.error("Erro exclusão em massa:", error);
-        return res.status(500).json({ error: "Erro ao excluir itens." });
-    }
+        // 3. Deleta Eventos
+        await prisma.evento.deleteMany({ where: { id: { in: ids }, usuarioId: req.userId } });
+        return res.json({ message: "Sucesso" });
+    } catch (e) { return res.status(500).json({ error: "Erro massa" }); }
 });
 
 // ... (Mantenha o DELETE individual e GET /dia iguais) ...
 router.delete("/:id", async (req, res) => {
-    try {
-      const idEvento = Number(req.params.id);
-      const evento = await prisma.evento.findUnique({ where: { id: idEvento, usuarioId: req.userId } });
-      if (evento) {
-          const descricaoFin = `(Agenda) ${evento.titulo}`;
-          await prisma.receita.deleteMany({ where: { descricao: descricaoFin, usuarioId: req.userId, dataPrevista: evento.inicio } });
-          await prisma.despesa.deleteMany({ where: { descricao: descricaoFin, usuarioId: req.userId, dataVencimento: evento.inicio } });
-      }
-      await prisma.evento.delete({ where: { id: idEvento, usuarioId: req.userId } });
-      return res.json({ message: "Excluído" });
-    } catch (e) { return res.status(500).json({ error: "Erro ao excluir" }); }
+  try {
+    const idEvento = Number(req.params.id);
+    
+    // 1. Limpa Financeiro vinculado (já existia)
+    const evento = await prisma.evento.findUnique({ where: { id: idEvento } });
+    if (evento) {
+        const desc = `(Agenda) ${evento.titulo}`;
+        await prisma.receita.deleteMany({ where: { descricao: desc, usuarioId: req.userId } });
+        await prisma.despesa.deleteMany({ where: { descricao: desc, usuarioId: req.userId } });
+    }
+
+    // 2. [NOVO] Limpa Notificações vinculadas a este evento
+    await prisma.notificacao.deleteMany({
+        where: { 
+            referenciaTipo: 'EVENTO', // Certifique-se que ao criar a notificação você salva assim
+            referenciaId: idEvento,
+            usuarioId: req.userId 
+        }
+    });
+
+    // 3. Deleta o Evento
+    await prisma.evento.delete({ where: { id: idEvento, usuarioId: req.userId } });
+    return res.json({ message: "Excluído" });
+  } catch (e) { return res.status(500).json({ error: "Erro ao excluir" }); }
 });
 
 router.get("/dia/:data", async (req, res) => {

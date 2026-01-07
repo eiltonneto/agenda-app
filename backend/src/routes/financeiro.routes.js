@@ -18,12 +18,22 @@ router.get("/resumo", async (req, res) => {
   } catch (error) { return res.status(500).json({ error: "Erro no resumo." }); }
 });
 
-// --- EXCLUSÃO EM MASSA (NOVO) ---
+// --- EXCLUSÃO EM MASSA (COM LIMPEZA DE NOTIFICAÇÕES) ---
 router.post("/excluir-massa", async (req, res) => {
     try {
         const { ids, tipo } = req.body; // tipo: 'RECEITA' ou 'DESPESA'
         if (!ids || !Array.isArray(ids)) return res.status(400).json({ error: "IDs inválidos." });
 
+        // 1. Apaga notificações vinculadas a esses IDs
+        await prisma.notificacao.deleteMany({
+            where: {
+                referenciaTipo: tipo, // 'RECEITA' ou 'DESPESA'
+                referenciaId: { in: ids },
+                usuarioId: req.userId
+            }
+        });
+
+        // 2. Apaga os lançamentos financeiros
         if (tipo === 'RECEITA') {
             await prisma.receita.deleteMany({ where: { id: { in: ids }, usuarioId: req.userId } });
         } else {
@@ -56,9 +66,19 @@ router.patch("/receitas/:id/status", async (req, res) => {
     await prisma.receita.update({ where: { id: Number(id), usuarioId: req.userId }, data: { status } });
     return res.json({ ok: true });
 });
+
+// DELETE RECEITA (INDIVIDUAL + NOTIFICAÇÃO)
 router.delete("/receitas/:id", async (req, res) => {
-    await prisma.receita.delete({ where: { id: Number(req.params.id), usuarioId: req.userId } });
-    return res.json({ ok: true });
+    try {
+        const id = Number(req.params.id);
+        // Limpa notificação vinculada
+        await prisma.notificacao.deleteMany({
+            where: { referenciaTipo: 'RECEITA', referenciaId: id, usuarioId: req.userId }
+        });
+        // Deleta receita
+        await prisma.receita.delete({ where: { id, usuarioId: req.userId } });
+        return res.json({ ok: true });
+    } catch (e) { return res.status(500).json({ error: "Erro ao excluir." }); }
 });
 
 // --- DESPESAS (CRUD) ---
@@ -84,9 +104,19 @@ router.patch("/despesas/:id/status", async (req, res) => {
     await prisma.despesa.update({ where: { id: Number(id), usuarioId: req.userId }, data: { status } });
     return res.json({ ok: true });
 });
+
+// DELETE DESPESA (INDIVIDUAL + NOTIFICAÇÃO)
 router.delete("/despesas/:id", async (req, res) => {
-    await prisma.despesa.delete({ where: { id: Number(req.params.id), usuarioId: req.userId } });
-    return res.json({ ok: true });
+    try {
+        const id = Number(req.params.id);
+        // Limpa notificação vinculada
+        await prisma.notificacao.deleteMany({
+            where: { referenciaTipo: 'DESPESA', referenciaId: id, usuarioId: req.userId }
+        });
+        // Deleta despesa
+        await prisma.despesa.delete({ where: { id, usuarioId: req.userId } });
+        return res.json({ ok: true });
+    } catch (e) { return res.status(500).json({ error: "Erro ao excluir." }); }
 });
 
 export default router;

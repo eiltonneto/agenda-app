@@ -7,6 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- ENUMS ---
+
 enum TipoReceita {
   VENDA
   SERVICO
@@ -46,15 +48,22 @@ enum TipoEvento {
 enum TipoNotificacao {
   EVENTO
   DESPESA
+  RECEITA // <--- Adicionado para consistência com o módulo financeiro
+  OUTRO   // <--- Adicionado para avisos gerais do sistema
 }
 
+// --- MODELS ---
+
 model Usuario {
-  id        Int       @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   nome      String
-  email     String    @unique
+  email     String   @unique
   senhaHash String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Campo para a foto de perfil (Salva apenas o nome do arquivo, ex: "foto-123.jpg")
+  foto      String?  
 
   receitas     Receita[]
   despesas     Despesa[]
@@ -66,62 +75,65 @@ model Receita {
   id           Int           @id @default(autoincrement())
   tipo         TipoReceita
   descricao    String
-  valor        Decimal       @db.Decimal(10,2)
+  valor        Decimal       @db.Decimal(10, 2)
   dataPrevista DateTime?
   dataRecebida DateTime?
   status       StatusReceita @default(PENDENTE)
+  
   usuarioId    Int
   usuario      Usuario       @relation(fields: [usuarioId], references: [id])
+  
   createdAt    DateTime      @default(now())
 }
 
 model Despesa {
-  id             Int             @id @default(autoincrement())
+  id             Int              @id @default(autoincrement())
   categoria      CategoriaDespesa
   descricao      String
-  valor        Decimal       @db.Decimal(10,2)
+  valor          Decimal          @db.Decimal(10, 2)
   dataVencimento DateTime
   dataPagamento  DateTime?
-  status         StatusDespesa   @default(PENDENTE)
+  status         StatusDespesa    @default(PENDENTE)
+  
   usuarioId      Int
-  usuario        Usuario         @relation(fields: [usuarioId], references: [id])
-  createdAt      DateTime        @default(now())
+  usuario        Usuario          @relation(fields: [usuarioId], references: [id])
+  
+  createdAt      DateTime         @default(now())
 }
 
 model Evento {
-  id         Int        @id @default(autoincrement())
-  titulo     String
-  tipo       TipoEvento
-  inicio     DateTime
-  fim        DateTime
-  cor        String
-  observacao String?
-
+  id                    Int      @id @default(autoincrement())
+  titulo                String
+  tipo                  TipoEvento
+  inicio                DateTime
+  fim                   DateTime
+  cor                   String
+  observacao            String?
+  
   lembreteMinutosAntes1 Int?
   lembreteMinutosAntes2 Int?
 
-  usuarioId  Int
-  usuario    Usuario    @relation(fields: [usuarioId], references: [id])
+  usuarioId             Int
+  usuario               Usuario  @relation(fields: [usuarioId], references: [id])
 
-  createdAt  DateTime   @default(now())
+  createdAt             DateTime @default(now())
 }
 
-
-
-
 model Notificacao {
-  id            Int            @id @default(autoincrement())
-  tipo          TipoNotificacao
-  titulo        String
-  mensagem      String
-  disparoEm     DateTime
-  lida          Boolean        @default(false)
+  id             Int             @id @default(autoincrement())
+  tipo           TipoNotificacao
+  titulo         String
+  mensagem       String
+  disparoEm      DateTime
+  lida           Boolean         @default(false)
 
-  referenciaTipo String?
+  // Campos para vincular a notificação a um objeto específico (Ex: Evento ID 5)
+  // Isso permite a exclusão em cascata que criamos
+  referenciaTipo String?         // Ex: 'EVENTO', 'DESPESA', 'RECEITA'
   referenciaId   Int?
 
   usuarioId      Int
-  usuario        Usuario       @relation(fields: [usuarioId], references: [id])
+  usuario        Usuario         @relation(fields: [usuarioId], references: [id])
 
-  createdAt      DateTime      @default(now())
+  createdAt      DateTime        @default(now())
 }
