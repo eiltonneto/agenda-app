@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // IP do seu backend
-const API_URL = "http://192.168.0.106:3333";
+const API_URL = "https://agenda-app-i8nj.onrender.com";
 
 const api = axios.create({
   baseURL: API_URL,
