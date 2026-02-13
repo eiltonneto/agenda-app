@@ -1,6 +1,6 @@
-# 📱 ClubApp
+# 📱 App - YourFlow
 
-O **ClubApp** é uma solução completa para gestão de clubes e associações. O sistema integra uma **Agenda de Eventos** interativa e um **Controle Financeiro** (Entradas e Saídas) com cálculo de saldo em tempo real.
+O **YourFlow** é uma solução completa para gestão de clubes e associações. O sistema integra uma **Agenda de Eventos** interativa e um **Controle Financeiro** (Entradas e Saídas) com cálculo de saldo em tempo real.
 
 O projeto é estruturado como um monorepo, contendo tanto o servidor (Backend) quanto o aplicativo móvel (Mobile) no mesmo repositório.
 
