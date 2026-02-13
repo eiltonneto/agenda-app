@@ -1,26 +1,40 @@
 import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
 
-dotenv.config();
-
+// Dica: O dotenv.config() geralmente fica apenas no seu server.js para evitar redundância
 export function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
-    return res.status(401).json({ error: "Token não enviado" });
+    return res.status(401).json({ 
+      error: "Acesso negado. Token não fornecido." 
+    });
   }
 
   const [bearer, token] = authHeader.split(" ");
 
   if (bearer !== "Bearer" || !token) {
-    return res.status(401).json({ error: "Token inválido" });
+    return res.status(401).json({ 
+      error: "Formato de token inválido. Use 'Bearer [token]'" 
+    });
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.id; // 👈 PASSA O ID DO USUÁRIO PARA AS ROTAS
-    next();
+    
+    /**
+     * AJUSTE V2: Conversão explícita para Number.
+     * Como o seu Usuario.id no Prisma é Int, garantimos que req.userId 
+     * chegue nas rotas pronto para ser usado em consultas do banco.
+     */
+    req.userId = Number(decoded.id); 
+
+    return next();
   } catch (err) {
-    return res.status(401).json({ error: "Token expirado ou inválido" });
+    // Diferenciar erro de expiração ajuda o frontend a saber quando deslogar o usuário
+    const message = err.name === "TokenExpiredError" 
+      ? "Sua sessão expirou. Faça login novamente." 
+      : "Token de autenticação inválido.";
+
+    return res.status(401).json({ error: message });
   }
 }

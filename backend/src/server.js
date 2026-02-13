@@ -1,19 +1,16 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import path from "path"; // <--- Importante para lidar com caminhos de pasta
+import path from "path"; 
 
-// Importação das Rotas
-import authRoutes from "./routes/auth.routes.js";
-import receitasRoutes from "./routes/receitas.routes.js";
-import despesasRoutes from "./routes/despesas.routes.js";
+// --- IMPORTAÇÕES (Ajustadas conforme image_87ba03.png) ---
+import usuariosRoutes from "./routes/usuarios.routes.js"; 
+import authRoutes from "./routes/auth.routes.js"; // O arquivo correto é este!
 import eventosRoutes from "./routes/eventos.routes.js";
-import notificacoesRoutes from "./routes/notificacoes.routes.js";
 import financeiroRoutes from "./routes/financeiro.routes.js";
-import usuariosRoutes from "./routes/usuarios.routes.js"; // <--- NOVA ROTA
+import notificacoesRoutes from "./routes/notificacoes.routes.js";
 
-// Importação do Middleware de Autenticação
-import { authMiddleware } from "./middlewares/auth.js"; // <--- NOVO
+import { authMiddleware } from "./middlewares/auth.js"; 
 
 dotenv.config();
 
@@ -21,28 +18,22 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- CONFIGURAÇÃO PARA SERVIR FOTOS ---
-// Isso permite acessar http://localhost:3333/uploads/nome-da-foto.jpg
+// Servir fotos
 app.use("/uploads", express.static(path.resolve("uploads")));
 
-// Rota Raiz
-app.get("/", (req, res) => {
-  res.json({ message: "ClubApp API funcionando 🚀" });
-});
+// --- 1. ROTAS PÚBLICAS (Abertas) ---
+app.use("/login", authRoutes);    // Mapeia para POST /login
+app.use("/usuarios", usuariosRoutes); // O POST para criar conta deve ser público dentro deste arquivo
 
-// --- ROTAS PÚBLICAS (Não precisa de token) ---
-app.use("/auth", authRoutes);
+// --- 2. PROTEÇÃO GLOBAL ---
+app.use(authMiddleware); 
 
-// --- ROTAS PROTEGIDAS (Precisa estar logado) ---
-// O authMiddleware garante que req.userId esteja disponível
-app.use("/usuarios", authMiddleware, usuariosRoutes); // <--- Resolve o problema de Perfil/Senha
-app.use("/receitas", authMiddleware, receitasRoutes);
-app.use("/despesas", authMiddleware, despesasRoutes);
-app.use("/eventos", authMiddleware, eventosRoutes);
-app.use("/notificacoes", authMiddleware, notificacoesRoutes);
-app.use("/financeiro", authMiddleware, financeiroRoutes);
+// --- 3. ROTAS PROTEGIDAS ---
+app.use("/eventos", eventosRoutes);
+app.use("/financeiro", financeiroRoutes);
+app.use("/notificacoes", notificacoesRoutes);
 
 const PORT = process.env.PORT || 3333;
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`✅ ClubFlow rodando em: http://localhost:${PORT}`);
 });

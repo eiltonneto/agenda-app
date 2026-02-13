@@ -1,266 +1,251 @@
-import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
-import React, { useEffect, useMemo, useState } from "react";
-import { useTheme } from "../context/ThemeContext"; 
-import { agendarLembreteData } from "../services/NotificationService";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  View, Text, TouchableOpacity, FlatList, Modal, TextInput, Alert,
-  KeyboardAvoidingView, Platform, StyleSheet, ScrollView, Switch, ActivityIndicator
+  View, Text, TouchableOpacity, Modal, TextInput, Alert, StyleSheet, 
+  ScrollView, Switch, ActivityIndicator, StatusBar, Platform, 
+  KeyboardAvoidingView, useWindowDimensions, Animated, Easing
 } from "react-native";
-import { Calendar, LocaleConfig } from "react-native-calendars";
-import { format, addDays, setMonth, setYear } from "date-fns";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // IMPORTANTE PARA SALVAR CATEGORIAS
+import { 
+  format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
+  eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, 
+  parseISO, setYear, setMonth, isValid
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
+
 import api from "../services/api";
+import { useTheme } from "../context/ThemeContext";
 
-// Configuração do Calendário para Português
-LocaleConfig.locales['pt-br'] = {
-  monthNames: ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'],
-  monthNamesShort: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
-  dayNames: ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'],
-  dayNamesShort: ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],
-  today: 'Hoje'
-};
-LocaleConfig.defaultLocale = 'pt-br';
+const PRESET_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#f43f5e", "#64748b", "#1e293b"];
 
-/* ======================
-   TIPOS DE EVENTO
-====================== */
-const TIPOS = [
-  { key: "RACHA", cor: "#008080" },        
-  { key: "EVENTO_CLUBE", cor: "#2E8B57" }, 
-  { key: "MANUTENCAO", cor: "#DAA520" },   
-  { key: "FESTA", cor: "#20B2AA" },        
-  { key: "OUTRO", cor: "#708090" },        
+// Categorias Padrão (caso não tenha nada salvo)
+const DEFAULT_CATEGORIES = [
+    { id: '1', name: 'Geral', color: '#64748b' },
+    { id: '2', name: 'Trabalho', color: '#3b82f6' },
+    { id: '3', name: 'Lazer', color: '#10b981' }
 ];
-
-const LEMBRETES = [
-  { label: "24h antes", value: 1440 },
-  { label: "5h antes", value: 300 },
-  { label: "2h antes", value: 120 },
-  { label: "1h antes", value: 60 },
-  { label: "30 min antes", value: 30 },
-];
-
-/* ======================
-   UTILIDADES
-====================== */
-function formatarHora(valor) {
-  const numeros = valor.replace(/\D/g, "").slice(0, 4);
-  if (numeros.length <= 2) return numeros;
-  return `${numeros.slice(0, 2)}:${numeros.slice(2)}`;
-}
-
-function horaValida(hora) {
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(hora);
-}
-
-function exibirAlerta(titulo, mensagem) {
-    if (Platform.OS === 'web') {
-        window.alert(`${titulo}\n\n${mensagem}`);
-    } else {
-        Alert.alert(titulo, mensagem);
-    }
-}
-
-// --- CORREÇÃO DE FUSO HORÁRIO ---
-function fixDateFromDB(isoString) {
-    if (!isoString) return new Date();
-    const date = new Date(isoString);
-    date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
-    return date;
-}
-
-function prepareDateForDB(dateStr, timeStr) {
-    const date = new Date(`${dateStr}T${timeStr}:00`);
-    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-    return date;
-}
 
 export default function AgendaScreen() {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const colors = theme.colors;
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktop = windowWidth > 900;
 
-  const hoje = new Date();
-  const hojeISO = format(hoje, "yyyy-MM-dd");
-
-  const [dataSelecionada, setDataSelecionada] = useState(hojeISO);
-  const [visualizacao, setVisualizacao] = useState("DIA");
+  // --- ESTADOS ---
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [eventos, setEventos] = useState([]);
-  
-  const [diasComEventos, setDiasComEventos] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(0));
 
+  // Seleção Múltipla
+  const [selectedEventIds, setSelectedEventIds] = useState([]);
+
+  // Modais
   const [modalVisivel, setModalVisivel] = useState(false);
+  const [modalPickerVisivel, setModalPickerVisivel] = useState(false);
+  const [modalCatVisivel, setModalCatVisivel] = useState(false); 
+  const [pickerAno, setPickerAno] = useState(new Date().getFullYear());
+
+  // Formulário Evento
   const [eventoEditando, setEventoEditando] = useState(null);
-
-  // --- ESTADOS PARA O PICKER DE DATA ---
-  const [modalDataVisivel, setModalDataVisivel] = useState(false);
-  const [pickerAno, setPickerAno] = useState(hoje.getFullYear());
-
-  // --- SELEÇÃO MÚLTIPLA ---
-  const [selectedIds, setSelectedIds] = useState([]);
-
-  // Form states Agenda
   const [titulo, setTitulo] = useState("");
-  const [inicio, setInicio] = useState("");
-  const [fim, setFim] = useState("");
-  const [tipo, setTipo] = useState("RACHA");
-  const [lembrete, setLembrete] = useState(null);
-
-  // Estados Financeiros
+  const [horaInicio, setHoraInicio] = useState(""); 
+  const [horaFim, setHoraFim] = useState(""); 
+  const [observacao, setObservacao] = useState("");
+  
+  // Financeiro e Lembretes
   const [gerarFinanceiro, setGerarFinanceiro] = useState(false);
   const [valorFinanceiro, setValorFinanceiro] = useState("");
-  const [tipoFinanceiro, setTipoFinanceiro] = useState("RECEITA"); 
-  const [loading, setLoading] = useState(false);
+  const [lembreteValor, setLembreteValor] = useState("");
+  const [lembreteUnidade, setLembreteUnidade] = useState("MINUTOS"); // MINUTOS, HORAS, DIAS
 
-  /* ======================
-      BUSCAR RESUMO
-  ====================== */
-  async function carregarResumoMes(dataRef) {
-    try {
-      const res = await api.get(`/eventos/resumo-mes`, { params: { data: dataRef } });
-      const listaDatas = res.data || [];
-      const marcacoes = {};
-      listaDatas.forEach((dia) => {
-        marcacoes[dia] = { marked: true, dotColor: "#E67E22" };
-      });
-      setDiasComEventos(marcacoes);
-    } catch (err) {
-      console.log("Erro ao carregar resumo do mês:", err);
-    }
-  }
+  // Categorias (Gerenciadas via AsyncStorage)
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORIES[0]);
+  const [catEditing, setCatEditing] = useState({ id: '', name: '', color: '', isNew: true }); 
 
-  /* ======================
-      BUSCAR EVENTOS
-  ====================== */
-  async function carregarEventos() {
-    try {
-      const res = await api.get(`/eventos/dia/${dataSelecionada}`);
-      setEventos(res.data || []);
-      setSelectedIds([]); 
-    } catch (err) {
-      console.log("Erro ao buscar eventos do dia");
-    }
-  }
-
-  useEffect(() => { carregarEventos(); }, [dataSelecionada]);
+  // --- EFEITOS ---
   
-  // Atualiza o resumo sempre que o mês da data selecionada mudar
-  useEffect(() => { 
-      carregarResumoMes(dataSelecionada); 
-  }, [dataSelecionada]); 
-
-  /* ======================
-      AÇÕES
-  ====================== */
-  function toggleSelection(id) {
-    if (selectedIds.includes(id)) {
-        setSelectedIds(selectedIds.filter(item => item !== id));
-    } else {
-        setSelectedIds([...selectedIds, id]);
-    }
-  }
-
-  function handleCardPress(evento) {
-    if (selectedIds.length > 0) {
-        toggleSelection(evento.id);
-    } else {
-        abrirEdicao(evento);
-    }
-  }
-
-  function handleLongPress(evento) {
-    toggleSelection(evento.id);
-  }
-
-  async function excluirSelecionados() {
-    const msg = `Deseja excluir ${selectedIds.length} eventos?\n\nATENÇÃO: Os lançamentos financeiros vinculados também serão apagados.`;
-    const confirmarExclusao = async () => {
+  // 1. Carregar Categorias Salvas ao abrir
+  useEffect(() => {
+    async function loadCategories() {
         try {
-            setLoading(true);
-            await api.post("/eventos/excluir-massa", { ids: selectedIds });
-            setSelectedIds([]);
-            carregarEventos();
-            carregarResumoMes(dataSelecionada);
-        } catch (err) {
-            exibirAlerta("Erro", "Falha ao excluir itens selecionados.");
-        } finally {
-            setLoading(false);
-        }
-    };
-    if (Platform.OS === 'web') {
-        if (window.confirm(msg)) confirmarExclusao();
-    } else {
-        Alert.alert("Excluir Vários", msg, [
-            { text: "Cancelar", style: "cancel" },
-            { text: "Excluir", style: "destructive", onPress: confirmarExclusao }
-        ]);
+            const saved = await AsyncStorage.getItem("@YourFlow:categories");
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                setCategories(parsed);
+                // Garante que a selecionada existe
+                if (parsed.length > 0) setSelectedCategory(parsed[0]);
+            }
+        } catch (e) { console.log("Erro carregar categorias", e); }
     }
-  }
+    loadCategories();
+  }, []);
 
-  /* ======================
-      MODAL & CRUD
-  ====================== */
-  function abrirCriacao() {
-    setEventoEditando(null);
-    setTitulo("");
-    setInicio("");
-    setFim("");
-    setTipo("RACHA");
-    setLembrete(null);
+  // 2. Animação Calendário
+  useEffect(() => {
+    fadeAnim.setValue(0);
+    Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true, easing: Easing.out(Easing.exp) }).start();
+  }, [currentMonth]);
+
+  // --- CARREGAR DADOS DA API ---
+  const carregarDados = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/eventos');
+      const dados = Array.isArray(res.data) ? res.data : [];
+      setEventos(dados);
+    } catch (err) { 
+        console.log("Erro ao carregar agenda:", err.message); 
+    } finally { 
+        setLoading(false); 
+    }
+  }, []);
+
+  useEffect(() => { carregarDados(); }, [carregarDados]);
+
+  // --- LÓGICA DE SELEÇÃO MÚLTIPLA ---
+  const handleLongPressEvento = (id) => {
+    if (selectedEventIds.includes(id)) {
+      setSelectedEventIds(selectedEventIds.filter(itemId => itemId !== id));
+    } else {
+      setSelectedEventIds([...selectedEventIds, id]);
+    }
+  };
+
+  const handlePressEvento = (ev) => {
+    if (selectedEventIds.length > 0) {
+      // Se já tem itens selecionados, o toque apenas seleciona/deseleciona
+      handleLongPressEvento(ev.id);
+    } else {
+      // Se não tem seleção, abre a edição
+      abrirModalEdicao(ev);
+    }
+  };
+
+  const excluirSelecionados = () => {
+    Alert.alert("Excluir Vários", `Deseja apagar ${selectedEventIds.length} eventos selecionados?`, [
+      { text: "Cancelar" },
+      { text: "Sim, Excluir", style: "destructive", onPress: async () => {
+          try {
+            // Executa todas as exclusões em paralelo
+            await api.post("/eventos/excluir-massa", {
+              ids: selectedEventIds
+            });
+            setSelectedEventIds([]); // Limpa seleção
+            carregarDados(); // Recarrega lista
+          } catch (e) {
+            Alert.alert("Erro", "Falha ao excluir alguns itens.");
+          }
+      }}
+    ]);
+  };
+
+  // --- MÁSCARAS ---
+  const handleTimeMask = (text, setter) => {
+    let val = text.replace(/\D/g, "");
+    if (val.length >= 3) val = val.slice(0, 2) + ":" + val.slice(2, 4);
+    setter(val.slice(0, 5));
+  };
+
+  const handleMoneyMask = (text) => {
+    let value = text.replace(/\D/g, "");
+    // Divide por 100 para ter os centavos (ex: 1500 -> 15.00)
+    value = (Number(value) / 100).toFixed(2) + "";
+    value = value.replace(".", ",");
+    // Adiciona ponto de milhar
+    value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+    setValorFinanceiro(value);
+  };
+
+  // --- MODAIS ---
+  const abrirModalCriacao = () => {
+    setEventoEditando(null); 
+    setTitulo(""); 
+    setHoraInicio(""); 
+    setHoraFim(""); 
+    setObservacao("");
+    
     setGerarFinanceiro(false);
     setValorFinanceiro("");
-    setTipoFinanceiro("RECEITA");
-    setModalVisivel(true);
-  }
+    
+    setLembreteValor("");
+    setLembreteUnidade("MINUTOS");
 
-  function abrirEdicao(evento) {
-    setEventoEditando(evento);
-    setTitulo(evento.titulo);
-    setInicio(format(fixDateFromDB(evento.inicio), "HH:mm"));
-    setFim(format(fixDateFromDB(evento.fim), "HH:mm"));
-    setTipo(evento.tipo);
-    setLembrete(evento.lembreteMinutosAntes1 ?? null);
-    setGerarFinanceiro(false);
-    setModalVisivel(true);
-  }
+    setModalVisivel(true); 
+  };
 
- async function salvarEvento() {
-    if (!titulo.trim()) return exibirAlerta("Campo Obrigatório", "Por favor, digite um título.");
-    if (!inicio.trim() || !fim.trim()) return exibirAlerta("Campo Obrigatório", "Preencha os horários.");
-    if (!horaValida(inicio) || !horaValida(fim)) return exibirAlerta("Erro", "Horários inválidos.");
-
-    // 1. Data REAL (Horário que você vê no celular)
-    const dataTentativa = new Date(`${dataSelecionada}T${inicio}:00`);
-    const agora = new Date();
-
-    // Validação: Não permite criar no passado
-    if (dataTentativa < agora) {
-        return exibirAlerta("Data Inválida", "Não é possível agendar eventos no passado.");
-    }
-
-    // 2. Data PARA O BANCO (Com fuso corrigido para UTC)
-    const inicioDate = prepareDateForDB(dataSelecionada, inicio);
-    const fimDate = prepareDateForDB(dataSelecionada, fim);
-
-    if (fimDate <= inicioDate) return exibirAlerta("Erro", "O horário de término deve ser maior que o início.");
-
-    let valorFloat = 0;
-    if (gerarFinanceiro && !eventoEditando) {
-        if (!valorFinanceiro.trim()) return exibirAlerta("Erro", "Informe o valor.");
-        valorFloat = parseFloat(valorFinanceiro.replace(",", "."));
-        if (isNaN(valorFloat) || valorFloat <= 0) return exibirAlerta("Erro", "Valor inválido.");
-    }
-
+  const abrirModalEdicao = (ev) => {
+    setEventoEditando(ev); 
+    setTitulo(ev.titulo);
     try {
-      setLoading(true);
+        setHoraInicio(format(parseISO(ev.inicio), "HH:mm"));
+        setHoraFim(format(parseISO(ev.fim), "HH:mm"));
+    } catch {}
+    setObservacao(ev.descricao || "");
+    
+    setGerarFinanceiro(ev.gerarFinanceiro || false);
+    // Formata o valor double do banco para string brasileira visual
+    setValorFinanceiro(ev.valor ? ev.valor.toFixed(2).replace('.', ',') : "");
+
+    // Lembretes
+    setLembreteValor(ev.lembreteValor ? String(ev.lembreteValor) : "");
+    setLembreteUnidade(ev.lembreteUnidade || "MINUTOS");
+    
+    const cat = categories.find(c => c.name === ev.tipo || c.id === ev.categoria_id);
+    if(cat) setSelectedCategory(cat);
+    
+    setModalVisivel(true); 
+  };
+
+  // --- SALVAR EVENTO (LÓGICA BLINDADA ERRO 500) ---
+  const salvarEvento = async () => {
+    if (!titulo.trim()) return Alert.alert("Atenção", "Nome do evento é obrigatório.");
+    if (horaInicio.length !== 5 || horaFim.length !== 5) return Alert.alert("Atenção", "Preencha o horário (HH:mm).");
+
+    // TRATAMENTO FINANCEIRO RIGOROSO
+    let valorFinal = 0.0;
+    
+    if (gerarFinanceiro) {
+      if (!valorFinanceiro) return Alert.alert("Erro", "Informe o valor financeiro.");
+      
+      // Remove pontos de milhar e troca vírgula por ponto
+      // Ex: "1.200,50" -> "1200.50"
+      const valorLimpo = valorFinanceiro.replace(/\./g, '').replace(',', '.');
+      valorFinal = parseFloat(valorLimpo);
+
+      if (isNaN(valorFinal) || valorFinal <= 0) {
+        return Alert.alert("Erro", "Valor inválido. Use o formato 0,00");
+      }
+    }
+
+    setSalvando(true);
+    try {
+      const dataIso = format(selectedDate, "yyyy-MM-dd");
+      
       const payload = {
-        titulo, tipo,
-        inicio: inicioDate.toISOString(), // Manda a data preparada pro Banco
-        fim: fimDate.toISOString(),
-        lembreteMinutosAntes1: lembrete,
-        gerarFinanceiro: (!eventoEditando && gerarFinanceiro),
-        valor: valorFloat,
-        tipoFinanceiro
+        titulo: titulo.trim(),
+        inicio: `${dataIso}T${horaInicio}:00`,
+        fim: `${dataIso}T${horaFim}:00`,
+        categoria_id: selectedCategory.id,
+        tipo: selectedCategory.name, 
+        cor_categoria: selectedCategory.color,
+        descricao: observacao || "",
+        
+        // DADOS ESPECÍFICOS PARA O BACKEND
+        gerarFinanceiro: Boolean(gerarFinanceiro),
+        valor: valorFinal, // Agora é um Number puro (Double), não string
+        tipoFinanceiro: "RECEITA", // Segue a lógica solicitada
+        
+        // DADOS DE LEMBRETE
+        lembreteValor: lembreteValor ? parseInt(lembreteValor) : null,
+        lembreteUnidade: lembreteUnidade,
+        
+        status: "PENDENTE",
+        comparecido: false
       };
 
       if (eventoEditando) {
@@ -269,418 +254,439 @@ export default function AgendaScreen() {
         await api.post("/eventos", payload);
       }
 
-      // --- CORREÇÃO DA NOTIFICAÇÃO ---
-      if (lembrete) {
-          // Usamos 'dataTentativa' (Horário Real Local) para a notificação
-          const dataAviso = new Date(dataTentativa.getTime() - (lembrete * 60000));
-
-          await agendarLembreteData(`Seu evento "${titulo}" começa em breve!`, dataAviso);
-      }
-      // -------------------------------
-
       setModalVisivel(false);
-      carregarEventos(); 
-      carregarResumoMes(dataSelecionada); 
+      carregarDados();
       
-      if (!eventoEditando && gerarFinanceiro) {
-          exibirAlerta("Sucesso", "Evento e financeiro criados!");
-      }
+      Alert.alert("Sucesso", gerarFinanceiro ? "Evento e Receita criados!" : "Evento agendado!");
 
-    } catch (err) {
-      const msg = err.response?.data?.error || "Erro ao salvar evento";
-      exibirAlerta("Erro", msg);
-    } finally {
-        setLoading(false);
-    }
-  }
+    } catch (e) {
+      console.error("ERRO API:", e.response?.data);
+      // Fallback para mensagem de erro genérica se não vier do backend
+      const msgErro = e.response?.data?.error || "Verifique os dados ou a conexão.";
+      Alert.alert("Erro ao Salvar", msgErro);
+    } finally { setSalvando(false); }
+  };
 
-  async function excluirEvento(id) {
-    const msg = "Deseja realmente excluir este evento? O financeiro vinculado também será apagado.";
-    const confirmar = async () => {
-        try {
+  // --- EXCLUSÃO INDIVIDUAL (LIXEIRA VERMELHA) ---
+  const handleExcluirEvento = (id) => {
+    Alert.alert("Excluir", "Apagar este evento?", [
+      { text: "Cancelar" },
+      { text: "Excluir", style: "destructive", onPress: async () => {
+          try {
             await api.delete(`/eventos/${id}`);
-            carregarEventos(); 
-            carregarResumoMes(dataSelecionada); 
-        } catch (err) {
-            exibirAlerta("Erro", "Não foi possível excluir.");
-        }
-    };
-    if (Platform.OS === 'web') {
-        if (window.confirm(msg)) confirmar();
-        return;
-    }
-    Alert.alert("Excluir", msg, [
-      { text: "Cancelar", style: "cancel" },
-      { text: "Excluir", style: "destructive", onPress: confirmar },
+            setModalVisivel(false); 
+            carregarDados();
+          } catch (error) { Alert.alert("Erro", "Não foi possível excluir."); }
+      }}
     ]);
-  }
+  };
 
-  /* ======================
-      PICKER DATA
-  ====================== */
-  function abrirPickerData(date) {
-    const d = new Date(date);
-    d.setHours(12); 
-    setPickerAno(d.getFullYear());
-    setModalDataVisivel(true);
-  }
+  const toggleComparecido = async (evento) => {
+    try {
+      const novoStatus = !evento.comparecido;
+      // Atualização Otimista
+      const novosEventos = eventos.map(e => e.id === evento.id ? { ...e, comparecido: novoStatus } : e);
+      setEventos(novosEventos);
+      await api.put(`/eventos/${evento.id}`, { comparecido: novoStatus });
+    } catch (e) { carregarDados(); }
+  };
 
-  function selecionarMesAno(mesIndex) {
-    const novaData = new Date(pickerAno, mesIndex, 1, 12, 0, 0);
-    const novaDataISO = format(novaData, "yyyy-MM-dd");
-    setDataSelecionada(novaDataISO);
-    setModalDataVisivel(false);
-  }
+  // --- GESTÃO DE CATEGORIAS (PERSISTÊNCIA LOCAL) ---
+  const handleNovaCategoria = () => {
+    setCatEditing({ id: Date.now().toString(), name: "", color: PRESET_COLORS[0], isNew: true });
+    setModalCatVisivel(true);
+  };
 
-  /* ======================
-      VISUALIZAÇÃO SEMANA
-  ====================== */
-  const semana = useMemo(() => {
-    return Array.from({ length: 7 }).map((_, index) => {
-      const data = addDays(new Date(dataSelecionada), index);
-      const dataISO = format(data, "yyyy-MM-dd");
-      return {
-        label: format(data, "EEEE dd/MM", { locale: ptBR }),
-        eventos: eventos.filter((e) => {
-            const dataEvento = fixDateFromDB(e.inicio);
-            return format(dataEvento, "yyyy-MM-dd") === dataISO;
-        }),
-      };
-    });
-  }, [eventos, dataSelecionada]);
+  const handleEditarCategoria = (cat) => {
+    setCatEditing({ ...cat, isNew: false });
+    setModalCatVisivel(true);
+  };
 
-  /* ======================
-      RENDER
-  ====================== */
+  const salvarCategoriaPersistente = async () => {
+    if (!catEditing.name?.trim()) return Alert.alert("Atenção", "Nome obrigatório.");
+    
+    let novaLista;
+    if (catEditing.isNew) {
+      novaLista = [...categories, { id: catEditing.id, name: catEditing.name, color: catEditing.color }];
+    } else {
+      novaLista = categories.map(c => c.id === catEditing.id ? catEditing : c);
+    }
+
+    setCategories(novaLista);
+    // SALVA NO ASYNC STORAGE PARA NÃO SUMIR
+    await AsyncStorage.setItem("@YourFlow:categories", JSON.stringify(novaLista));
+    
+    if (catEditing.isNew || selectedCategory.id === catEditing.id) {
+        setSelectedCategory(catEditing.isNew ? novaLista[novaLista.length - 1] : catEditing);
+    }
+    
+    setModalCatVisivel(false);
+  };
+
+  const excluirCategoriaPersistente = async () => {
+    if (categories.length <= 1) return Alert.alert("Aviso", "Mantenha ao menos uma categoria.");
+    
+    const novaLista = categories.filter(c => c.id !== catEditing.id);
+    setCategories(novaLista);
+    await AsyncStorage.setItem("@YourFlow:categories", JSON.stringify(novaLista));
+    
+    setSelectedCategory(novaLista[0]);
+    setModalCatVisivel(false);
+  };
+
+  // --- RENDER ---
+  const days = useMemo(() => {
+    const start = startOfWeek(startOfMonth(currentMonth), { locale: ptBR });
+    const end = endOfWeek(endOfMonth(currentMonth), { locale: ptBR });
+    return eachDayOfInterval({ start, end });
+  }, [currentMonth]);
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-      
-      {/* HEADER */}
-      {selectedIds.length > 0 ? (
-          <View style={[styles.headerSelection, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-              <TouchableOpacity onPress={() => setSelectedIds([])}>
-                  <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
-              <Text style={[styles.textSelection, { color: colors.text }]}>{selectedIds.length} selecionado(s)</Text>
-              <TouchableOpacity onPress={excluirSelecionados}>
-                  <Ionicons name="trash" size={24} color={colors.danger} />
-              </TouchableOpacity>
-          </View>
-      ) : (
-          <Calendar
-            key={`${isDark ? 'dark' : 'light'}-${dataSelecionada.substring(0, 7)}`}
-            current={dataSelecionada}
-            onMonthChange={(month) => {
-               carregarResumoMes(month.dateString);
-            }}
-            onDayPress={(day) => setDataSelecionada(day.dateString)}
-            markedDates={{
-              ...diasComEventos, 
-              [dataSelecionada]: {
-                selected: true,
-                selectedColor: colors.primary,
-                ...(diasComEventos[dataSelecionada] || {}),
-              },
-            }}
-            theme={{
-                calendarBackground: colors.surface,
-                textSectionTitleColor: colors.textSecondary,
-                selectedDayBackgroundColor: colors.primary,
-                selectedDayTextColor: '#ffffff',
-                todayTextColor: colors.primary,
-                dayTextColor: colors.text,
-                textDisabledColor: colors.textSecondary,
-                dotColor: '#E67E22',
-                selectedDotColor: '#ffffff',
-                arrowColor: colors.primary,
-                monthTextColor: colors.primary,
-                indicatorColor: colors.primary,
-                textMonthFontWeight: 'bold',
-                textMonthFontSize: 16,
-            }}
-            renderHeader={(date) => {
-                const d = new Date(date);
-                d.setMinutes(d.getMinutes() + d.getTimezoneOffset());
-                const tituloMes = format(d, "MMMM yyyy", { locale: ptBR }).toUpperCase();
-                return (
-                    <TouchableOpacity onPress={() => abrirPickerData(date)}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>
-                            <Text style={{fontSize: 16, fontWeight: 'bold', color: colors.primary}}>{tituloMes}</Text>
-                            <Ionicons name="chevron-down" size={16} color={colors.primary} />
-                        </View>
-                    </TouchableOpacity>
-                );
-            }}
-          />
-      )}
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+      <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} />
 
-      {selectedIds.length === 0 && (
-          <View style={styles.tabs}>
-            <TouchableOpacity
-              style={[styles.tab, { backgroundColor: colors.surface, borderColor: colors.border }, visualizacao === "DIA" && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-              onPress={() => setVisualizacao("DIA")}
+      {/* HEADER: MUDA SE TIVER SELEÇÃO MÚLTIPLA */}
+      <View style={[styles.header, selectedEventIds.length > 0 && {backgroundColor: colors.primary + '20'}]}>
+        {selectedEventIds.length > 0 ? (
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flex: 1}}>
+             <View style={{flexDirection:'row', alignItems:'center'}}>
+                <TouchableOpacity onPress={() => setSelectedEventIds([])}>
+                  <Ionicons name="close" size={28} color={colors.text} />
+                </TouchableOpacity>
+                <Text style={{fontSize: 18, fontWeight:'bold', marginLeft: 15, color: colors.text}}>
+                  {selectedEventIds.length} selecionados
+                </Text>
+             </View>
+             <TouchableOpacity onPress={excluirSelecionados}>
+                <Ionicons name="trash" size={26} color={colors.danger} />
+             </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity 
+              style={styles.monthTrigger} 
+              activeOpacity={0.6}
+              onPress={() => { setPickerAno(currentMonth.getFullYear()); setModalPickerVisivel(true); }}
             >
-              <Text style={visualizacao === "DIA" ? styles.textoTabAtiva : [styles.textoTab, { color: colors.text }]}>Dia</Text>
+              <Text style={[styles.monthLabel, {color: colors.text}]}>{format(currentMonth, "MMMM", { locale: ptBR })}</Text>
+              <Text style={[styles.yearLabel, {color: colors.textSecondary}]}>{format(currentMonth, "yyyy")}</Text>
+              <Ionicons name="chevron-down" size={20} color={colors.primary} style={{marginLeft: 5}} />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.tab, { backgroundColor: colors.surface, borderColor: colors.border }, visualizacao === "SEMANA" && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-              onPress={() => setVisualizacao("SEMANA")}
-            >
-              <Text style={visualizacao === "SEMANA" ? styles.textoTabAtiva : [styles.textoTab, { color: colors.text }]}>Semana</Text>
-            </TouchableOpacity>
-          </View>
-      )}
-
-      {selectedIds.length === 0 && (
-          <TouchableOpacity style={[styles.add, { backgroundColor: colors.primary }]} onPress={abrirCriacao}>
-            <Text style={{ color: "#fff", fontWeight: 'bold' }}>+ Novo Evento</Text>
-          </TouchableOpacity>
-      )}
-
-      <FlatList
-        data={visualizacao === "DIA" ? eventos : semana}
-        keyExtractor={(_, index) => index.toString()}
-        contentContainerStyle={{ padding: 16, paddingBottom: 50 }}
-        ListEmptyComponent={
-            visualizacao === "DIA" && (
-                <Text style={[styles.vazio, { color: colors.textSecondary }]}>Nenhum evento neste dia.</Text>
-            )
-        }
-        renderItem={({ item }) =>
-          visualizacao === "DIA" ? (
-            <EventoCard
-              key={item.id}
-              evento={item}
-              selecionado={selectedIds.includes(item.id)}
-              onPress={() => handleCardPress(item)}
-              onLongPress={() => handleLongPress(item)}
-              onDelete={excluirEvento}
-            />
-          ) : (
-            <View>
-              <Text style={[styles.diaHeader, { color: colors.text }]}>{item.label}</Text>
-              {item.eventos.length === 0 && <Text style={[styles.semEventos, { color: colors.textSecondary }]}>Sem eventos</Text>}
-              {item.eventos?.map((e) => (
-                <EventoCard
-                  key={e.id}
-                  evento={e}
-                  selecionado={selectedIds.includes(e.id)}
-                  onPress={() => handleCardPress(e)}
-                  onLongPress={() => handleLongPress(e)}
-                  onDelete={excluirEvento}
-                />
-              ))}
+            <View style={styles.headerControls}>
+              <TouchableOpacity onPress={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                <Ionicons name="chevron-back" size={26} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.todayBtn, {backgroundColor: colors.surface}]} onPress={() => { setCurrentMonth(new Date()); setSelectedDate(new Date()); }}>
+                <Text style={[styles.todayText, {color: colors.primary}]}>Hoje</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                <Ionicons name="chevron-forward" size={26} color={colors.text} />
+              </TouchableOpacity>
             </View>
-          )
-        }
-      />
+          </>
+        )}
+      </View>
 
-      {/* --- MODAL DE CRIAÇÃO --- */}
-      <Modal visible={modalVisivel} transparent animationType="fade">
-        <View style={styles.overlay}>
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalWrapper}>
-            <View style={[styles.modal, { backgroundColor: colors.surface }]}>
-              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                <Text style={[styles.modalTitle, { color: colors.text }]}>{eventoEditando ? "Editar Evento" : "Novo Evento"}</Text>
+      <View style={styles.weekHeader}>
+        {['DOM','SEG','TER','QUA','QUI','SEX','SÁB'].map((d, i) => (
+           <Text key={i} style={styles.weekText}>{d}</Text> 
+        ))}
+      </View>
 
-                <Text style={[styles.labelInput, { color: colors.textSecondary }]}>Título</Text>
-                <TextInput
-                  placeholder="ex: Racha do Neto"
-                  placeholderTextColor={colors.textSecondary}
-                  style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
-                  value={titulo}
-                  onChangeText={setTitulo}
-                />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* CALENDÁRIO VISUAL */}
+        <Animated.View style={[styles.grid, { opacity: fadeAnim }]}>
+          {days.map(day => {
+            const isSelected = isSameDay(day, selectedDate);
+            const isToday = isSameDay(day, new Date());
+            const dayEvents = eventos.filter(e => { try { return isSameDay(parseISO(e.inicio), day); } catch { return false; } });
+            const cellWidth = (windowWidth - (isDesktop ? 120 : 20)) / 7;
+
+            return (
+              <TouchableOpacity 
+                key={day.toString()} 
+                style={[
+                  styles.dayCell, 
+                  { width: cellWidth, height: 90 }, 
+                  !isSameMonth(day, currentMonth) && styles.dayOutside, 
+                  isSelected && { backgroundColor: colors.primary + '10', borderRadius: 8, borderColor: colors.primary, borderWidth: 1 }
+                ]}
+                onPress={() => setSelectedDate(day)}
+              >
+                <Text style={[styles.dayNum, {color: colors.text}, isToday && {color: colors.primary, fontWeight: '900'}]}>{format(day, "d")}</Text>
+                <View style={styles.eventContainer}>
+                  {dayEvents.slice(0, 3).map((ev, index) => (
+                    <View key={index} style={[styles.eventChip, { backgroundColor: ev.cor_categoria || colors.primary }]}>
+                      <Text style={styles.eventChipText} numberOfLines={1}>{ev.titulo}</Text>
+                    </View>
+                  ))}
+                  {dayEvents.length > 3 && <Text style={{fontSize: 9, color: colors.textSecondary}}>+{dayEvents.length - 3}</Text>}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </Animated.View>
+
+        {/* LISTA DE EVENTOS DO DIA */}
+        <View style={[styles.detailsSection, isDesktop && { paddingHorizontal: 60 }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.dateTitle}>{format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR }).toUpperCase()}</Text>
+            <TouchableOpacity style={[styles.btnAddMini, {backgroundColor: colors.primary}]} onPress={abrirModalCriacao}>
+              <Ionicons name="add" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          
+          {eventos.filter(e => { try { return isSameDay(parseISO(e.inicio), selectedDate); } catch { return false; } }).map(ev => {
+             const isSelected = selectedEventIds.includes(ev.id);
+             return (
+              <View 
+                key={ev.id} 
+                style={[
+                  styles.eventCard, 
+                  { backgroundColor: colors.surface, borderColor: isSelected ? colors.primary : colors.border },
+                  isSelected && { borderWidth: 2, backgroundColor: colors.primary + '15' }
+                ]}
+              >
+                <TouchableOpacity onPress={() => toggleComparecido(ev)} style={{padding: 10, paddingLeft: 0}}>
+                   <Ionicons name={ev.comparecido ? "checkbox" : "square-outline"} size={28} color={ev.comparecido ? colors.success : colors.textSecondary} />
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={{flex: 1}}
+                  onPress={() => handlePressEvento(ev)}
+                  onLongPress={() => handleLongPressEvento(ev.id)} // SEGURAR ATIVA MULTI-SELEÇÃO
+                >
+                  <Text style={[styles.cardTitle, {color: colors.text}, ev.comparecido && { textDecorationLine: 'line-through', opacity: 0.5 }]}>
+                    {ev.titulo}
+                  </Text>
+                  <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 4}}>
+                     <View style={[styles.dotCategory, {backgroundColor: ev.cor_categoria || colors.primary}]} />
+                     <Text style={[styles.cardInfo, {color: colors.textSecondary}]}>
+                       {isValid(parseISO(ev.inicio)) ? format(parseISO(ev.inicio), "HH:mm") : "--:--"} - 
+                       {isValid(parseISO(ev.fim)) ? format(parseISO(ev.fim), "HH:mm") : "--:--"}
+                     </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* BOTÃO LIXEIRA CORRIGIDO */}
+                <TouchableOpacity onPress={() => handleExcluirEvento(ev.id)} style={{padding: 10}}>
+                  <Ionicons name="trash-outline" size={22} color={colors.danger} />
+                </TouchableOpacity>
+              </View>
+            )
+          })}
+          
+          {eventos.filter(e => { try { return isSameDay(parseISO(e.inicio), selectedDate); } catch { return false; } }).length === 0 && (
+             <Text style={styles.emptyText}>Toque no + para adicionar um evento.</Text>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* --- MODAL DE EVENTO --- */}
+      <Modal visible={modalVisivel} transparent animationType="slide" onRequestClose={() => setModalVisivel(false)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModalVisivel(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalKeyboard}>
+            <TouchableOpacity activeOpacity={1} style={[styles.modalContent, { backgroundColor: colors.surface, width: isDesktop ? 600 : '100%' }]}>
+              
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, {color: colors.text}]}>{eventoEditando ? "Editar Evento" : "Novo Agendamento"}</Text>
+                <TouchableOpacity onPress={() => setModalVisivel(false)}><Ionicons name="close" size={24} color={colors.textSecondary} /></TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.label}>NOME DO EVENTO</Text>
+                <TextInput style={[styles.input, {color: colors.text, backgroundColor: colors.inputBackground}]} value={titulo} onChangeText={setTitulo} placeholder="Ex: Evento, afazeres..." placeholderTextColor={colors.textSecondary}/>
+
+                <View style={styles.rowBetween}>
+                  <Text style={styles.label}>CATEGORIA</Text>
+                  <TouchableOpacity onPress={handleNovaCategoria}><Text style={[styles.linkAction, {color: colors.primary}]}>+ Nova Categoria</Text></TouchableOpacity>
+                </View>
+
+                {/* LISTA DE CATEGORIAS (SEGURE PARA EDITAR) */}
+                <View style={styles.catGrid}>
+                  {categories.map(cat => (
+                    <TouchableOpacity 
+                      key={cat.id} 
+                      onPress={() => setSelectedCategory(cat)}
+                      onLongPress={() => handleEditarCategoria(cat)} // SEGURAR PARA EDITAR
+                      delayLongPress={400}
+                      style={[styles.catChip, selectedCategory.id === cat.id && { backgroundColor: cat.color, borderColor: cat.color }]}
+                    >
+                      <Text style={[styles.catText, selectedCategory.id === cat.id && { color: '#fff' }]}>{cat.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={styles.hintText}>* Segure em uma categoria para editar ou excluir.</Text>
 
                 <View style={styles.row}>
-                    <View style={{flex: 1, marginRight: 8}}>
-                        <Text style={[styles.labelInput, { color: colors.textSecondary }]}>Início</Text>
-                        <TextInput
-                        placeholder="00:00"
-                        placeholderTextColor={colors.textSecondary}
-                        keyboardType="numeric"
-                        style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
-                        value={inicio}
-                        onChangeText={(v) => setInicio(formatarHora(v))}
-                        />
-                    </View>
-                    <View style={{flex: 1}}>
-                        <Text style={[styles.labelInput, { color: colors.textSecondary }]}>Fim</Text>
-                        <TextInput
-                        placeholder="00:00"
-                        placeholderTextColor={colors.textSecondary}
-                        keyboardType="numeric"
-                        style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
-                        value={fim}
-                        onChangeText={(v) => setFim(formatarHora(v))}
-                        />
-                    </View>
+                  <View style={{flex: 1, marginRight: 10}}>
+                    <Text style={styles.label}>INÍCIO</Text>
+                    <TextInput style={[styles.input, {color: colors.text, backgroundColor: colors.inputBackground}]} value={horaInicio} onChangeText={t => handleTimeMask(t, setHoraInicio)} placeholder="00:00" keyboardType="numeric" maxLength={5} placeholderTextColor={colors.textSecondary}/>
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.label}>FIM</Text>
+                    <TextInput style={[styles.input, {color: colors.text, backgroundColor: colors.inputBackground}]} value={horaFim} onChangeText={t => handleTimeMask(t, setHoraFim)} placeholder="00:00" keyboardType="numeric" maxLength={5} placeholderTextColor={colors.textSecondary}/>
+                  </View>
                 </View>
 
-                {!eventoEditando && (
-                    <View style={[styles.boxFinanceiro, { backgroundColor: isDark ? '#1E2A38' : '#F0F8FF', borderColor: isDark ? '#2C3E50' : '#D1E8FF' }]}>
-                        <View style={styles.headerFinanceiro}>
-                            <Text style={[styles.labelFinanceiro, { color: isDark ? '#90CAF9' : '#0056b3' }]}>Lançar no Financeiro?</Text>
-                            <Switch value={gerarFinanceiro} onValueChange={setGerarFinanceiro} trackColor={{ false: "#767577", true: "#2ECC71" }} thumbColor={gerarFinanceiro ? "#fff" : "#f4f3f4"} />
-                        </View>
-                        {gerarFinanceiro && (
-                            <View>
-                                <Text style={[styles.labelInput, { color: colors.textSecondary }]}>Valor do Evento (R$)</Text>
-                                <TextInput 
-                                    style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
-                                    placeholder="0.00" placeholderTextColor={colors.textSecondary} keyboardType="numeric" value={valorFinanceiro} onChangeText={setValorFinanceiro} 
-                                />
-                                <View style={{flexDirection: 'row', gap: 10, marginBottom: 10}}>
-                                    <TouchableOpacity style={[styles.btnTipo, { backgroundColor: colors.surface, borderColor: colors.border }, tipoFinanceiro === 'RECEITA' && {backgroundColor: '#2ECC71', borderColor: '#2ECC71'}]} onPress={() => setTipoFinanceiro('RECEITA')}>
-                                        <Text style={{color: tipoFinanceiro === 'RECEITA' ? '#fff' : colors.text, fontWeight: 'bold'}}>Entrada</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.btnTipo, { backgroundColor: colors.surface, borderColor: colors.border }, tipoFinanceiro === 'DESPESA' && {backgroundColor: '#E74C3C', borderColor: '#E74C3C'}]} onPress={() => setTipoFinanceiro('DESPESA')}>
-                                        <Text style={{color: tipoFinanceiro === 'DESPESA' ? '#fff' : colors.text, fontWeight: 'bold'}}>Saída</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        )}
-                    </View>
-                )}
-
-                <Text style={[styles.label, { color: colors.text }]}>Categoria</Text>
-                <View style={styles.tipos}>
-                  {TIPOS.map((t) => (
-                    <TouchableOpacity key={t.key} onPress={() => setTipo(t.key)} style={[styles.tipo, { backgroundColor: tipo === t.key ? t.cor : (isDark ? '#333' : '#eee') }]}>
-                      <Text style={{ color: tipo === t.key ? "#fff" : colors.text, fontSize: 12 }}>{t.key}</Text>
-                    </TouchableOpacity>
-                  ))}
+                {/* --- LEMBRETES VOLTARAM --- */}
+                <Text style={styles.label}>LEMBRETE (ANTES DO EVENTO)</Text>
+                <View style={styles.row}>
+                  <View style={{flex: 1, marginRight: 10}}>
+                     <TextInput 
+                        style={[styles.input, {color: colors.text, backgroundColor: colors.inputBackground}]} 
+                        value={lembreteValor} 
+                        onChangeText={setLembreteValor} 
+                        placeholder="0" 
+                        keyboardType="numeric" 
+                     />
+                  </View>
+                  <View style={{flex: 1.5, flexDirection: 'row', gap: 5}}>
+                     {['MINUTOS', 'HORAS', 'DIAS'].map(opt => (
+                        <TouchableOpacity 
+                          key={opt}
+                          style={[styles.unitBtn, lembreteUnidade === opt && {backgroundColor: colors.primary, borderColor: colors.primary}]}
+                          onPress={() => setLembreteUnidade(opt)}
+                        >
+                           <Text style={[styles.unitText, lembreteUnidade === opt && {color: '#fff'}]}>{opt.slice(0,3)}</Text>
+                        </TouchableOpacity>
+                     ))}
+                  </View>
                 </View>
 
-                <Text style={[styles.label, { color: colors.text }]}>Lembrete</Text>
-                <View style={styles.lembretes}>
-                  {LEMBRETES.map((l) => (
-                    <TouchableOpacity key={l.value} onPress={() => setLembrete(l.value)} style={[styles.lembrete, { backgroundColor: lembrete === l.value ? colors.primary : (isDark ? '#333' : '#eee') }]}>
-                      <Text style={{ color: lembrete === l.value ? "#fff" : colors.text, fontSize: 11 }}>{l.label}</Text>
-                    </TouchableOpacity>
-                  ))}
+                {/* --- FINANCEIRO CORRIGIDO --- */}
+                <View style={styles.financeBox}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.financeLabel}>Lançar no Financeiro?</Text>
+                    <Switch value={gerarFinanceiro} onValueChange={setGerarFinanceiro} trackColor={{true: colors.success}} thumbColor="#fff" />
+                  </View>
+                  {gerarFinanceiro && (
+                      <TextInput 
+                        style={styles.inputMoney} 
+                        placeholder="R$ 0,00" 
+                        value={valorFinanceiro} 
+                        onChangeText={handleMoneyMask} 
+                        keyboardType="numeric" 
+                      />
+                  )}
                 </View>
 
-                <TouchableOpacity style={[styles.criar, { backgroundColor: colors.primary }, loading && {opacity: 0.7}]} onPress={loading ? null : salvarEvento} disabled={loading}>
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: 'bold' }}>{eventoEditando ? "Salvar Alterações" : "Criar Evento"}</Text>}
+                <Text style={styles.label}>OBSERVAÇÕES</Text>
+                <TextInput style={[styles.input, { height: 60, marginBottom: 20, color: colors.text, backgroundColor: colors.inputBackground }]} multiline value={observacao} onChangeText={setObservacao} placeholderTextColor={colors.textSecondary} />
+
+                <TouchableOpacity style={[styles.btnSave, {backgroundColor: colors.primary}]} onPress={salvarEvento} disabled={salvando}>
+                  {salvando ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSaveText}>SALVAR</Text>}
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => setModalVisivel(false)} disabled={loading}>
-                  <Text style={[styles.cancelar, { color: colors.danger }]}>Cancelar</Text>
-                </TouchableOpacity>
               </ScrollView>
-            </View>
+            </TouchableOpacity>
           </KeyboardAvoidingView>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* --- MODAL CATEGORIA (SALVA NO ASYNCSTORAGE) --- */}
+      <Modal visible={modalCatVisivel} transparent animationType="fade" onRequestClose={() => setModalCatVisivel(false)}>
+        <View style={styles.overlayCenter}>
+          <View style={[styles.modalCatContent, {backgroundColor: colors.surface}]}>
+            <Text style={[styles.modalCatTitle, {color: colors.text}]}>{catEditing.isNew ? "Criar Categoria" : "Editar Categoria"}</Text>
+            <TextInput style={[styles.input, {backgroundColor: colors.inputBackground, color: colors.text}]} value={catEditing.name} onChangeText={t => setCatEditing({...catEditing, name: t})} placeholder="Nome" />
+            <Text style={styles.label}>COR</Text>
+            <View style={styles.colorGrid}>
+              {PRESET_COLORS.map(c => <TouchableOpacity key={c} onPress={() => setCatEditing({...catEditing, color: c})} style={[styles.colorCircle, { backgroundColor: c }, catEditing.color === c && styles.colorSelected]} />)}
+            </View>
+            <View style={{flexDirection:'row', justifyContent:'space-between', marginTop: 15, width: '100%'}}>
+                {!catEditing.isNew && <TouchableOpacity onPress={excluirCategoriaPersistente}><Text style={{color: colors.danger, fontWeight:'bold', padding: 10}}>Excluir</Text></TouchableOpacity>}
+                <View style={{flexDirection:'row', gap: 10, flex: 1, justifyContent: 'flex-end'}}>
+                   <TouchableOpacity onPress={() => setModalCatVisivel(false)}><Text style={{fontWeight:'bold', padding: 10, color: colors.textSecondary}}>Cancelar</Text></TouchableOpacity>
+                   <TouchableOpacity onPress={salvarCategoriaPersistente} style={{backgroundColor: colors.primary, padding: 10, borderRadius: 8}}><Text style={{color:'#fff', fontWeight:'bold'}}>Salvar</Text></TouchableOpacity>
+                </View>
+            </View>
+          </View>
         </View>
       </Modal>
 
-      {/* --- MODAL PICKER --- */}
-      <Modal visible={modalDataVisivel} transparent animationType="fade">
-        <View style={styles.overlay}>
-            <View style={[styles.pickerModal, { backgroundColor: colors.surface }]}>
-                <View style={styles.pickerHeader}>
-                    <TouchableOpacity onPress={() => setPickerAno(pickerAno - 1)}><Ionicons name="chevron-back" size={24} color={colors.text} /></TouchableOpacity>
-                    <Text style={[styles.pickerAnoTexto, { color: colors.text }]}>{pickerAno}</Text>
-                    <TouchableOpacity onPress={() => setPickerAno(pickerAno + 1)}><Ionicons name="chevron-forward" size={24} color={colors.text}/></TouchableOpacity>
-                </View>
-                <View style={styles.mesesGrid}>
-                    {LocaleConfig.locales['pt-br'].monthNamesShort.map((mes, index) => (
-                        <TouchableOpacity key={index} style={[styles.mesBotao, { backgroundColor: isDark ? '#333' : '#f2f2f2' }]} onPress={() => selecionarMesAno(index)}>
-                            <Text style={[styles.mesTexto, { color: colors.text }]}>{mes.toUpperCase()}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-                <TouchableOpacity onPress={() => setModalDataVisivel(false)} style={styles.pickerFechar}>
-                    <Text style={{color: colors.danger, fontWeight: 'bold'}}>Fechar</Text>
-                </TouchableOpacity>
+      {/* --- MODAL ANO --- */}
+      <Modal visible={modalPickerVisivel} transparent animationType="fade" onRequestClose={() => setModalPickerVisivel(false)}>
+         <TouchableOpacity style={styles.overlayCenter} activeOpacity={1} onPress={() => setModalPickerVisivel(false)}>
+            <View style={[styles.pickerBox, {backgroundColor: colors.surface}]}>
+               <View style={styles.pickerHeader}>
+                  <TouchableOpacity onPress={() => setPickerAno(pickerAno - 1)}><Ionicons name="chevron-back" size={24} color={colors.text}/></TouchableOpacity>
+                  <Text style={[styles.pickerTitle, {color: colors.text}]}>{pickerAno}</Text>
+                  <TouchableOpacity onPress={() => setPickerAno(pickerAno + 1)}><Ionicons name="chevron-forward" size={24} color={colors.text}/></TouchableOpacity>
+               </View>
+               <View style={styles.gridMonths}>
+                  {['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'].map((m, i) => (
+                    <TouchableOpacity key={m} style={styles.monthBtn} onPress={() => { setCurrentMonth(setMonth(setYear(new Date(), pickerAno), i)); setModalPickerVisivel(false); }}>
+                      <Text style={[styles.monthBtnText, {color: colors.text}]}>{m}</Text>
+                    </TouchableOpacity>
+                  ))}
+               </View>
             </View>
-        </View>
+         </TouchableOpacity>
       </Modal>
 
     </SafeAreaView>
   );
 }
 
-// Card corrigido com suporte a tema e fuso horário
-function EventoCard({ evento, onPress, onLongPress, onDelete, selecionado }) {
-  const { theme, isDark } = useTheme();
-  const colors = theme.colors;
-  const cor = TIPOS.find((t) => t.key === evento.tipo)?.cor || "#ccc";
-  
-  const dataInicio = fixDateFromDB(evento.inicio);
-  const dataFim = fixDateFromDB(evento.fim);
-  const jaPassou = dataFim < new Date();
-
-  return (
-    <TouchableOpacity 
-      style={[
-        styles.card, 
-        { backgroundColor: colors.surface },
-        jaPassou && { backgroundColor: isDark ? '#1f1f1f' : '#f0f0f0', borderColor: colors.border, borderWidth: 1, opacity: 0.7 },
-        selecionado && { backgroundColor: isDark ? '#1A3B5C' : '#E3F2FD', borderColor: colors.primary, borderWidth: 1 }
-      ]} 
-      onPress={jaPassou ? null : onPress} 
-      onLongPress={jaPassou ? null : onLongPress} 
-      disabled={jaPassou} 
-    >
-      <View style={[styles.lateral, { backgroundColor: jaPassou ? "#999" : cor }]} />
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.titulo, { color: colors.text }, jaPassou && styles.textoPassado]}>{evento.titulo} {jaPassou && "(Encerrado)"}</Text>
-        <Text style={[styles.horario, { color: colors.textSecondary }, jaPassou && styles.textoPassado]}>{format(dataInicio, "HH:mm")} - {format(dataFim, "HH:mm")}</Text>
-      </View>
-      {selecionado ? (
-          <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
-      ) : (
-          onDelete && !jaPassou && (
-            <TouchableOpacity onPress={() => onDelete(evento.id)} style={{padding: 5}}>
-              <Ionicons name="trash-outline" size={20} color={colors.danger} />
-            </TouchableOpacity>
-          )
-      )}
-    </TouchableOpacity>
-  );
-}
-
 const styles = StyleSheet.create({
-  headerSelection: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
-  textSelection: { fontSize: 18, fontWeight: 'bold' },
-  tabs: { flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 12 },
-  tab: { paddingVertical: 6, paddingHorizontal: 16, borderWidth: 1, borderRadius: 20 },
-  textoTab: { },
-  textoTabAtiva: { color: '#fff', fontWeight: 'bold' },
-  add: { margin: 16, padding: 14, borderRadius: 10, alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
-  vazio: { textAlign: 'center', marginTop: 20 },
-  diaHeader: { fontWeight: "bold", fontSize: 16, marginTop: 16, marginBottom: 8 },
-  semEventos: { fontStyle: 'italic', fontSize: 12, marginBottom: 8 },
-  card: { flexDirection: "row", padding: 14, borderRadius: 10, marginBottom: 10, alignItems: 'center', shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
-  textoPassado: { textDecorationLine: 'none' },
-  lateral: { width: 4, height: '100%', marginRight: 12, borderRadius: 4, position: 'absolute', left: 0, top: 0, bottom: 0, borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
-  titulo: { fontWeight: "bold", fontSize: 15 },
-  horario: { fontSize: 12, marginTop: 2 },
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 20 },
-  modalWrapper: { flex: 1, justifyContent: "center" },
-  modal: { borderRadius: 16, padding: 20, maxHeight: "90%", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
-  input: { borderWidth: 1, padding: 12, borderRadius: 8, marginBottom: 12 },
-  row: { flexDirection: 'row', marginBottom: 4 },
-  labelInput: { fontSize: 12, marginBottom: 4, fontWeight: '600' },
-  label: { fontWeight: "bold", marginBottom: 8, marginTop: 8 },
-  tipos: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  tipo: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6 },
-  lembretes: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  lembrete: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6 },
-  criar: { padding: 16, borderRadius: 10, alignItems: "center", marginTop: 24 },
-  cancelar: { textAlign: "center", marginTop: 16, fontWeight: '600' },
-  pickerModal: { borderRadius: 16, padding: 20, alignItems: 'center', width: '90%', alignSelf:'center' },
-  pickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 20 },
-  pickerAnoTexto: { fontSize: 22, fontWeight: 'bold' },
-  mesesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10 },
-  mesBotao: { width: '30%', paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
-  mesTexto: { fontWeight: 'bold' },
-  pickerFechar: { marginTop: 20, padding: 10 },
-  boxFinanceiro: { padding: 12, borderRadius: 10, marginBottom: 16, borderWidth: 1 },
-  headerFinanceiro: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  labelFinanceiro: { fontWeight: 'bold' },
-  btnTipo: { flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, alignItems: 'center' }
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, paddingBottom: 20, paddingHorizontal: 20, minHeight: 70 },
+  monthTrigger: { flexDirection: 'row', alignItems: 'center', padding: 5 },
+  monthLabel: { fontSize: 24, fontWeight: '900', textTransform: 'capitalize' },
+  yearLabel: { fontSize: 24, fontWeight: '300', color: '#888', marginLeft: 5 },
+  headerControls: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+  todayBtn: { backgroundColor: '#f1f5f9', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20 },
+  todayText: { fontWeight: 'bold', color: '#3b82f6', fontSize: 12 },
+  weekHeader: { flexDirection: 'row', marginBottom: 5 },
+  weekText: { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: 'bold', color: '#ccc' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10 },
+  dayCell: { borderBottomWidth: 1, borderColor: '#f8f8f8', padding: 2, alignItems: 'center', justifyContent: 'flex-start' },
+  dayOutside: { opacity: 0.3 },
+  dayNum: { fontSize: 12, fontWeight: '600', color: '#333', marginBottom: 2 },
+  eventContainer: { width: '100%', alignItems: 'center', gap: 1, paddingHorizontal: 1 },
+  eventChip: { width: '100%', paddingHorizontal: 3, paddingVertical: 2, borderRadius: 4, justifyContent: 'center' },
+  eventChipText: { fontSize: 8, color: '#fff', fontWeight: 'bold', textAlign: 'center' },
+  detailsSection: { padding: 20 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, marginTop: 10 },
+  dateTitle: { fontSize: 13, fontWeight: '900', color: '#94a3b8' },
+  btnAddMini: { backgroundColor: '#3b82f6', width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', elevation: 3 },
+  emptyText: { textAlign: 'center', color: '#ccc', fontStyle: 'italic', marginTop: 20 },
+  eventCard: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 20, marginBottom: 10, borderWidth: 1, elevation: 2, paddingLeft: 15 },
+  cardTitle: { fontSize: 16, fontWeight: 'bold' },
+  dotCategory: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  cardInfo: { fontSize: 12, marginTop: 0 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  overlayCenter: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalKeyboard: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
+  modalContent: { borderTopLeftRadius: 40, borderTopRightRadius: 40, padding: 30, maxHeight: '90%' },
+  modalCatContent: { borderRadius: 25, padding: 25, width: 320 },
+  modalTitle: { fontSize: 20, fontWeight: '900' },
+  modalCatTitle: { fontSize: 18, fontWeight: '900', marginBottom: 15 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  label: { fontSize: 10, fontWeight: '900', color: '#94a3b8', marginTop: 15, marginBottom: 8 },
+  input: { padding: 16, borderRadius: 16, fontSize: 16, borderWidth: 1, borderColor: '#e2e8f0' },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, marginBottom: 8 },
+  linkAction: { color: '#3b82f6', fontWeight: 'bold', fontSize: 12 },
+  hintText: { fontSize: 10, color: '#ccc', fontStyle: 'italic', marginTop: 5 },
+  catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  catChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: 'transparent' },
+  catText: { fontWeight: '600', fontSize: 12, color: '#475569' },
+  colorGrid: { flexDirection: 'row', gap: 10, marginBottom: 15 },
+  colorCircle: { width: 24, height: 24, borderRadius: 12 },
+  colorSelected: { borderWidth: 2, borderColor: '#000' },
+  financeBox: { marginTop: 20, padding: 15, backgroundColor: '#f0fdf4', borderRadius: 20, borderWidth: 1, borderColor: '#dcfce7' },
+  financeLabel: { fontWeight: 'bold', color: '#166534' },
+  inputMoney: { backgroundColor: '#fff', marginTop: 10, padding: 12, borderRadius: 12, fontWeight: 'bold' },
+  btnSave: { padding: 20, borderRadius: 20, alignItems: 'center', marginTop: 30, marginBottom: 20 },
+  btnSaveText: { color: '#fff', fontWeight: '900', fontSize: 14 },
+  pickerBox: { borderRadius: 30, padding: 25, alignSelf: 'center', width: 320 },
+  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  pickerTitle: { fontSize: 22, fontWeight: '900' },
+  gridMonths: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
+  monthBtn: { width: '30%', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  monthBtnText: { fontWeight: 'bold' },
+  unitBtn: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  unitText: { fontSize: 10, fontWeight: 'bold', color: '#64748b' }
 });

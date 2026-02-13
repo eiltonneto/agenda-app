@@ -1,57 +1,90 @@
-import React, { createContext, useContext, useState } from "react";
-import api, { setAuthToken } from "../services/api";
+import React, { createContext, useState, useEffect, useContext } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import api from "../services/api";
 
-const AuthContext = createContext();
+const AuthContext = createContext({});
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // 👈 Controla o Splash Screen
 
-  // LOGIN
+  useEffect(() => {
+    async function loadStorageData() {
+      try {
+        const storagedUser = await AsyncStorage.getItem("@YourFlow:user");
+        const storagedToken = await AsyncStorage.getItem("@YourFlow:token");
+
+        if (storagedUser && storagedToken) {
+          // Reatribui o token ao axios para requisições futuras
+          api.defaults.headers.Authorization = `Bearer ${storagedToken}`;
+          setUser(JSON.parse(storagedUser));
+        }
+      } catch (error) {
+        console.log("Erro ao hidratar estado de auth:", error);
+      } finally {
+        setLoading(false); // 👈 Libera o App para renderizar as rotas
+      }
+    }
+    loadStorageData();
+  }, []);
+
   async function login(email, senha) {
-    setLoading(true);
-    try {
-      const response = await api.post("/auth/login", { email, senha });
-      const { token: tk, usuario } = response.data;
-      setToken(tk);
-      setUser(usuario);
-      setAuthToken(tk);
-      return true;
-    } catch (err) {
-      console.log("Erro login:", err.response?.data || err.message);
-      return false;
-    } finally { setLoading(false); }
+    // Note: O erro de login deve ser tratado na tela (AuthScreen) com try/catch
+    const response = await api.post("/login", { email, senha });
+    const { user: userData, token } = response.data;
+
+    await AsyncStorage.setItem("@YourFlow:user", JSON.stringify(userData));
+    await AsyncStorage.setItem("@YourFlow:token", token);
+
+    api.defaults.headers.Authorization = `Bearer ${token}`;
+    setUser(userData);
   }
 
-  // REGISTRO (NOVO)
   async function register(nome, email, senha) {
-    setLoading(true);
     try {
-      await api.post("/auth/register", { nome, email, senha });
-      // Após registrar, já faz o login automático
-      return await login(email, senha);
-    } catch (err) {
-      console.log("Erro registro:", err.response?.data);
-      return false;
-    } finally { setLoading(false); }
+      await api.post("/usuarios", { nome, email, senha });
+      // Login automático após cadastro bem-sucedido
+      await login(email, senha);
+    } catch (error) {
+      throw error; // Repassa o erro (ex: e-mail duplicado) para a UI
+    }
   }
 
-  // LOGOUT
+  async function updateUser(userData) {
+    setUser(userData);
+    await AsyncStorage.setItem("@YourFlow:user", JSON.stringify(userData));
+  }
+
   function logout() {
-    setUser(null); setToken(null); setAuthToken(null);
-  }
-
-  // UPDATE USER (Para a foto)
-  function updateUser(userData) {
-    setUser(prev => ({ ...prev, ...userData }));
+    AsyncStorage.multiRemove(["@YourFlow:user", "@YourFlow:token"]).then(() => {
+      setUser(null);
+      delete api.defaults.headers.Authorization;
+    });
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, register, updateUser, loading }}>
+    <AuthContext.Provider
+      value={{
+        signed: !!user,
+        user,
+        loading, // 👈 ESSENCIAL: Adicionado para o App.js funcionar
+        login,
+        register,
+        logout,
+        updateUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth() { return useContext(AuthContext); }
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth deve ser utilizado dentro de um AuthProvider");
+  }
+  return context;
+}
+
+export default AuthProvider;

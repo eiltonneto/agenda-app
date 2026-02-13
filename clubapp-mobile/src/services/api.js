@@ -1,10 +1,9 @@
-import axios from "axios";
-
-// IP do seu backend
-const API_URL = "https://agenda-app-i8nj.onrender.com";
+import axios from "axios"; // <--- ESTA LINHA É OBRIGATÓRIA NO TOPO!
 
 const api = axios.create({
-  baseURL: API_URL,
+  // Coloque aqui o IP do seu computador que você pegou no ipconfig
+  // Exemplo: 'http://192.168.0.15:3333'
+  baseURL:'http://192.168.0.102:3333', 
 });
 
 export function setAuthToken(token) {

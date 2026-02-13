@@ -3,153 +3,176 @@ import prisma from "../database/prisma.js";
 import { authMiddleware } from "../middlewares/auth.js";
 
 const router = Router();
+
 router.use(authMiddleware);
 
-// ... (Mantenha as rotas GET /resumo-mes e POST / criacao IGUAIS) ...
-// ... (Copie do arquivo anterior até chegar na rota de DELETE individual) ...
-
-// ======================================================
-// 📌 RESUMO DO MÊS
-// ======================================================
-router.get("/resumo-mes", async (req, res) => {
+// --- LISTAR ---
+router.get("/", async (req, res) => {
   try {
-    const { data } = req.query; 
-    if (!data) return res.status(400).json({ error: "Data obrigatória." });
-    const dateObj = new Date(data);
-    const ano = dateObj.getFullYear();
-    const mes = dateObj.getMonth();
-    const inicioMes = new Date(ano, mes, 1);
-    const fimMes = new Date(ano, mes + 1, 0, 23, 59, 59, 999);
     const eventos = await prisma.evento.findMany({
-      where: { usuarioId: req.userId, inicio: { gte: inicioMes.toISOString(), lte: fimMes.toISOString() } },
-      select: { inicio: true },
+      where: { usuarioId: req.userId },
+      orderBy: { inicio: "asc" },
     });
-    const datasUnicas = new Set();
-    eventos.forEach((ev) => {
-      const dataFormatada = new Date(ev.inicio); 
-      if (!isNaN(dataFormatada)) datasUnicas.add(dataFormatada.toISOString().split("T")[0]);
-    });
-    return res.json(Array.from(datasUnicas));
-  } catch (error) { return res.status(500).json({ error: "Erro interno." }); }
+    return res.json(eventos);
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao listar eventos" });
+  }
 });
 
-// ======================================================
-// 📌 CRIAR EVENTO
-// ======================================================
+// --- CRIAR (Com Regra de Local Físico e Financeiro Automático) ---
 router.post("/", async (req, res) => {
+  const userId = req.userId;
+
   try {
-    const { titulo, tipo, inicio, fim, cor, observacao, lembreteMinutosAntes1, lembreteMinutosAntes2, gerarFinanceiro, valor, tipoFinanceiro } = req.body;
+    const {
+      titulo, inicio, fim, categoria_id, tipo, 
+      cor_categoria, descricao, lembreteValor, gerarFinanceiro, valor
+    } = req.body;
 
-    if (!titulo || !tipo || !inicio || !fim) return res.status(400).json({ error: "Dados obrigatórios faltando." });
+    if (!titulo || !categoria_id || !inicio || !fim) {
+      return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
+    }
 
-    const inicioDate = new Date(inicio);
-    const fimDate = new Date(fim);
-    if (isNaN(inicioDate) || isNaN(fimDate)) return res.status(400).json({ error: "Datas inválidas." });
-    if (fimDate <= inicioDate) return res.status(400).json({ error: "Fim deve ser maior que início." });
+    const dataInicio = new Date(inicio);
+    const dataFim = new Date(fim);
+
+    if (dataFim <= dataInicio) {
+      return res.status(400).json({ error: "O horário de término deve ser maior que o de início." });
+    }
+
+    // LÓGICA DE CONFLITO: $T_{inicio} < E_{fim} \land T_{fim} > E_{inicio}$
+    const conflitoLocal = await prisma.evento.findFirst({
+      where: {
+        categoria_id: String(categoria_id),
+        AND: [
+          { inicio: { lt: dataFim } },
+          { fim: { gt: dataInicio } }
+        ]
+      }
+    });
+
+    if (conflitoLocal) {
+      return res.status(409).json({ 
+        error: "Este campo/local já está reservado neste horário por outro agendamento." 
+      });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const novoEvento = await tx.evento.create({
+        data: {
+          titulo,
+          inicio: dataInicio,
+          fim: dataFim,
+          categoria_id: String(categoria_id),
+          tipo,
+          cor_categoria,
+          descricao,
+          lembrete_minutos: lembreteValor ? Number(lembreteValor) : 0,
+          usuario: { connect: { id: userId } }
+        }
+      });
+
+      // Integração automática com o Financeiro
+      if (gerarFinanceiro === true && valor) {
+        const valorNumerico = parseFloat(String(valor).replace(',', '.'));
+        
+        await tx.receita.create({
+          data: {
+            descricao: `Racha: ${titulo}`,
+            valor: valorNumerico,
+            tipo: "OUTRO", // Ajustado conforme seu enum TipoReceita atual
+            dataPrevista: dataInicio,
+            status: "RECEBIDA",
+            usuarioId: userId
+          }
+        });
+      }
+
+      return novoEvento;
+    });
+
+    return res.status(201).json(result);
+
+  } catch (error) {
+    console.error("ERRO BACKEND:", error);
+    return res.status(500).json({ error: "Erro ao processar agendamento." });
+  }
+});
+
+// --- ATUALIZAR ---
+router.put("/:id", async (req, res) => {
+  const { id } = req.params;
+  const userId = req.userId;
+  const { titulo, inicio, fim, categoria_id, cor_categoria, descricao } = req.body;
+
+  try {
+    const eventoExistente = await prisma.evento.findFirst({
+      where: { id, usuarioId: userId }
+    });
+
+    if (!eventoExistente) return res.status(404).json({ error: "Evento não encontrado." });
+
+    const dataInicio = inicio ? new Date(inicio) : eventoExistente.inicio;
+    const dataFim = fim ? new Date(fim) : eventoExistente.fim;
+    const localId = categoria_id ? String(categoria_id) : eventoExistente.categoria_id;
 
     const conflito = await prisma.evento.findFirst({
-      where: { usuarioId: req.userId, AND: [ { inicio: { lt: fimDate.toISOString() } }, { fim: { gt: inicioDate.toISOString() } } ] },
+      where: {
+        categoria_id: localId,
+        id: { not: id }, 
+        AND: [
+          { inicio: { lt: dataFim } },
+          { fim: { gt: dataInicio } }
+        ]
+      }
     });
-    if (conflito) return res.status(409).json({ error: "Já existe um evento nesse horário." });
 
-    const evento = await prisma.evento.create({
-      data: { titulo, tipo, inicio: inicioDate.toISOString(), fim: fimDate.toISOString(), cor: cor || "#007AFF", observacao, lembreteMinutosAntes1, lembreteMinutosAntes2, usuarioId: req.userId },
-    });
-
-    if (gerarFinanceiro && valor) {
-        const valorFloat = parseFloat(valor);
-        if (!isNaN(valorFloat) && valorFloat > 0) {
-            const descricaoFin = `(Agenda) ${titulo}`;
-            if (tipoFinanceiro === 'RECEITA') {
-                await prisma.receita.create({
-                    data: { descricao: descricaoFin, valor: valorFloat, tipo: 'OUTRO', dataPrevista: inicioDate.toISOString(), status: 'PENDENTE', usuarioId: req.userId }
-                });
-            } else {
-                await prisma.despesa.create({
-                    data: { descricao: descricaoFin, valor: valorFloat, categoria: 'OUTRO', dataVencimento: inicioDate.toISOString(), status: 'PENDENTE', usuarioId: req.userId }
-                });
-            }
-        }
+    if (conflito) {
+      return res.status(409).json({ error: "Este novo horário/local já está ocupado." });
     }
-    return res.status(201).json(evento);
-  } catch (error) { return res.status(500).json({ error: "Erro interno." }); }
+
+    const atualizado = await prisma.evento.update({
+      where: { id },
+      data: {
+        titulo: titulo || undefined,
+        inicio: dataInicio,
+        fim: dataFim,
+        categoria_id: localId,
+        cor_categoria: cor_categoria || undefined,
+        descricao: descricao || undefined
+      }
+    });
+
+    return res.json(atualizado);
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao atualizar." });
+  }
 });
 
-// ... (Mantenha o PUT igual) ...
-router.put("/:id", async (req, res) => {
-    try {
-      const { id } = req.params; const { titulo, tipo, inicio, fim, cor, observacao, lembreteMinutosAntes1 } = req.body;
-      const evento = await prisma.evento.update({ where: { id: Number(id), usuarioId: req.userId }, data: { titulo, tipo, inicio: new Date(inicio).toISOString(), fim: new Date(fim).toISOString(), cor, observacao, lembreteMinutosAntes1 } });
-      return res.json(evento);
-    } catch (e) { return res.status(500).json({ error: "Erro ao atualizar" }); }
-});
-
-// ======================================================
-// 📌 EXCLUSÃO EM MASSA (NOVO)
-// ======================================================
-// Rota de EXCLUSÃO EM MASSA (Atualizada)
-router.post("/excluir-massa", async (req, res) => {
-    try {
-        const { ids } = req.body;
-        if (!ids) return res.status(400).json({ error: "IDs inválidos" });
-
-        // 1. Limpa Financeiro (lógica anterior...)
-        const eventos = await prisma.evento.findMany({ where: { id: { in: ids }, usuarioId: req.userId } });
-        for (const ev of eventos) {
-            const desc = `(Agenda) ${ev.titulo}`;
-            await prisma.receita.deleteMany({ where: { descricao: desc } });
-            await prisma.despesa.deleteMany({ where: { descricao: desc } });
-        }
-
-        // 2. [NOVO] Limpa Notificações em massa
-        await prisma.notificacao.deleteMany({
-            where: {
-                referenciaTipo: 'EVENTO',
-                referenciaId: { in: ids },
-                usuarioId: req.userId
-            }
-        });
-
-        // 3. Deleta Eventos
-        await prisma.evento.deleteMany({ where: { id: { in: ids }, usuarioId: req.userId } });
-        return res.json({ message: "Sucesso" });
-    } catch (e) { return res.status(500).json({ error: "Erro massa" }); }
-});
-
-// ... (Mantenha o DELETE individual e GET /dia iguais) ...
+// --- EXCLUIR ---
 router.delete("/:id", async (req, res) => {
   try {
-    const idEvento = Number(req.params.id);
-    
-    // 1. Limpa Financeiro vinculado (já existia)
-    const evento = await prisma.evento.findUnique({ where: { id: idEvento } });
-    if (evento) {
-        const desc = `(Agenda) ${evento.titulo}`;
-        await prisma.receita.deleteMany({ where: { descricao: desc, usuarioId: req.userId } });
-        await prisma.despesa.deleteMany({ where: { descricao: desc, usuarioId: req.userId } });
-    }
-
-    // 2. [NOVO] Limpa Notificações vinculadas a este evento
-    await prisma.notificacao.deleteMany({
-        where: { 
-            referenciaTipo: 'EVENTO', // Certifique-se que ao criar a notificação você salva assim
-            referenciaId: idEvento,
-            usuarioId: req.userId 
-        }
-    });
-
-    // 3. Deleta o Evento
-    await prisma.evento.delete({ where: { id: idEvento, usuarioId: req.userId } });
-    return res.json({ message: "Excluído" });
-  } catch (e) { return res.status(500).json({ error: "Erro ao excluir" }); }
+    const { id } = req.params;
+    await prisma.evento.delete({ where: { id: String(id), usuarioId: req.userId } });
+    return res.status(204).send();
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao excluir." });
+  }
 });
 
-router.get("/dia/:data", async (req, res) => {
-    try {
-      const { data } = req.params; const i = new Date(`${data}T00:00:00.000Z`); const f = new Date(`${data}T23:59:59.999Z`);
-      const eventos = await prisma.evento.findMany({ where: { usuarioId: req.userId, inicio: { gte: i.toISOString(), lte: f.toISOString() } }, orderBy: { inicio: "asc" } });
-      return res.json(eventos);
-    } catch (e) { return res.status(500).json({ error: "Erro ao buscar" }); }
+// --- EXCLUIR EM MASSA ---
+router.post("/excluir-massa", async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "Nenhum item selecionado." });
+
+  try {
+    const result = await prisma.evento.deleteMany({
+      where: { id: { in: ids }, usuarioId: req.userId }
+    });
+    return res.json({ message: `${result.count} eventos excluídos.` });
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao excluir em massa." });
+  }
 });
 
 export default router;

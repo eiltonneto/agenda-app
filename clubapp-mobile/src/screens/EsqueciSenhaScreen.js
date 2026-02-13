@@ -1,103 +1,233 @@
-import React, { useState } from "react";
-import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform 
+import React, { useState, useRef, useEffect } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Animated
 } from "react-native";
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from "@expo/vector-icons";
-import api from "../services/api";
+import { useNavigation } from "@react-navigation/native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-export default function EsqueciSenhaScreen({ navigation }) {
+import { Logo } from "../components/logo";
+import AnimatedInput from "../components/AnimatedInput";
+
+// 🎨 Paleta
+const THEME_COLOR = "#0ea5e9";
+const THEME_LIGHT = "#e0f2fe";
+const TEXT_DARK = "#0f172a";
+const TEXT_GRAY = "#64748b";
+
+export default function EsqueciSenhaScreen() {
+  const navigation = useNavigation();
+
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
+
+  // animação do card
+  const cardAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(cardAnim, {
+      toValue: 1,
+      friction: 8,
+      tension: 40,
+      useNativeDriver: true
+    }).start();
+  }, []);
 
   async function handleRecover() {
-    if (!email) return Alert.alert("Atenção", "Digite seu e-mail cadastrado.");
+    if (!email) {
+      Alert.alert("Ops", "Informe seu e-mail.");
+      return;
+    }
 
     setLoading(true);
-    try {
-        // AQUI: Futuramente você conectará com sua rota de backend real
-        // await api.post('/auth/recuperar-senha', { email });
-        
-        // Simulação de sucesso para testes visuais
-        setTimeout(() => {
-            Alert.alert(
-                "E-mail Enviado!", 
-                "Se este e-mail existir em nossa base, você receberá um link de redefinição.",
-                [{ text: "Voltar para Login", onPress: () => navigation.goBack() }]
-            );
-        }, 1500);
 
-    } catch (error) {
-        Alert.alert("Erro", "Falha ao solicitar recuperação.");
-    } finally {
-        setLoading(false);
-    }
+    // simulação (backend entra aqui depois)
+    setTimeout(() => {
+      setLoading(false);
+      Alert.alert(
+        "E-mail enviado",
+        "Se este e-mail existir, você receberá as instruções.",
+        [{ text: "Voltar para login", onPress: () => navigation.goBack() }]
+      );
+    }, 1200);
   }
 
   return (
-    <LinearGradient
-      colors={['#000000', '#004d4d']}
-      style={styles.container}
-    >
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.content}>
-        
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={28} color="#fff" />
-        </TouchableOpacity>
-
-        <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
-
-        <Text style={styles.title}>Recuperar Senha</Text>
-        <Text style={styles.subtitle}>Digite seu e-mail para receber as instruções.</Text>
-
-        <View style={styles.form}>
-            <Text style={styles.label}>E-mail cadastrado</Text>
-            <TextInput 
-                style={styles.input}
-                placeholder="exemplo@email.com"
-                placeholderTextColor="#999"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-            />
-
-            <TouchableOpacity style={styles.button} onPress={handleRecover} disabled={loading}>
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Enviar Link</Text>}
-            </TouchableOpacity>
+    <View style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.contentWrapper}
+      >
+        {/* HEADER */}
+        <View style={styles.brandHeader}>
+          <Logo width={80} height={80} />
+          <Text style={styles.appName}>YourFlow</Text>
+          <Text style={styles.tagline}>Recuperação de acesso</Text>
         </View>
 
+        {/* CARD */}
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              opacity: cardAnim,
+              transform: [
+                {
+                  scale: cardAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.95, 1]
+                  })
+                }
+              ]
+            }
+          ]}
+        >
+          <View style={styles.securityHeader}>
+            <View style={styles.iconCircle}>
+              <MaterialCommunityIcons
+                name="email-lock-outline"
+                size={32}
+                color={THEME_COLOR}
+              />
+            </View>
+
+            <Text style={styles.cardTitle}>Recuperar senha</Text>
+            <Text style={styles.helperText}>
+              Informe o e-mail cadastrado para receber o link.
+            </Text>
+          </View>
+
+          <View style={styles.formBody}>
+            <AnimatedInput
+              icon="email-outline"
+              placeholder="Seu e-mail"
+              value={email}
+              onChange={setEmail}
+              type="email-address"
+              fieldName="recoverEmail"
+              focusedField={focusedField}
+              setFocusedField={setFocusedField}
+            />
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleRecover}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.actionButtonText}>
+                  Enviar link de recuperação
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.backLink}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={styles.backText}>Voltar para login</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
+/* ===================== STYLES ===================== */
+
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { flex: 1, padding: 20, justifyContent: 'center' },
-  backBtn: { position: 'absolute', top: 50, left: 20, zIndex: 10 },
-  logo: { width: 400, height: 150, alignSelf: 'center', marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#fff', textAlign: 'center', marginBottom: 10 },
-  subtitle: { fontSize: 14, color: '#ccc', textAlign: 'center', marginBottom: 40 },
-  form: { width: '100%' },
-  label: { color: '#fff', marginBottom: 5, marginLeft: 5, fontWeight: 'bold' },
-  input: { 
-      backgroundColor: 'rgba(255,255,255,0.1)', 
-      borderWidth: 1, 
-      borderColor: 'rgba(255,255,255,0.3)', 
-      borderRadius: 10, 
-      padding: 15, 
-      color: '#fff', 
-      marginBottom: 20,
-      fontSize: 16 
+  container: {
+    flex: 1,
+    backgroundColor: THEME_LIGHT
   },
-  button: { 
-      backgroundColor: '#008080', 
-      padding: 16, 
-      borderRadius: 30, 
-      alignItems: 'center',
-      elevation: 5
+  contentWrapper: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24
   },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
+  brandHeader: {
+    alignItems: "center",
+    marginBottom: 24
+  },
+  appName: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: TEXT_DARK,
+    marginTop: 8
+  },
+  tagline: {
+    fontSize: 14,
+    color: TEXT_GRAY,
+    marginTop: 4
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6
+  },
+  securityHeader: {
+    alignItems: "center",
+    marginBottom: 24
+  },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: THEME_LIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: TEXT_DARK
+  },
+  helperText: {
+    fontSize: 14,
+    color: TEXT_GRAY,
+    textAlign: "center",
+    marginTop: 6
+  },
+  formBody: {
+    marginTop: 12
+  },
+  actionButton: {
+    backgroundColor: THEME_COLOR,
+    height: 52,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16
+  },
+  actionButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600"
+  },
+  backLink: {
+    marginTop: 20,
+    alignItems: "center"
+  },
+  backText: {
+    color: THEME_COLOR,
+    fontWeight: "600"
+  }
 });

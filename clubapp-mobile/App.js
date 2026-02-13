@@ -1,33 +1,26 @@
 import React from "react";
-import { Image, View } from "react-native";
+import { View, Text, ActivityIndicator, StatusBar } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect } from "react";
-import { registerForPushNotificationsAsync } from "./src/services/NotificationService";
 
-// Contexts
-import { AuthProvider, useAuth } from "./src/context/AuthContext";
-import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
-import { API_URL } from "./src/services/api";
+// --- CONTEXTOS ---
+import AuthProvider, { useAuth } from "./src/context/AuthContext";
+import ThemeProvider, { useTheme } from "./src/context/ThemeContext";
 
-// Screens
-import LoginScreen from "./src/screens/LoginScreen";
-import RegisterScreen from "./src/screens/RegisterScreen";
-import EsqueciSenhaScreen from "./src/screens/EsqueciSenhaScreen"; // <--- 1. IMPORTAR AQUI
+// --- TELAS ---
+import AuthScreen from "./src/screens/AuthScreen";
 import AgendaScreen from "./src/screens/AgendaScreen";
 import FinanceiroScreen from "./src/screens/FinanceiroScreen";
-import NotificacoesScreen from "./src/screens/NotificacoesScreen";
-import PerfilScreen from "./src/screens/PerfilScreen";
+import PerfilScreen from "./src/screens/PerfilScreen"; 
 import ConfiguracoesScreen from "./src/screens/ConfiguracoesScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// ... (Mantenha a função AppTabs igualzinha) ...
+// --- NAVEGAÇÃO DE ABAS (LOGADO) ---
 function AppTabs() {
-  const { user } = useAuth();
   const { theme } = useTheme();
   const colors = theme.colors;
 
@@ -35,85 +28,89 @@ function AppTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: { 
-            paddingBottom: 5, 
-            height: 60, 
-            backgroundColor: colors.surface, 
-            borderTopColor: colors.border 
-        },
+        tabBarShowLabel: true,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarIcon: ({ color, size, focused }) => {
-          if (route.name === "Perfil" && user?.foto) {
-             const imageUrl = `${API_URL}/uploads/${user.foto}`;
-             return (
-               <View style={{ padding: 2, borderWidth: focused ? 2 : 0, borderColor: color, borderRadius: 15 }}>
-                 <Image source={{ uri: imageUrl }} style={{ width: size, height: size, borderRadius: size / 2 }} />
-               </View>
-             );
-          }
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: 85,           // 👈 Ajustado para respiro total em dispositivos modernos
+          paddingBottom: 20,    // 👈 Garante que o texto não corte em Fortaleza/CE
+          paddingTop: 8,
+          elevation: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.1,
+          shadowRadius: 5,
+        },
+        tabBarLabelStyle: { 
+          fontSize: 10,         // 👈 Tamanho ideal para evitar quebra de linha
+          fontWeight: '700',
+          marginTop: -5,
+        },
+        tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-          if (route.name === "Agenda") iconName = "calendar";
-          else if (route.name === "Financeiro") iconName = "cash";
-          else if (route.name === "Notificações") iconName = "notifications";
-          else if (route.name === "Perfil") iconName = "person";
-          return <Ionicons name={iconName} size={size} color={color} />;
+          if (route.name === 'Agenda') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'Financeiro') {
+            iconName = focused ? 'wallet' : 'wallet-outline';
+          } else if (route.name === 'Perfil') {
+            iconName = focused ? 'person' : 'person-outline';
+          } else if (route.name === 'Notificações') {
+            iconName = focused ? 'notifications' : 'notifications-outline';
+          }
+          return <Ionicons name={iconName} size={focused ? 26 : 22} color={color} />;
         },
       })}
     >
       <Tab.Screen name="Agenda" component={AgendaScreen} />
       <Tab.Screen name="Financeiro" component={FinanceiroScreen} />
-      <Tab.Screen name="Notificações" component={NotificacoesScreen} />
-      <Tab.Screen name="Perfil" component={PerfilScreen} />
+      {/* Dica: Quando criar a tela de Notificações, basta substituir o Placeholder. 
+          Por enquanto, deixaremos a Agenda e Financeiro como foco do seu MVP.
+      */}
+      <Tab.Screen name="Perfil" component={PerfilScreen} /> 
     </Tab.Navigator>
   );
 }
 
-function RootNavigator() {
-  const { token } = useAuth();
+// --- ROTEAMENTO PRINCIPAL ---
+function AppRoutes() {
+  const { user, loading } = useAuth();
   const { theme } = useTheme();
 
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background } }}>
-      {!token ? (
-        // --- TELAS DE NÃO-LOGADO (AUTH) ---
-        <Stack.Group>
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Cadastro" component={RegisterScreen} />
-          {/* 2. ADICIONAR ESTA LINHA 👇 */}
-          <Stack.Screen name="EsqueciSenha" component={EsqueciSenhaScreen} />
-        </Stack.Group>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {!user ? (
+        // Se NÃO tem usuário -> Fluxo de Autenticação
+        <Stack.Screen name="Auth" component={AuthScreen} />
       ) : (
-        // --- TELAS DE LOGADO (APP) ---
-        <Stack.Group>
-          <Stack.Screen name="AppTabs" component={AppTabs} />
+        // Se TEM usuário -> Fluxo Interno Protegido
+        <>
+          <Stack.Screen name="Home" component={AppTabs} />
           <Stack.Screen name="Configuracoes" component={ConfiguracoesScreen} />
-        </Stack.Group>
+          {/* Adicione outras telas internas aqui (ex: Detalhes do Evento) */}
+        </>
       )}
     </Stack.Navigator>
   );
 }
 
 export default function App() {
-
-  useEffect(() => {
-    registerForPushNotificationsAsync();
-  }, []);
-
   return (
     <AuthProvider>
-      <ThemeProvider> 
+      <ThemeProvider>
         <NavigationContainer>
-          <RootNavigator />
-        </NavigationContainer>
-      </ThemeProvider>
-    </AuthProvider>
-  );
-  return (
-    <AuthProvider>
-      <ThemeProvider> 
-        <NavigationContainer>
-          <RootNavigator />
+          {/* O translucent ajuda a cor do LinearGradient do AuthScreen a subir até o topo */}
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+          <AppRoutes />
         </NavigationContainer>
       </ThemeProvider>
     </AuthProvider>

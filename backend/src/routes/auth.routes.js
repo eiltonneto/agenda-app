@@ -1,66 +1,65 @@
 import { Router } from "express";
+import prisma from "../database/prisma.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import prisma from "../database/prisma.js";
 
 const router = Router();
 
-// LOGIN (Mantenha igual)
-router.post("/login", async (req, res) => {
+// --- AQUI ESTAVA O ERRO: Faltava essa configuração ---
+const authConfig = {
+  secret: process.env.JWT_SECRET || "f4930353163359556133965586686733", 
+  expiresIn: "7d",
+};
+// -----------------------------------------------------
+
+router.post("/", async (req, res) => {
   try {
-    const { email, senha } = req.body;
-    const usuario = await prisma.usuario.findUnique({ where: { email } });
+    const { email, password, senha } = req.body;
+    const senhaLogin = password || senha; // Aceita tanto "password" quanto "senha"
 
-    if (!usuario) return res.status(401).json({ error: "Credenciais inválidas" });
-
-    const senhaValida = await bcrypt.compare(senha, usuario.senhaHash);
-    if (!senhaValida) return res.status(401).json({ error: "Credenciais inválidas" });
-
-    const token = jwt.sign({ id: usuario.id }, process.env.JWT_SECRET || "segredo", { expiresIn: "7d" });
-
-    const { senhaHash, ...userSemSenha } = usuario;
-    return res.json({ usuario: userSemSenha, token });
-  } catch (err) {
-    console.error("Erro Login:", err);
-    return res.status(500).json({ error: "Erro no login" });
-  }
-});
-
-// REGISTRO (Atualizado com Senha Forte)
-router.post("/register", async (req, res) => {
-  try {
-    const { nome, email, senha } = req.body;
-
-    if (!nome || !email || !senha) return res.status(400).json({ error: "Preencha todos os campos" });
-
-    // --- REGRAS DE SENHA FORTE ---
-    if (senha.length < 6) {
-        return res.status(400).json({ error: "A senha deve ter no mínimo 6 caracteres." });
+    if (!email || !senhaLogin) {
+        return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
     }
-    if (!/\d/.test(senha)) {
-        return res.status(400).json({ error: "A senha deve conter pelo menos um número." });
-    }
-    if (!/[A-Z]/.test(senha)) {
-        return res.status(400).json({ error: "A senha deve conter pelo menos uma letra maiúscula." });
-    }
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(senha)) {
-        return res.status(400).json({ error: "A senha deve conter pelo menos um caractere especial (ex: @, #, !)." });
-    }
-    // -----------------------------
 
-    const userExiste = await prisma.usuario.findUnique({ where: { email } });
-    if (userExiste) return res.status(400).json({ error: "Email já cadastrado" });
+    // Busca o usuário no banco
+    const user = await prisma.usuario.findUnique({ where: { email } });
 
-    const senhaHash = await bcrypt.hash(senha, 8);
+    if (!user) {
+      return res.status(400).json({ error: "E-mail não encontrado." });
+    }
 
-    const usuario = await prisma.usuario.create({
-      data: { nome, email, senhaHash },
+    // Verifica se a senha existe no banco (suporta campos diferentes para evitar erro)
+    const senhaHashBanco = user.senha || user.password || user.senhaHash;
+    if (!senhaHashBanco) {
+        return res.status(500).json({ error: "Erro de cadastro: Senha não encontrada no banco." });
+    }
+
+    // Compara a senha digitada com a do banco
+    const checkPassword = await bcrypt.compare(senhaLogin, senhaHashBanco);
+
+    if (!checkPassword) {
+      return res.status(401).json({ error: "Senha incorreta." });
+    }
+
+    // Gera o Token usando a configuração que criamos lá em cima
+    const token = jwt.sign({ id: user.id }, authConfig.secret, {
+      expiresIn: authConfig.expiresIn,
     });
 
-    return res.json(usuario);
-  } catch (err) {
-    console.error("Erro Registro:", err);
-    return res.status(500).json({ error: "Erro ao criar conta." });
+    // Retorna usuário e token
+    return res.json({
+      user: {
+        id: user.id,
+        nome: user.nome,
+        email: user.email,
+        foto: user.foto
+      },
+      token,
+    });
+
+  } catch (error) {
+    console.log("Erro Login:", error);
+    return res.status(500).json({ error: "Erro interno no servidor." });
   }
 });
 
