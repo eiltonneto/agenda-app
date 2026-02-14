@@ -3,7 +3,7 @@ import axios from "axios"; // <--- ESTA LINHA É OBRIGATÓRIA NO TOPO!
 const api = axios.create({
   // Coloque aqui o IP do seu computador que você pegou no ipconfig
   // Exemplo: 'http://192.168.0.15:3333'
-  baseURL:'http://192.168.0.102:3333', 
+  baseURL:'https://agenda-app-i8nj.onrender.com', 
 });
 
 export function setAuthToken(token) {

@@ -15,6 +15,7 @@ import AgendaScreen from "./src/screens/AgendaScreen";
 import FinanceiroScreen from "./src/screens/FinanceiroScreen";
 import PerfilScreen from "./src/screens/PerfilScreen"; 
 import ConfiguracoesScreen from "./src/screens/ConfiguracoesScreen";
+import EsqueciSenhaScreen from "./src/screens/EsqueciSenhaScreen;"
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();

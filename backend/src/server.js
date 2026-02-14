@@ -9,6 +9,8 @@ import authRoutes from "./routes/auth.routes.js"; // O arquivo correto é este!
 import eventosRoutes from "./routes/eventos.routes.js";
 import financeiroRoutes from "./routes/financeiro.routes.js";
 import notificacoesRoutes from "./routes/notificacoes.routes.js";
+import receitasRoutes from "./routes/receitas.routes.js";
+import despesasRoutes from "./routes/despesas.routes.js";
 
 import { authMiddleware } from "./middlewares/auth.js"; 
 
@@ -32,6 +34,8 @@ app.use(authMiddleware);
 app.use("/eventos", eventosRoutes);
 app.use("/financeiro", financeiroRoutes);
 app.use("/notificacoes", notificacoesRoutes);
+app.use("/receitas", receitasRoutes);
+app.use("/despesas", despesasRoutes);
 
 const PORT = process.env.PORT || 3333;
 app.listen(PORT, () => {

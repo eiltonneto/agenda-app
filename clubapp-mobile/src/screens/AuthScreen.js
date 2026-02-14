@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  Alert, ActivityIndicator, KeyboardAvoidingView, Platform, StatusBar, Animated, 
+  ActivityIndicator, KeyboardAvoidingView, Platform, StatusBar, Animated, 
   ScrollView, Easing
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
@@ -10,10 +10,9 @@ import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
 import Svg, { Defs, LinearGradient as SvgGradient, Stop, Path, Polygon } from 'react-native-svg';
 
-// --- INTEGRAÇÃO COM TEMA GLOBAL ---
 import { useTheme } from "../context/ThemeContext";
 
-// --- COMPONENTE LOGO (EMBUTIDO PARA EVITAR ERRO DE IMPORT) ---
+// --- COMPONENTE LOGO (MANTIDO INTACTO) ---
 const Logo = ({ width = 120, height = 120 }) => {
   return (
     <Svg width={width} height={height} viewBox="0 0 32 32" fill="none">
@@ -54,7 +53,7 @@ const Logo = ({ width = 120, height = 120 }) => {
   );
 };
 
-// --- COMPONENTE INPUT ANIMADO ---
+// --- COMPONENTE INPUT ANIMADO (MANTIDO INTACTO) ---
 const AnimatedInput = ({ icon, placeholder, value, onChangeText, type, secure, onToggleSecure, fieldName, setFocusedField, focusedField, themeColor }) => {
   const focusAnim = useRef(new Animated.Value(0)).current;
 
@@ -67,7 +66,6 @@ const AnimatedInput = ({ icon, placeholder, value, onChangeText, type, secure, o
     }).start();
   }, [focusedField]);
 
-  // Usando a cor do tema passada via props
   const borderColor = focusAnim.interpolate({ inputRange: [0, 1], outputRange: ['#e2e8f0', themeColor] });
   const backgroundColor = focusAnim.interpolate({ inputRange: [0, 1], outputRange: ['#f8fafc', '#f0f9ff'] });
   const scale = focusAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] });
@@ -108,17 +106,15 @@ const AnimatedInput = ({ icon, placeholder, value, onChangeText, type, secure, o
 export default function AuthScreen() {
   const { login, register } = useAuth();
   const navigation = useNavigation();
-  const { theme } = useTheme(); // Hook do tema
-  const colors = theme.colors; // Cores do tema
+  const { theme } = useTheme();
+  const colors = theme.colors;
 
-  // Usamos a cor primária do tema como base
   const THEME_COLOR = colors.primary; 
   const TEXT_DARK = colors.text;   
   const TEXT_GRAY = colors.textSecondary; 
 
   const [isLogin, setIsLogin] = useState(true);
 
-  // Campos
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -128,8 +124,10 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [lembrar, setLembrar] = useState(false);
+  
+  // ⚠️ NOVO ESTADO: Mensagem de erro visual ⚠️
+  const [errorMessage, setErrorMessage] = useState("");
 
-  // --- ANIMAÇÃO DE BOTÃO ---
   const buttonScale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -140,7 +138,6 @@ export default function AuthScreen() {
     Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true, friction: 4, tension: 60 }).start();
   };
 
-  // --- ANIMAÇÃO DE FLIP ---
   const flipAnim = useRef(new Animated.Value(0)).current; 
   const frontInterpolate = flipAnim.interpolate({ inputRange: [0, 180], outputRange: ['0deg', '180deg'] });
   const backInterpolate = flipAnim.interpolate({ inputRange: [0, 180], outputRange: ['180deg', '360deg'] });
@@ -148,6 +145,7 @@ export default function AuthScreen() {
   const backOpacity = flipAnim.interpolate({ inputRange: [89, 90], outputRange: [0, 1] });
 
   const flipCard = () => {
+    setErrorMessage(""); // Limpa o erro ao virar o card
     if (isLogin) {
       Animated.spring(flipAnim, { toValue: 180, friction: 8, tension: 10, useNativeDriver: true }).start();
       setIsLogin(false);
@@ -157,50 +155,54 @@ export default function AuthScreen() {
     }
   };
 
-  // --- TRATAMENTO DE ERROS ---
-  const tratarErro = (error, contexto) => {
+  const tratarErro = (error) => {
     let mensagem = error.response?.data?.error || error.response?.data?.message;
 
     if (!mensagem) {
         if (error.message && error.message.includes("Network Error")) {
-            mensagem = "Sem conexão com a internet.";
+            mensagem = "Sem conexão. Verifique se o servidor está online.";
         } else if (error.code === "ECONNABORTED") {
             mensagem = "O servidor demorou muito para responder.";
         } else {
             mensagem = "Ocorreu um erro inesperado.";
         }
     }
-    Alert.alert(`Erro no ${contexto}`, mensagem);
+    // Em vez de Alert, usamos o estado visual para garantir que funcione na Vercel
+    setErrorMessage(mensagem);
   };
 
   async function handleSubmit() {
     handlePressOut();
+    setErrorMessage(""); // Limpa erros antigos
     
     if (isLogin) {
       if (!email.trim() || !senha.trim()) {
-        return Alert.alert("Atenção", "Preencha e-mail e senha.");
+        return setErrorMessage("Preencha e-mail e senha.");
       }
       setLoading(true);
       try { 
         await login(email, senha); 
       } catch (e) { 
-        tratarErro(e, "Login");
+        tratarErro(e);
       } finally { 
         setLoading(false); 
       }
     } else {
-      if (!nome.trim()) return Alert.alert("Campo Obrigatório", "Digite seu nome.");
-      if (!email.trim()) return Alert.alert("Campo Obrigatório", "Digite seu e-mail.");
-      if (!senha.trim()) return Alert.alert("Campo Obrigatório", "Crie uma senha.");
-      if (senha !== confirmaSenha) return Alert.alert("Ops", "As senhas não conferem.");
-      if (senha.length < 6) return Alert.alert("Senha Fraca", "Mínimo de 6 caracteres.");
+      if (!nome.trim()) return setErrorMessage("Digite seu nome.");
+      if (!email.trim()) return setErrorMessage("Digite seu e-mail.");
+      if (!senha.trim()) return setErrorMessage("Crie uma senha.");
+      if (senha !== confirmaSenha) return setErrorMessage("As senhas não conferem.");
+      if (senha.length < 6) return setErrorMessage("Sua senha deve ter no mínimo 6 caracteres.");
 
       setLoading(true);
       try {
         await register(nome, email, senha);
-        Alert.alert("Sucesso!", "Conta criada. Faça login.", [{ text: "OK", onPress: flipCard }]);
+        // Sucesso no cadastro
+        setIsLogin(true); // Força voltar pro login
+        flipCard();
+        setErrorMessage("Conta criada com sucesso! Faça login.");
       } catch (e) { 
-        tratarErro(e, "Cadastro");
+        tratarErro(e);
       } finally { 
         setLoading(false); 
       }
@@ -209,7 +211,6 @@ export default function AuthScreen() {
 
   return (
     <LinearGradient 
-      // Gradiente suave usando a cor primária bem clara no topo
       colors={[colors.background, '#f0f9ff', '#ffffff']} 
       style={styles.container}
     >
@@ -254,6 +255,15 @@ export default function AuthScreen() {
               </View>
 
               <View style={[styles.formBody, { justifyContent: 'center', flex: 1 }]}>
+                
+                {/* EXIBIÇÃO DE ERRO VISUAL */}
+                {errorMessage !== "" && isLogin && (
+                  <View style={styles.errorContainer}>
+                    <MaterialIcons name="error-outline" size={20} color="#ef4444" />
+                    <Text style={styles.errorText}>{errorMessage}</Text>
+                  </View>
+                )}
+
                 <AnimatedInput 
                     icon="email-outline" placeholder="Seu e-mail" value={email} onChangeText={setEmail} type="email-address" fieldName="emailLogin" 
                     focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR}
@@ -317,6 +327,15 @@ export default function AuthScreen() {
               </View>
 
               <View style={styles.formBody}>
+                
+                {/* EXIBIÇÃO DE ERRO VISUAL */}
+                {errorMessage !== "" && !isLogin && (
+                  <View style={styles.errorContainer}>
+                    <MaterialIcons name="error-outline" size={20} color="#ef4444" />
+                    <Text style={styles.errorText}>{errorMessage}</Text>
+                  </View>
+                )}
+
                 <AnimatedInput icon="account-outline" placeholder="Seu nome completo" value={nome} onChangeText={setNome} fieldName="nome" focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR} />
                 <AnimatedInput icon="email-outline" placeholder="Seu melhor e-mail" value={email} onChangeText={setEmail} type="email-address" fieldName="emailCad" focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR} />
                 <AnimatedInput icon="lock-outline" placeholder="Crie uma senha" value={senha} onChangeText={setSenha} secure={!showPassword} onToggleSecure={() => setShowPassword(!showPassword)} fieldName="senhaCad" focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR} />
@@ -359,7 +378,6 @@ const styles = StyleSheet.create({
   appName: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5, marginTop: 5 },
   tagline: { fontSize: 14, fontWeight: '500', marginTop: 4, letterSpacing: 0.5 },
 
-  // CARTÃO (FACES)
   cardFace: {
     backgroundColor: '#fff', 
     borderRadius: 24, 
@@ -388,6 +406,25 @@ const styles = StyleSheet.create({
 
   formBody: { padding: 24, paddingTop: 5 },
   
+  // ⚠️ ESTILO DO ERRO VISUAL ⚠️
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
+  },
+
   inputContainer: { 
     flexDirection: 'row', 
     alignItems: 'center', 

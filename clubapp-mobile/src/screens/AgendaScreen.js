@@ -206,6 +206,9 @@ export default function AgendaScreen() {
     if (!titulo.trim()) return Alert.alert("Atenção", "Nome do evento é obrigatório.");
     if (horaInicio.length !== 5 || horaFim.length !== 5) return Alert.alert("Atenção", "Preencha o horário (HH:mm).");
 
+    if (horaFim <= horaInicio) {
+    return Alert.alert("Horário Inválido", "A hora de término deve ser maior que a de início.");
+  }
     // TRATAMENTO FINANCEIRO RIGOROSO
     let valorFinal = 0.0;
     
