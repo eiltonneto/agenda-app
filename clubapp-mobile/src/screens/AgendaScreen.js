@@ -10,22 +10,22 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { 
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, 
-  parseISO, setYear, setMonth, isValid
+  parseISO, setYear, setMonth, isValid, addHours // 👈 Adicionado addHours
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 import api from "../services/api";
 import { useTheme } from "../context/ThemeContext";
 
+// ... (PRESET_COLORS e DEFAULT_CATEGORIES permanecem iguais)
 const PRESET_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#f43f5e", "#64748b", "#1e293b"];
-
 const DEFAULT_CATEGORIES = [
   { id: '1', name: 'Geral', color: '#64748b' },
   { id: '2', name: 'Trabalho', color: '#3b82f6' },
   { id: '3', name: 'Lazer', color: '#10b981' }
 ];
 
-export default function AgendaScreen() {
+export default function AgendaScreen({ navigation }) { // Adicionado navigation caso precise
   const { theme } = useTheme();
   const colors = theme.colors;
   const { width: windowWidth } = useWindowDimensions();
@@ -38,31 +38,32 @@ export default function AgendaScreen() {
   const [loading, setLoading] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
-  
-  // ⚠️ ESTADO DE ERRO VISUAL
   const [errorMessage, setErrorMessage] = useState("");
-
   const [selectedEventIds, setSelectedEventIds] = useState([]);
-
   const [modalVisivel, setModalVisivel] = useState(false);
   const [modalPickerVisivel, setModalPickerVisivel] = useState(false);
   const [modalCatVisivel, setModalCatVisivel] = useState(false); 
   const [pickerAno, setPickerAno] = useState(new Date().getFullYear());
-
   const [eventoEditando, setEventoEditando] = useState(null);
   const [titulo, setTitulo] = useState("");
   const [horaInicio, setHoraInicio] = useState(""); 
   const [horaFim, setHoraFim] = useState(""); 
   const [observacao, setObservacao] = useState("");
-  
   const [gerarFinanceiro, setGerarFinanceiro] = useState(false);
   const [valorFinanceiro, setValorFinanceiro] = useState("");
   const [lembreteValor, setLembreteValor] = useState("");
   const [lembreteUnidade, setLembreteUnidade] = useState("MINUTOS"); 
-
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORIES[0]);
   const [catEditing, setCatEditing] = useState({ id: '', name: '', color: '', isNew: true }); 
+
+  // --- ⚠️ FUNÇÃO DE AJUSTE DE FUSO HORÁRIO (COMPENSAÇÃO DE 3 HORAS) ---
+  const getLocalDate = (isoString) => {
+    if (!isoString) return new Date();
+    const date = parseISO(isoString);
+    // Se a data vier com 'Z' (UTC) do banco, somamos 3 horas para o horário de Brasília
+    return isoString.includes('Z') ? addHours(date, 3) : date;
+  };
 
   // --- EFEITOS ---
   useEffect(() => {
@@ -84,12 +85,11 @@ export default function AgendaScreen() {
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true, easing: Easing.out(Easing.exp) }).start();
   }, [currentMonth]);
 
-  // --- FUNÇÃO GLOBAL DE ERROS VISUAIS ---
   const tratarErro = (error) => {
     let mensagem = error.response?.data?.error || "Ocorreu um erro inesperado.";
     if (error.message?.includes("Network Error")) mensagem = "Sem conexão com o servidor.";
     setErrorMessage(mensagem);
-    setTimeout(() => setErrorMessage(""), 5000); // Limpa após 5s
+    setTimeout(() => setErrorMessage(""), 5000);
   };
 
   const carregarDados = useCallback(async () => {
@@ -107,7 +107,7 @@ export default function AgendaScreen() {
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
 
-  // --- LÓGICA DE SELEÇÃO E EXCLUSÃO ---
+  // --- LÓGICA DE EVENTOS ---
   const handleLongPressEvento = (id) => {
     if (selectedEventIds.includes(id)) {
       setSelectedEventIds(selectedEventIds.filter(itemId => itemId !== id));
@@ -132,7 +132,6 @@ export default function AgendaScreen() {
         carregarDados();
       } catch (e) { tratarErro(e); }
     };
-
     if (Platform.OS === 'web') {
       if (window.confirm(`Deseja apagar ${selectedEventIds.length} eventos selecionados?`)) executeDelete();
     } else {
@@ -151,7 +150,6 @@ export default function AgendaScreen() {
         carregarDados();
       } catch (error) { tratarErro(error); }
     };
-
     if (Platform.OS === 'web') {
       if (window.confirm("Deseja apagar este evento?")) executeDelete();
     } else {
@@ -162,7 +160,6 @@ export default function AgendaScreen() {
     }
   };
 
-  // --- MÁSCARAS ---
   const handleTimeMask = (text, setter) => {
     let val = text.replace(/\D/g, "");
     if (val.length >= 3) val = val.slice(0, 2) + ":" + val.slice(2, 4);
@@ -177,7 +174,6 @@ export default function AgendaScreen() {
     setValorFinanceiro(value);
   };
 
-  // --- MODAIS ---
   const abrirModalCriacao = () => {
     setErrorMessage("");
     setEventoEditando(null); 
@@ -197,9 +193,15 @@ export default function AgendaScreen() {
     setEventoEditando(ev); 
     setTitulo(ev.titulo);
     try {
-        setHoraInicio(format(parseISO(ev.inicio), "HH:mm"));
-        setHoraFim(format(parseISO(ev.fim), "HH:mm"));
-    } catch {}
+        // ⚠️ Ajustando exibição das horas ao editar
+        const dataInicio = getLocalDate(ev.inicio);
+        const dataFim = getLocalDate(ev.fim);
+        setHoraInicio(format(dataInicio, "HH:mm"));
+        setHoraFim(format(dataFim, "HH:mm"));
+    } catch {
+        setHoraInicio("");
+        setHoraFim("");
+    }
     setObservacao(ev.descricao || "");
     setGerarFinanceiro(ev.gerarFinanceiro || false);
     setValorFinanceiro(ev.valor ? ev.valor.toFixed(2).replace('.', ',') : "");
@@ -212,10 +214,8 @@ export default function AgendaScreen() {
     setModalVisivel(true); 
   };
 
-  // --- SALVAR EVENTO ---
   const salvarEvento = async () => {
     setErrorMessage(""); 
-
     if (!titulo.trim()) return setErrorMessage("O nome do evento é obrigatório.");
     if (horaInicio.length !== 5 || horaFim.length !== 5) return setErrorMessage("Preencha o horário completo (HH:mm).");
     if (horaFim <= horaInicio) return setErrorMessage("A hora de término deve ser maior que a de início.");
@@ -231,8 +231,7 @@ export default function AgendaScreen() {
     setSalvando(true);
     try {
       const dataIso = format(selectedDate, "yyyy-MM-dd");
-      
-      // ⚠️ FUSO HORÁRIO BLINDADO: Usar formato rígido de string (sem 'Z')
+      // Enviamos sem o 'Z' para o backend tratar como local ou UTC conforme sua config
       const inicioFormatado = `${dataIso}T${horaInicio}:00`;
       const fimFormatado = `${dataIso}T${horaFim}:00`;
 
@@ -292,31 +291,25 @@ export default function AgendaScreen() {
 
   const salvarCategoriaPersistente = async () => {
     if (!catEditing.name?.trim()) return setErrorMessage("O nome da categoria é obrigatório.");
-    
     let novaLista;
     if (catEditing.isNew) {
       novaLista = [...categories, { id: catEditing.id, name: catEditing.name, color: catEditing.color }];
     } else {
       novaLista = categories.map(c => c.id === catEditing.id ? catEditing : c);
     }
-
     setCategories(novaLista);
     await AsyncStorage.setItem("@YourFlow:categories", JSON.stringify(novaLista));
-    
     if (catEditing.isNew || selectedCategory.id === catEditing.id) {
         setSelectedCategory(catEditing.isNew ? novaLista[novaLista.length - 1] : catEditing);
     }
-    
     setModalCatVisivel(false);
   };
 
   const excluirCategoriaPersistente = async () => {
     if (categories.length <= 1) return setErrorMessage("Mantenha ao menos uma categoria.");
-    
     const novaLista = categories.filter(c => c.id !== catEditing.id);
     setCategories(novaLista);
     await AsyncStorage.setItem("@YourFlow:categories", JSON.stringify(novaLista));
-    
     setSelectedCategory(novaLista[0]);
     setModalCatVisivel(false);
   };
@@ -373,7 +366,6 @@ export default function AgendaScreen() {
         )}
       </View>
 
-      {/* ⚠️ ERRO VISUAL GLOBAL (TELA PRINCIPAL) */}
       {errorMessage !== "" && !modalVisivel && !modalCatVisivel && (
         <View style={[styles.errorContainer, { marginHorizontal: 20 }]}>
           <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
@@ -392,7 +384,11 @@ export default function AgendaScreen() {
           {days.map(day => {
             const isSelected = isSameDay(day, selectedDate);
             const isToday = isSameDay(day, new Date());
-            const dayEvents = eventos.filter(e => { try { return isSameDay(parseISO(e.inicio), day); } catch { return false; } });
+            // ⚠️ CORREÇÃO: Usando getLocalDate para filtrar eventos no calendário
+            const dayEvents = eventos.filter(e => { 
+                try { return isSameDay(getLocalDate(e.inicio), day); } 
+                catch { return false; } 
+            });
             const cellWidth = (windowWidth - (isDesktop ? 120 : 20)) / 7;
 
             return (
@@ -428,8 +424,8 @@ export default function AgendaScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* LISTAGEM DOS CARDS (LIMPA E OTIMIZADA) */}
-          {eventos.filter(e => { try { return isSameDay(parseISO(e.inicio), selectedDate); } catch { return false; } }).map(ev => {
+          {/* ⚠️ CORREÇÃO: Usando getLocalDate para listar eventos do dia selecionado */}
+          {eventos.filter(e => { try { return isSameDay(getLocalDate(e.inicio), selectedDate); } catch { return false; } }).map(ev => {
              const isSelected = selectedEventIds.includes(ev.id);
              return (
               <View 
@@ -454,14 +450,14 @@ export default function AgendaScreen() {
                     {ev.titulo}
                   </Text>
                   
-                  {/* ⚠️ CORREÇÃO: NOME DA CATEGORIA NO CARD */}
                   <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 6, flexWrap: 'wrap'}}>
                      <View style={[styles.dotCategory, {backgroundColor: ev.cor_categoria || colors.primary}]} />
                      <Text style={{fontSize: 12, fontWeight: '800', color: colors.textSecondary, marginRight: 8, textTransform: 'uppercase'}}>
                         {ev.tipo || "GERAL"}
                      </Text>
                      <Text style={[styles.cardInfo, {color: colors.textSecondary}]}>
-                       • {isValid(parseISO(ev.inicio)) ? format(parseISO(ev.inicio), "HH:mm") : "--:--"} às {isValid(parseISO(ev.fim)) ? format(parseISO(ev.fim), "HH:mm") : "--:--"}
+                        {/* ⚠️ CORREÇÃO: Exibindo horas corretamente com o ajuste de fuso */}
+                        • {isValid(getLocalDate(ev.inicio)) ? format(getLocalDate(ev.inicio), "HH:mm") : "--:--"} às {isValid(getLocalDate(ev.fim)) ? format(getLocalDate(ev.fim), "HH:mm") : "--:--"}
                      </Text>
                   </View>
                 </TouchableOpacity>
@@ -473,7 +469,7 @@ export default function AgendaScreen() {
             )
           })}
           
-          {eventos.filter(e => { try { return isSameDay(parseISO(e.inicio), selectedDate); } catch { return false; } }).length === 0 && (
+          {eventos.filter(e => { try { return isSameDay(getLocalDate(e.inicio), selectedDate); } catch { return false; } }).length === 0 && (
              <Text style={styles.emptyText}>Nenhum agendamento para este dia.</Text>
           )}
         </View>

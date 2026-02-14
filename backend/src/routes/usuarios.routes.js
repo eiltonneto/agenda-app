@@ -7,7 +7,7 @@ import { authMiddleware } from "../middlewares/auth.js";
 
 const router = Router();
 
-// --- CONFIGURAÇÃO DO MULTER (100% ES Modules) ---
+// --- CONFIGURAÇÃO DO MULTER ---
 const upload = multer({
   storage: multer.diskStorage({
     // Define a pasta de destino (na raiz do seu backend)

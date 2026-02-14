@@ -28,10 +28,11 @@ model Evento {
   tipo             String   // Você pode mudar para TipoEvento depois
   cor_categoria    String
   descricao        String?
-  categoria_id     String?  // 👈 Representa o local físico (Campo 1, Campo 2, etc)
-  lembrete_minutos Int?     // 👈 Corrigido o erro de sintaxe aqui
+  categoria_id     String?  // Representa o local físico (Campo 1, Campo 2, etc)
+  lembrete_minutos Int?     
   usuarioId        Int
   usuario          Usuario  @relation(fields: [usuarioId], references: [id])
+  comparecido      Boolean @default(false)
 
   @@index([categoria_id])   // Melhora a performance na busca por conflito de local
 }

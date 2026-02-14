@@ -65,39 +65,44 @@ export default function PerfilScreen() {
   }
 
   async function handleUploadPhoto(localUri) {
-    setUploading(true);
-    try {
-      const filename = localUri.split('/').pop();
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image/jpeg`;
+  setUploading(true);
+  try {
+    const filename = localUri.split('/').pop();
+    
+    // Melhora a detecção da extensão
+    const ext = filename.split('.').pop();
+    const type = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
 
-      const uriFinal = Platform.OS === 'android' ? localUri : localUri.replace('file://', '');
+    const formData = new FormData();
+    
+    // Criando o objeto do arquivo de forma explícita
+    formData.append('foto', {
+      uri: Platform.OS === 'android' ? localUri : localUri.replace('file://', ''),
+      name: `profile_${user.id}_${Date.now()}.${ext}`, // Nome limpo e único
+      type,
+    });
 
-      const formData = new FormData();
-      // ⚠️ Atenção: Se o seu backend espera 'avatar' em vez de 'foto', mude o nome aqui
-      formData.append('foto', { 
-        uri: uriFinal, 
-        name: filename, 
-        type 
-      });
+    const response = await api.patch("/usuarios/foto", formData, {
+      headers: { 
+        'Content-Type': 'multipart/form-data',
+        'Accept': 'application/json' 
+      },
+    });
 
-      const response = await api.patch("/usuarios/foto", formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      // Atualiza o contexto global com os novos dados do usuário retornados pelo backend
-      if (response.data) updateUser(response.data); 
-
-    } catch (error) {
-      console.error("Erro Upload:", error);
-      setErrorMessage("Não conseguimos enviar sua foto ao servidor.");
-      // Se der erro, reverte para a foto antiga
-      setLocalAvatar(user?.foto ? `${API_URL}/uploads/${user.foto}` : null);
-    } finally {
-      setUploading(false);
+    if (response.data) {
+      updateUser(response.data);
+      Alert.alert("Sucesso", "Foto de perfil atualizada!");
     }
-  }
 
+  } catch (error) {
+    console.error("Erro detalhado do Upload:", error.response?.data || error.message);
+    setErrorMessage("Não conseguimos salvar sua foto. Verifique a conexão.");
+    // Reverte a foto em caso de falha
+    setLocalAvatar(user?.foto ? `${API_URL}/uploads/${user.foto}` : null);
+  } finally {
+    setUploading(false);
+  }
+}
   // --- LÓGICA DE SENHA ---
   function validarSenha(senha) {
     const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;

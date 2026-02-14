@@ -79,7 +79,7 @@ router.post("/", async (req, res) => {
         
         await tx.receita.create({
           data: {
-            descricao: `Racha: ${titulo}`,
+            descricao: `${tipo}: ${titulo}`,
             valor: valorNumerico,
             tipo: "OUTRO", 
             dataPrevista: dataInicio,
