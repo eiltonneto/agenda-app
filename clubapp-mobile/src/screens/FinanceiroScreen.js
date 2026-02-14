@@ -36,6 +36,9 @@ export default function FinanceiroScreen() {
   const [dataReferencia, setDataReferencia] = useState(new Date());
   const [abaAtiva, setAbaAtiva] = useState("DESPESA"); 
   
+  // ⚠️ NOVO ESTADO: Mensagem de erro visual 
+  const [errorMessage, setErrorMessage] = useState("");
+  
   const [resumoRealizado, setResumoRealizado] = useState({ receitas: 0, despesas: 0, saldo: 0 });
   const [resumoPrevisto, setResumoPrevisto] = useState({ receitas: 0, despesas: 0, saldo: 0 });
   
@@ -64,12 +67,13 @@ export default function FinanceiroScreen() {
 
   // Formulário
   const [descricao, setDescricao] = useState("");
+  const [observacao, setObservacao] = useState(""); // ⚠️ NOVO CAMPO: Observação detalhada
   const [valor, setValor] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [dataSelecionadaForm, setDataSelecionadaForm] = useState(new Date()); 
   const [status, setStatus] = useState("PENDENTE");
 
-  // --- ATALHOS ---
+  // --- ATALHOS WEB ---
   useEffect(() => {
     if (Platform.OS === 'web') {
       const handleEsc = (e) => { 
@@ -84,6 +88,32 @@ export default function FinanceiroScreen() {
       return () => window.removeEventListener("keydown", handleEsc);
     }
   }, [modalCatVisivel, modalVisivel, modalMesAnoVisivel]);
+
+  // --- MÁSCARA DE MOEDA (BRL) ---
+  const handleMoneyMask = (text) => {
+    let val = text.replace(/\D/g, ""); // Remove tudo que não for número
+    if (!val) { setValor(""); return; }
+    
+    val = (Number(val) / 100).toFixed(2); // Transforma em decimal
+    val = val.replace(".", ","); // Troca ponto por vírgula
+    val = val.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1."); // Adiciona pontos de milhar
+    
+    setValor(val);
+  };
+
+  const formatarValorInicial = (num) => {
+    if (!num) return "";
+    let val = Number(num).toFixed(2).replace(".", ",");
+    return val.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+  };
+
+  // --- FUNÇÃO GLOBAL DE ERROS VISUAIS ---
+  const tratarErro = (error) => {
+    let mensagem = error.response?.data?.error || error.response?.data?.message || "Ocorreu um erro inesperado.";
+    if (error.message?.includes("Network Error")) mensagem = "Sem conexão com o servidor.";
+    setErrorMessage(mensagem);
+    setTimeout(() => setErrorMessage(""), 5000); 
+  };
 
   // --- LÓGICA DE DADOS ---
   const calcularResumos = (lista) => {
@@ -107,6 +137,7 @@ export default function FinanceiroScreen() {
 
   const carregarDados = useCallback(async () => {
     setLoading(true);
+    setErrorMessage("");
     try {
       const mes = dataReferencia.getMonth() + 1; 
       const ano = dataReferencia.getFullYear();
@@ -122,7 +153,7 @@ export default function FinanceiroScreen() {
       const todas = [...receitas, ...despesas];
       calcularResumos(todas);
       setTransacoes(abaAtiva === "RECEITA" ? receitas : despesas);
-    } catch (error) { console.log("Erro carregar dados:", error.message); } 
+    } catch (error) { tratarErro(error); } 
     finally { setLoading(false); }
   }, [dataReferencia, abaAtiva]);
 
@@ -134,9 +165,17 @@ export default function FinanceiroScreen() {
         ? (item.status === "RECEBIDA" ? "PENDENTE" : "RECEBIDA") 
         : (item.status === "PAGA" ? "PENDENTE" : "PAGA");
       const endpoint = abaAtiva === "RECEITA" ? "/receitas" : "/despesas";
+      
+      // Atualização otimista
+      const atualizados = transacoes.map(t => t.id === item.id ? { ...t, status: novoStatus } : t);
+      setTransacoes(atualizados);
+      
       await api.patch(`${endpoint}/${item.id}/status`, { status: novoStatus }); 
       carregarDados(); 
-    } catch (e) { Alert.alert("Erro", "Falha ao atualizar status."); }
+    } catch (e) { 
+      tratarErro(e);
+      carregarDados(); // Reverte em caso de erro
+    }
   };
 
   // --- EXCLUIR MÚLTIPLOS (HEADER) ---
@@ -146,14 +185,10 @@ export default function FinanceiroScreen() {
             setLoading(true);
             const route = abaAtiva === "RECEITA" ? "/receitas" : "/despesas";
             await Promise.all(selectedIds.map(id => api.delete(`${route}/${id}`)));
-            setSelectedIds([]); // Limpa seleção
+            setSelectedIds([]); 
             carregarDados();
-        } catch (err) { 
-            console.error(err);
-            Alert.alert("Erro", "Falha ao excluir itens selecionados."); 
-        } finally {
-            setLoading(false);
-        }
+        } catch (err) { tratarErro(err); } 
+        finally { setLoading(false); }
     };
 
     if (Platform.OS === 'web') {
@@ -172,7 +207,7 @@ export default function FinanceiroScreen() {
           const route = abaAtiva === "RECEITA" ? "/receitas" : "/despesas";
           await api.delete(`${route}/${item.id}`);
           carregarDados();
-        } catch (e) { Alert.alert("Erro", "Não foi possível excluir."); }
+        } catch (e) { tratarErro(e); }
     };
     if (Platform.OS === 'web') {
       if(window.confirm(`Excluir "${item.descricao}"?`)) execute();
@@ -191,7 +226,7 @@ export default function FinanceiroScreen() {
           await api.delete(`${route}/${transacaoEditando.id}`);
           setModalVisivel(false);
           carregarDados();
-        } catch (e) { Alert.alert("Erro", "Não foi possível excluir."); }
+        } catch (e) { tratarErro(e); }
     };
     if (Platform.OS === 'web') {
       if(window.confirm("Deseja realmente excluir este lançamento?")) executeDelete();
@@ -205,8 +240,10 @@ export default function FinanceiroScreen() {
 
   // --- MODAIS ---
   const abrirModalNovo = () => {
+    setErrorMessage("");
     setTransacaoEditando(null);
     setDescricao("");
+    setObservacao("");
     setValor("");
     setDataSelecionadaForm(new Date());
     setShowInlineDatePicker(false);
@@ -218,9 +255,11 @@ export default function FinanceiroScreen() {
   };
 
   const abrirModalEditar = (item) => {
+    setErrorMessage("");
     setTransacaoEditando(item);
     setDescricao(item.descricao);
-    setValor(String(item.valor));
+    setObservacao(item.observacao || ""); // Carrega a observação se existir
+    setValor(formatarValorInicial(item.valor)); // ⚠️ Aplica a máscara no valor do banco
     setShowInlineDatePicker(false);
     
     const catId = item.categoria_id;
@@ -241,38 +280,33 @@ export default function FinanceiroScreen() {
     setModalVisivel(true);
   };
 
-  // --- SALVAR BLINDADO PARA JAVA (CORREÇÃO ERRO 500) ---
+  // --- SALVAR BLINDADO ---
   const salvarTransacao = async () => {
-    if (!descricao.trim()) return Alert.alert("Atenção", "Digite uma descrição.");
-    if (!valor) return Alert.alert("Atenção", "Digite um valor.");
-    if (!selectedCategory) return Alert.alert("Atenção", "Selecione uma categoria.");
+    setErrorMessage("");
 
-    const valorFloat = parseFloat(valor.replace(',', '.'));
-    if (isNaN(valorFloat) || valorFloat <= 0) return Alert.alert("Erro", "Valor inválido.");
+    if (!descricao.trim()) return setErrorMessage("Digite um título/nome para o lançamento.");
+    if (!valor) return setErrorMessage("Digite um valor válido.");
+    if (!selectedCategory) return setErrorMessage("Selecione uma categoria.");
+
+    // Converte de "1.240,50" para o formato do banco "1240.50"
+    const valorLimpo = valor.replace(/\./g, '').replace(',', '.');
+    const valorFloat = parseFloat(valorLimpo);
+    
+    if (isNaN(valorFloat) || valorFloat <= 0) return setErrorMessage("Valor inválido.");
     
     try {
-      // FORMATAÇÃO DE DATA SEGURA PARA JAVA (yyyy-MM-dd)
-      // O .toISOString() retorna algo como "2026-02-12T15:00:00.000Z"
-      // O split('T')[0] pega só a parte da data "2026-02-12"
       const dataFormatada = format(dataSelecionadaForm, "yyyy-MM-dd");
 
-const payload = { 
-  descricao: descricao.trim(), 
-  valor: valorFloat, 
-  status: status,
-  [abaAtiva === "RECEITA" ? "dataPrevista" : "dataVencimento"]: dataFormatada,
-  // ⚠️ IMPORTANTE: O Prisma espera o valor do ENUM, não o ID da categoria local
-  [abaAtiva === "RECEITA" ? "tipo" : "categoria"]: selectedCategory.backendType || "OUTRO",
-};
-
-      // TIPO/CATEGORIA (ENUM DO JAVA)
-      const tipoSeguro = selectedCategory.backendType || "OUTRO";
-      if (abaAtiva === "RECEITA") payload.tipo = tipoSeguro; 
-      else payload.categoria = tipoSeguro;
+      const payload = { 
+        descricao: descricao.trim(), 
+        observacao: observacao.trim(), // ⚠️ NOVO CAMPO
+        valor: valorFloat, 
+        status: status,
+        [abaAtiva === "RECEITA" ? "dataPrevista" : "dataVencimento"]: dataFormatada,
+        [abaAtiva === "RECEITA" ? "tipo" : "categoria"]: selectedCategory.backendType || "OUTRO",
+      };
 
       const route = abaAtiva === "RECEITA" ? "/receitas" : "/despesas";
-
-      console.log("Enviando Payload:", payload); // Debug no console
 
       if (transacaoEditando) {
         await api.put(`${route}/${transacaoEditando.id}`, payload);
@@ -282,29 +316,27 @@ const payload = {
       
       setModalVisivel(false); 
       carregarDados();
-      Alert.alert("Sucesso", "Salvo com sucesso!");
-
     } catch (e) { 
-      console.error("Erro API:", e.response?.data || e.message);
-      // Mensagem mais amigável
-      const msgErro = e.response?.data?.message || "Verifique se os dados estão corretos (Data/Valor).";
-      Alert.alert("Erro ao Salvar", msgErro); 
+      tratarErro(e);
     }
   };
 
   // --- GESTÃO DE CATEGORIAS ---
   const abrirNovaCategoria = () => {
+    setErrorMessage("");
     setCatEditing({ id: Date.now().toString(), name: "", color: PRESET_COLORS[0], type: abaAtiva, backendType: 'OUTRO', isNew: true });
     setModalCatVisivel(true);
   };
 
   const abrirEditarCategoria = (cat) => {
+    setErrorMessage("");
     setCatEditing({ ...cat, isNew: false });
     setModalCatVisivel(true);
   };
 
   const salvarCategoria = () => {
-    if (!catEditing.name?.trim()) return Alert.alert("Atenção", "Nome obrigatório.");
+    if (!catEditing.name?.trim()) return setErrorMessage("Nome da categoria é obrigatório.");
+    
     const categoriaSegura = { ...catEditing, backendType: catEditing.backendType || 'OUTRO' };
     if (catEditing.isNew) {
       setCategories([...categories, categoriaSegura]);
@@ -359,6 +391,14 @@ const payload = {
           </View>
         )}
       </View>
+
+      {/* ⚠️ ERRO VISUAL GERAL DA TELA */}
+      {errorMessage !== "" && !modalVisivel && !modalCatVisivel && (
+        <View style={[styles.errorContainer, { marginHorizontal: 20, marginTop: 15 }]}>
+          <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        </View>
+      )}
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         
@@ -472,15 +512,42 @@ const payload = {
               <Text style={[styles.modalSaaSTitle, {color: colors.text}]}>{transacaoEditando ? "Editar" : "Novo"} Lançamento</Text>
               <TouchableOpacity onPress={() => setModalVisivel(false)}><Ionicons name="close" size={28} color={colors.text}/></TouchableOpacity>
             </View>
+
+            {/* ⚠️ ERRO VISUAL DENTRO DO MODAL */}
+            {errorMessage !== "" && (
+              <View style={[styles.errorContainer, { marginBottom: 15 }]}>
+                <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
             
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.label}>DESCRIÇÃO</Text>
+              
+              <Text style={styles.label}>TÍTULO</Text>
               <TextInput style={[styles.inputSaaS, {color: colors.text, backgroundColor: colors.inputBackground}]} value={descricao} onChangeText={setDescricao} placeholder="Ex: Mensalidade Academia" placeholderTextColor="#999" />
               
+              {/* ⚠️ NOVO CAMPO DE DESCRIÇÃO / OBSERVAÇÕES */}
+              <Text style={styles.label}>DESCRIÇÃO / OBSERVAÇÕES (Opcional)</Text>
+              <TextInput 
+                style={[styles.inputSaaS, {color: colors.text, backgroundColor: colors.inputBackground, height: 60, paddingTop: 12}]} 
+                value={observacao} 
+                onChangeText={setObservacao} 
+                multiline
+                placeholder="Detalhes adicionais..." 
+                placeholderTextColor="#999" 
+              />
+
               <View style={{ flexDirection: 'row', gap: 15 }}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.label}>VALOR R$</Text>
-                  <TextInput style={[styles.inputSaaS, {color: colors.text, backgroundColor: colors.inputBackground}]} value={valor} onChangeText={setValor} keyboardType="numeric" placeholder="0,00" placeholderTextColor="#999" />
+                  <TextInput 
+                     style={[styles.inputSaaS, {color: colors.text, backgroundColor: colors.inputBackground, fontWeight: 'bold'}]} 
+                     value={valor} 
+                     onChangeText={handleMoneyMask} // ⚠️ MÁSCARA APLICADA AQUI
+                     keyboardType="numeric" 
+                     placeholder="0,00" 
+                     placeholderTextColor="#999" 
+                  />
                 </View>
               </View>
 
@@ -575,6 +642,13 @@ const payload = {
           <View style={[styles.modalCatContent, {backgroundColor: colors.surface}]}>
             <Text style={[styles.modalCatTitle, {color: colors.text}]}>{catEditing?.isNew ? "Criar Categoria" : "Editar Categoria"}</Text>
             
+            {errorMessage !== "" && (
+              <View style={[styles.errorContainer, { marginBottom: 15 }]}>
+                <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
+
             <Text style={styles.label}>NOME DA CATEGORIA</Text>
             <TextInput 
               style={[styles.inputSaaS, {backgroundColor: colors.inputBackground, color: colors.text}]} 
@@ -598,7 +672,7 @@ const payload = {
                 </TouchableOpacity>
               )}
               <View style={{flexDirection: 'row', gap: 10, flex: 1, justifyContent: 'flex-end'}}>
-                <TouchableOpacity onPress={() => setModalCatVisivel(false)} style={styles.btnCancelCat}>
+                <TouchableOpacity onPress={() => {setModalCatVisivel(false); setErrorMessage("");}} style={styles.btnCancelCat}>
                    <Text style={{fontWeight:'bold', color: colors.textSecondary}}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={salvarCategoria} style={[styles.btnSaveCat, {backgroundColor: colors.primary}]}>
@@ -677,5 +751,24 @@ const styles = StyleSheet.create({
   btnCancelCat: { padding: 10, marginRight: 10 },
   btnSaveCat: { paddingHorizontal: 15, paddingVertical: 10, borderRadius: 10 },
   linkAction: { fontWeight: 'bold', fontSize: 12 },
-  hintText: { fontSize: 10, color: '#ccc', fontStyle: 'italic', marginBottom: 15 }
+  hintText: { fontSize: 10, color: '#ccc', fontStyle: 'italic', marginBottom: 15 },
+  
+  // ⚠️ ESTILOS DO ERRO VISUAL
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
+  },
 });

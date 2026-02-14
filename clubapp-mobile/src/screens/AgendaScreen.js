@@ -6,7 +6,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // IMPORTANTE PARA SALVAR CATEGORIAS
+import AsyncStorage from "@react-native-async-storage/async-storage"; 
 import { 
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, 
@@ -19,11 +19,10 @@ import { useTheme } from "../context/ThemeContext";
 
 const PRESET_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#f43f5e", "#64748b", "#1e293b"];
 
-// Categorias Padrão (caso não tenha nada salvo)
 const DEFAULT_CATEGORIES = [
-    { id: '1', name: 'Geral', color: '#64748b' },
-    { id: '2', name: 'Trabalho', color: '#3b82f6' },
-    { id: '3', name: 'Lazer', color: '#10b981' }
+  { id: '1', name: 'Geral', color: '#64748b' },
+  { id: '2', name: 'Trabalho', color: '#3b82f6' },
+  { id: '3', name: 'Lazer', color: '#10b981' }
 ];
 
 export default function AgendaScreen() {
@@ -39,37 +38,33 @@ export default function AgendaScreen() {
   const [loading, setLoading] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
+  
+  // ⚠️ ESTADO DE ERRO VISUAL
+  const [errorMessage, setErrorMessage] = useState("");
 
-  // Seleção Múltipla
   const [selectedEventIds, setSelectedEventIds] = useState([]);
 
-  // Modais
   const [modalVisivel, setModalVisivel] = useState(false);
   const [modalPickerVisivel, setModalPickerVisivel] = useState(false);
   const [modalCatVisivel, setModalCatVisivel] = useState(false); 
   const [pickerAno, setPickerAno] = useState(new Date().getFullYear());
 
-  // Formulário Evento
   const [eventoEditando, setEventoEditando] = useState(null);
   const [titulo, setTitulo] = useState("");
   const [horaInicio, setHoraInicio] = useState(""); 
   const [horaFim, setHoraFim] = useState(""); 
   const [observacao, setObservacao] = useState("");
   
-  // Financeiro e Lembretes
   const [gerarFinanceiro, setGerarFinanceiro] = useState(false);
   const [valorFinanceiro, setValorFinanceiro] = useState("");
   const [lembreteValor, setLembreteValor] = useState("");
-  const [lembreteUnidade, setLembreteUnidade] = useState("MINUTOS"); // MINUTOS, HORAS, DIAS
+  const [lembreteUnidade, setLembreteUnidade] = useState("MINUTOS"); 
 
-  // Categorias (Gerenciadas via AsyncStorage)
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORIES[0]);
   const [catEditing, setCatEditing] = useState({ id: '', name: '', color: '', isNew: true }); 
 
   // --- EFEITOS ---
-  
-  // 1. Carregar Categorias Salvas ao abrir
   useEffect(() => {
     async function loadCategories() {
         try {
@@ -77,7 +72,6 @@ export default function AgendaScreen() {
             if (saved) {
                 const parsed = JSON.parse(saved);
                 setCategories(parsed);
-                // Garante que a selecionada existe
                 if (parsed.length > 0) setSelectedCategory(parsed[0]);
             }
         } catch (e) { console.log("Erro carregar categorias", e); }
@@ -85,21 +79,27 @@ export default function AgendaScreen() {
     loadCategories();
   }, []);
 
-  // 2. Animação Calendário
   useEffect(() => {
     fadeAnim.setValue(0);
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true, easing: Easing.out(Easing.exp) }).start();
   }, [currentMonth]);
 
-  // --- CARREGAR DADOS DA API ---
+  // --- FUNÇÃO GLOBAL DE ERROS VISUAIS ---
+  const tratarErro = (error) => {
+    let mensagem = error.response?.data?.error || "Ocorreu um erro inesperado.";
+    if (error.message?.includes("Network Error")) mensagem = "Sem conexão com o servidor.";
+    setErrorMessage(mensagem);
+    setTimeout(() => setErrorMessage(""), 5000); // Limpa após 5s
+  };
+
   const carregarDados = useCallback(async () => {
     setLoading(true);
+    setErrorMessage("");
     try {
       const res = await api.get('/eventos');
-      const dados = Array.isArray(res.data) ? res.data : [];
-      setEventos(dados);
+      setEventos(Array.isArray(res.data) ? res.data : []);
     } catch (err) { 
-        console.log("Erro ao carregar agenda:", err.message); 
+        tratarErro(err);
     } finally { 
         setLoading(false); 
     }
@@ -107,7 +107,7 @@ export default function AgendaScreen() {
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
 
-  // --- LÓGICA DE SELEÇÃO MÚLTIPLA ---
+  // --- LÓGICA DE SELEÇÃO E EXCLUSÃO ---
   const handleLongPressEvento = (id) => {
     if (selectedEventIds.includes(id)) {
       setSelectedEventIds(selectedEventIds.filter(itemId => itemId !== id));
@@ -118,30 +118,48 @@ export default function AgendaScreen() {
 
   const handlePressEvento = (ev) => {
     if (selectedEventIds.length > 0) {
-      // Se já tem itens selecionados, o toque apenas seleciona/deseleciona
       handleLongPressEvento(ev.id);
     } else {
-      // Se não tem seleção, abre a edição
       abrirModalEdicao(ev);
     }
   };
 
   const excluirSelecionados = () => {
-    Alert.alert("Excluir Vários", `Deseja apagar ${selectedEventIds.length} eventos selecionados?`, [
-      { text: "Cancelar" },
-      { text: "Sim, Excluir", style: "destructive", onPress: async () => {
-          try {
-            // Executa todas as exclusões em paralelo
-            await api.post("/eventos/excluir-massa", {
-              ids: selectedEventIds
-            });
-            setSelectedEventIds([]); // Limpa seleção
-            carregarDados(); // Recarrega lista
-          } catch (e) {
-            Alert.alert("Erro", "Falha ao excluir alguns itens.");
-          }
-      }}
-    ]);
+    const executeDelete = async () => {
+      try {
+        await api.post("/eventos/excluir-massa", { ids: selectedEventIds });
+        setSelectedEventIds([]);
+        carregarDados();
+      } catch (e) { tratarErro(e); }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Deseja apagar ${selectedEventIds.length} eventos selecionados?`)) executeDelete();
+    } else {
+      Alert.alert("Excluir Vários", `Deseja apagar ${selectedEventIds.length} eventos selecionados?`, [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Sim, Excluir", style: "destructive", onPress: executeDelete }
+      ]);
+    }
+  };
+
+  const handleExcluirEvento = (id) => {
+    const executeDelete = async () => {
+      try {
+        await api.delete(`/eventos/${id}`);
+        setModalVisivel(false); 
+        carregarDados();
+      } catch (error) { tratarErro(error); }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm("Deseja apagar este evento?")) executeDelete();
+    } else {
+      Alert.alert("Excluir", "Apagar este evento?", [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Excluir", style: "destructive", onPress: executeDelete }
+      ]);
+    }
   };
 
   // --- MÁSCARAS ---
@@ -153,32 +171,29 @@ export default function AgendaScreen() {
 
   const handleMoneyMask = (text) => {
     let value = text.replace(/\D/g, "");
-    // Divide por 100 para ter os centavos (ex: 1500 -> 15.00)
     value = (Number(value) / 100).toFixed(2) + "";
     value = value.replace(".", ",");
-    // Adiciona ponto de milhar
     value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
     setValorFinanceiro(value);
   };
 
   // --- MODAIS ---
   const abrirModalCriacao = () => {
+    setErrorMessage("");
     setEventoEditando(null); 
     setTitulo(""); 
     setHoraInicio(""); 
     setHoraFim(""); 
     setObservacao("");
-    
     setGerarFinanceiro(false);
     setValorFinanceiro("");
-    
     setLembreteValor("");
     setLembreteUnidade("MINUTOS");
-
     setModalVisivel(true); 
   };
 
   const abrirModalEdicao = (ev) => {
+    setErrorMessage("");
     setEventoEditando(ev); 
     setTitulo(ev.titulo);
     try {
@@ -186,12 +201,8 @@ export default function AgendaScreen() {
         setHoraFim(format(parseISO(ev.fim), "HH:mm"));
     } catch {}
     setObservacao(ev.descricao || "");
-    
     setGerarFinanceiro(ev.gerarFinanceiro || false);
-    // Formata o valor double do banco para string brasileira visual
     setValorFinanceiro(ev.valor ? ev.valor.toFixed(2).replace('.', ',') : "");
-
-    // Lembretes
     setLembreteValor(ev.lembreteValor ? String(ev.lembreteValor) : "");
     setLembreteUnidade(ev.lembreteUnidade || "MINUTOS");
     
@@ -201,52 +212,43 @@ export default function AgendaScreen() {
     setModalVisivel(true); 
   };
 
-  // --- SALVAR EVENTO (LÓGICA BLINDADA ERRO 500) ---
+  // --- SALVAR EVENTO ---
   const salvarEvento = async () => {
-    if (!titulo.trim()) return Alert.alert("Atenção", "Nome do evento é obrigatório.");
-    if (horaInicio.length !== 5 || horaFim.length !== 5) return Alert.alert("Atenção", "Preencha o horário (HH:mm).");
+    setErrorMessage(""); 
 
-    if (horaFim <= horaInicio) {
-    return Alert.alert("Horário Inválido", "A hora de término deve ser maior que a de início.");
-  }
-    // TRATAMENTO FINANCEIRO RIGOROSO
+    if (!titulo.trim()) return setErrorMessage("O nome do evento é obrigatório.");
+    if (horaInicio.length !== 5 || horaFim.length !== 5) return setErrorMessage("Preencha o horário completo (HH:mm).");
+    if (horaFim <= horaInicio) return setErrorMessage("A hora de término deve ser maior que a de início.");
+
     let valorFinal = 0.0;
-    
     if (gerarFinanceiro) {
-      if (!valorFinanceiro) return Alert.alert("Erro", "Informe o valor financeiro.");
-      
-      // Remove pontos de milhar e troca vírgula por ponto
-      // Ex: "1.200,50" -> "1200.50"
+      if (!valorFinanceiro) return setErrorMessage("Informe o valor financeiro.");
       const valorLimpo = valorFinanceiro.replace(/\./g, '').replace(',', '.');
       valorFinal = parseFloat(valorLimpo);
-
-      if (isNaN(valorFinal) || valorFinal <= 0) {
-        return Alert.alert("Erro", "Valor inválido. Use o formato 0,00");
-      }
+      if (isNaN(valorFinal) || valorFinal <= 0) return setErrorMessage("Valor financeiro inválido.");
     }
 
     setSalvando(true);
     try {
       const dataIso = format(selectedDate, "yyyy-MM-dd");
       
+      // ⚠️ FUSO HORÁRIO BLINDADO: Usar formato rígido de string (sem 'Z')
+      const inicioFormatado = `${dataIso}T${horaInicio}:00`;
+      const fimFormatado = `${dataIso}T${horaFim}:00`;
+
       const payload = {
         titulo: titulo.trim(),
-        inicio: `${dataIso}T${horaInicio}:00`,
-        fim: `${dataIso}T${horaFim}:00`,
+        inicio: inicioFormatado, 
+        fim: fimFormatado,
         categoria_id: selectedCategory.id,
         tipo: selectedCategory.name, 
         cor_categoria: selectedCategory.color,
         descricao: observacao || "",
-        
-        // DADOS ESPECÍFICOS PARA O BACKEND
         gerarFinanceiro: Boolean(gerarFinanceiro),
-        valor: valorFinal, // Agora é um Number puro (Double), não string
-        tipoFinanceiro: "RECEITA", // Segue a lógica solicitada
-        
-        // DADOS DE LEMBRETE
+        valor: valorFinal,
+        tipoFinanceiro: "RECEITA",
         lembreteValor: lembreteValor ? parseInt(lembreteValor) : null,
         lembreteUnidade: lembreteUnidade,
-        
         status: "PENDENTE",
         comparecido: false
       };
@@ -259,54 +261,37 @@ export default function AgendaScreen() {
 
       setModalVisivel(false);
       carregarDados();
-      
-      Alert.alert("Sucesso", gerarFinanceiro ? "Evento e Receita criados!" : "Evento agendado!");
-
     } catch (e) {
-      console.error("ERRO API:", e.response?.data);
-      // Fallback para mensagem de erro genérica se não vier do backend
-      const msgErro = e.response?.data?.error || "Verifique os dados ou a conexão.";
-      Alert.alert("Erro ao Salvar", msgErro);
-    } finally { setSalvando(false); }
-  };
-
-  // --- EXCLUSÃO INDIVIDUAL (LIXEIRA VERMELHA) ---
-  const handleExcluirEvento = (id) => {
-    Alert.alert("Excluir", "Apagar este evento?", [
-      { text: "Cancelar" },
-      { text: "Excluir", style: "destructive", onPress: async () => {
-          try {
-            await api.delete(`/eventos/${id}`);
-            setModalVisivel(false); 
-            carregarDados();
-          } catch (error) { Alert.alert("Erro", "Não foi possível excluir."); }
-      }}
-    ]);
+      tratarErro(e);
+    } finally { 
+      setSalvando(false); 
+    }
   };
 
   const toggleComparecido = async (evento) => {
     try {
       const novoStatus = !evento.comparecido;
-      // Atualização Otimista
       const novosEventos = eventos.map(e => e.id === evento.id ? { ...e, comparecido: novoStatus } : e);
       setEventos(novosEventos);
       await api.put(`/eventos/${evento.id}`, { comparecido: novoStatus });
     } catch (e) { carregarDados(); }
   };
 
-  // --- GESTÃO DE CATEGORIAS (PERSISTÊNCIA LOCAL) ---
+  // --- GESTÃO DE CATEGORIAS ---
   const handleNovaCategoria = () => {
+    setErrorMessage("");
     setCatEditing({ id: Date.now().toString(), name: "", color: PRESET_COLORS[0], isNew: true });
     setModalCatVisivel(true);
   };
 
   const handleEditarCategoria = (cat) => {
+    setErrorMessage("");
     setCatEditing({ ...cat, isNew: false });
     setModalCatVisivel(true);
   };
 
   const salvarCategoriaPersistente = async () => {
-    if (!catEditing.name?.trim()) return Alert.alert("Atenção", "Nome obrigatório.");
+    if (!catEditing.name?.trim()) return setErrorMessage("O nome da categoria é obrigatório.");
     
     let novaLista;
     if (catEditing.isNew) {
@@ -316,7 +301,6 @@ export default function AgendaScreen() {
     }
 
     setCategories(novaLista);
-    // SALVA NO ASYNC STORAGE PARA NÃO SUMIR
     await AsyncStorage.setItem("@YourFlow:categories", JSON.stringify(novaLista));
     
     if (catEditing.isNew || selectedCategory.id === catEditing.id) {
@@ -327,7 +311,7 @@ export default function AgendaScreen() {
   };
 
   const excluirCategoriaPersistente = async () => {
-    if (categories.length <= 1) return Alert.alert("Aviso", "Mantenha ao menos uma categoria.");
+    if (categories.length <= 1) return setErrorMessage("Mantenha ao menos uma categoria.");
     
     const novaLista = categories.filter(c => c.id !== catEditing.id);
     setCategories(novaLista);
@@ -337,7 +321,6 @@ export default function AgendaScreen() {
     setModalCatVisivel(false);
   };
 
-  // --- RENDER ---
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentMonth), { locale: ptBR });
     const end = endOfWeek(endOfMonth(currentMonth), { locale: ptBR });
@@ -348,7 +331,6 @@ export default function AgendaScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} />
 
-      {/* HEADER: MUDA SE TIVER SELEÇÃO MÚLTIPLA */}
       <View style={[styles.header, selectedEventIds.length > 0 && {backgroundColor: colors.primary + '20'}]}>
         {selectedEventIds.length > 0 ? (
           <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flex: 1}}>
@@ -391,6 +373,14 @@ export default function AgendaScreen() {
         )}
       </View>
 
+      {/* ⚠️ ERRO VISUAL GLOBAL (TELA PRINCIPAL) */}
+      {errorMessage !== "" && !modalVisivel && !modalCatVisivel && (
+        <View style={[styles.errorContainer, { marginHorizontal: 20 }]}>
+          <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        </View>
+      )}
+
       <View style={styles.weekHeader}>
         {['DOM','SEG','TER','QUA','QUI','SEX','SÁB'].map((d, i) => (
            <Text key={i} style={styles.weekText}>{d}</Text> 
@@ -398,7 +388,6 @@ export default function AgendaScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* CALENDÁRIO VISUAL */}
         <Animated.View style={[styles.grid, { opacity: fadeAnim }]}>
           {days.map(day => {
             const isSelected = isSameDay(day, selectedDate);
@@ -431,7 +420,6 @@ export default function AgendaScreen() {
           })}
         </Animated.View>
 
-        {/* LISTA DE EVENTOS DO DIA */}
         <View style={[styles.detailsSection, isDesktop && { paddingHorizontal: 60 }]}>
           <View style={styles.sectionHeader}>
             <Text style={styles.dateTitle}>{format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR }).toUpperCase()}</Text>
@@ -439,7 +427,8 @@ export default function AgendaScreen() {
               <Ionicons name="add" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
-          
+
+          {/* LISTAGEM DOS CARDS (LIMPA E OTIMIZADA) */}
           {eventos.filter(e => { try { return isSameDay(parseISO(e.inicio), selectedDate); } catch { return false; } }).map(ev => {
              const isSelected = selectedEventIds.includes(ev.id);
              return (
@@ -458,30 +447,34 @@ export default function AgendaScreen() {
                 <TouchableOpacity 
                   style={{flex: 1}}
                   onPress={() => handlePressEvento(ev)}
-                  onLongPress={() => handleLongPressEvento(ev.id)} // SEGURAR ATIVA MULTI-SELEÇÃO
+                  onLongPress={() => handleLongPressEvento(ev.id)}
+                  activeOpacity={0.7}
                 >
                   <Text style={[styles.cardTitle, {color: colors.text}, ev.comparecido && { textDecorationLine: 'line-through', opacity: 0.5 }]}>
                     {ev.titulo}
                   </Text>
-                  <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 4}}>
+                  
+                  {/* ⚠️ CORREÇÃO: NOME DA CATEGORIA NO CARD */}
+                  <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 6, flexWrap: 'wrap'}}>
                      <View style={[styles.dotCategory, {backgroundColor: ev.cor_categoria || colors.primary}]} />
+                     <Text style={{fontSize: 12, fontWeight: '800', color: colors.textSecondary, marginRight: 8, textTransform: 'uppercase'}}>
+                        {ev.tipo || "GERAL"}
+                     </Text>
                      <Text style={[styles.cardInfo, {color: colors.textSecondary}]}>
-                       {isValid(parseISO(ev.inicio)) ? format(parseISO(ev.inicio), "HH:mm") : "--:--"} - 
-                       {isValid(parseISO(ev.fim)) ? format(parseISO(ev.fim), "HH:mm") : "--:--"}
+                       • {isValid(parseISO(ev.inicio)) ? format(parseISO(ev.inicio), "HH:mm") : "--:--"} às {isValid(parseISO(ev.fim)) ? format(parseISO(ev.fim), "HH:mm") : "--:--"}
                      </Text>
                   </View>
                 </TouchableOpacity>
 
-                {/* BOTÃO LIXEIRA CORRIGIDO */}
                 <TouchableOpacity onPress={() => handleExcluirEvento(ev.id)} style={{padding: 10}}>
-                  <Ionicons name="trash-outline" size={22} color={colors.danger} />
+                  <Ionicons name="trash-outline" size={24} color={colors.danger} />
                 </TouchableOpacity>
               </View>
             )
           })}
           
           {eventos.filter(e => { try { return isSameDay(parseISO(e.inicio), selectedDate); } catch { return false; } }).length === 0 && (
-             <Text style={styles.emptyText}>Toque no + para adicionar um evento.</Text>
+             <Text style={styles.emptyText}>Nenhum agendamento para este dia.</Text>
           )}
         </View>
       </ScrollView>
@@ -497,22 +490,29 @@ export default function AgendaScreen() {
                 <TouchableOpacity onPress={() => setModalVisivel(false)}><Ionicons name="close" size={24} color={colors.textSecondary} /></TouchableOpacity>
               </View>
 
+              {/* ⚠️ ERRO VISUAL NO MODAL DE EVENTO */}
+              {errorMessage !== "" && (
+                <View style={[styles.errorContainer, { marginBottom: 15 }]}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+              )}
+
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.label}>NOME DO EVENTO</Text>
-                <TextInput style={[styles.input, {color: colors.text, backgroundColor: colors.inputBackground}]} value={titulo} onChangeText={setTitulo} placeholder="Ex: Evento, afazeres..." placeholderTextColor={colors.textSecondary}/>
+                <TextInput style={[styles.input, {color: colors.text, backgroundColor: colors.inputBackground}]} value={titulo} onChangeText={setTitulo} placeholder="Ex: Pagamento Racha..." placeholderTextColor={colors.textSecondary}/>
 
                 <View style={styles.rowBetween}>
-                  <Text style={styles.label}>CATEGORIA</Text>
-                  <TouchableOpacity onPress={handleNovaCategoria}><Text style={[styles.linkAction, {color: colors.primary}]}>+ Nova Categoria</Text></TouchableOpacity>
+                  <Text style={styles.label}>LOCAL / CATEGORIA</Text>
+                  <TouchableOpacity onPress={handleNovaCategoria}><Text style={[styles.linkAction, {color: colors.primary}]}>+ Novo Local</Text></TouchableOpacity>
                 </View>
 
-                {/* LISTA DE CATEGORIAS (SEGURE PARA EDITAR) */}
                 <View style={styles.catGrid}>
                   {categories.map(cat => (
                     <TouchableOpacity 
                       key={cat.id} 
                       onPress={() => setSelectedCategory(cat)}
-                      onLongPress={() => handleEditarCategoria(cat)} // SEGURAR PARA EDITAR
+                      onLongPress={() => handleEditarCategoria(cat)} 
                       delayLongPress={400}
                       style={[styles.catChip, selectedCategory.id === cat.id && { backgroundColor: cat.color, borderColor: cat.color }]}
                     >
@@ -520,7 +520,7 @@ export default function AgendaScreen() {
                     </TouchableOpacity>
                   ))}
                 </View>
-                <Text style={styles.hintText}>* Segure em uma categoria para editar ou excluir.</Text>
+                <Text style={styles.hintText}>* Segure para editar ou excluir.</Text>
 
                 <View style={styles.row}>
                   <View style={{flex: 1, marginRight: 10}}>
@@ -533,7 +533,6 @@ export default function AgendaScreen() {
                   </View>
                 </View>
 
-                {/* --- LEMBRETES VOLTARAM --- */}
                 <Text style={styles.label}>LEMBRETE (ANTES DO EVENTO)</Text>
                 <View style={styles.row}>
                   <View style={{flex: 1, marginRight: 10}}>
@@ -558,7 +557,6 @@ export default function AgendaScreen() {
                   </View>
                 </View>
 
-                {/* --- FINANCEIRO CORRIGIDO --- */}
                 <View style={styles.financeBox}>
                   <View style={styles.rowBetween}>
                     <Text style={styles.financeLabel}>Lançar no Financeiro?</Text>
@@ -579,7 +577,7 @@ export default function AgendaScreen() {
                 <TextInput style={[styles.input, { height: 60, marginBottom: 20, color: colors.text, backgroundColor: colors.inputBackground }]} multiline value={observacao} onChangeText={setObservacao} placeholderTextColor={colors.textSecondary} />
 
                 <TouchableOpacity style={[styles.btnSave, {backgroundColor: colors.primary}]} onPress={salvarEvento} disabled={salvando}>
-                  {salvando ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSaveText}>SALVAR</Text>}
+                  {salvando ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSaveText}>SALVAR EVENTO</Text>}
                 </TouchableOpacity>
 
               </ScrollView>
@@ -588,11 +586,20 @@ export default function AgendaScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* --- MODAL CATEGORIA (SALVA NO ASYNCSTORAGE) --- */}
+      {/* --- MODAL CATEGORIA --- */}
       <Modal visible={modalCatVisivel} transparent animationType="fade" onRequestClose={() => setModalCatVisivel(false)}>
         <View style={styles.overlayCenter}>
           <View style={[styles.modalCatContent, {backgroundColor: colors.surface}]}>
-            <Text style={[styles.modalCatTitle, {color: colors.text}]}>{catEditing.isNew ? "Criar Categoria" : "Editar Categoria"}</Text>
+            <Text style={[styles.modalCatTitle, {color: colors.text}]}>{catEditing.isNew ? "Criar Local/Categoria" : "Editar Local/Categoria"}</Text>
+            
+            {/* ⚠️ ERRO VISUAL NO MODAL DE CATEGORIA */}
+            {errorMessage !== "" && (
+                <View style={[styles.errorContainer, { marginBottom: 15 }]}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+            )}
+
             <TextInput style={[styles.input, {backgroundColor: colors.inputBackground, color: colors.text}]} value={catEditing.name} onChangeText={t => setCatEditing({...catEditing, name: t})} placeholder="Nome" />
             <Text style={styles.label}>COR</Text>
             <View style={styles.colorGrid}>
@@ -601,7 +608,7 @@ export default function AgendaScreen() {
             <View style={{flexDirection:'row', justifyContent:'space-between', marginTop: 15, width: '100%'}}>
                 {!catEditing.isNew && <TouchableOpacity onPress={excluirCategoriaPersistente}><Text style={{color: colors.danger, fontWeight:'bold', padding: 10}}>Excluir</Text></TouchableOpacity>}
                 <View style={{flexDirection:'row', gap: 10, flex: 1, justifyContent: 'flex-end'}}>
-                   <TouchableOpacity onPress={() => setModalCatVisivel(false)}><Text style={{fontWeight:'bold', padding: 10, color: colors.textSecondary}}>Cancelar</Text></TouchableOpacity>
+                   <TouchableOpacity onPress={() => { setModalCatVisivel(false); setErrorMessage(""); }}><Text style={{fontWeight:'bold', padding: 10, color: colors.textSecondary}}>Cancelar</Text></TouchableOpacity>
                    <TouchableOpacity onPress={salvarCategoriaPersistente} style={{backgroundColor: colors.primary, padding: 10, borderRadius: 8}}><Text style={{color:'#fff', fontWeight:'bold'}}>Salvar</Text></TouchableOpacity>
                 </View>
             </View>
@@ -657,7 +664,7 @@ const styles = StyleSheet.create({
   emptyText: { textAlign: 'center', color: '#ccc', fontStyle: 'italic', marginTop: 20 },
   eventCard: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 20, marginBottom: 10, borderWidth: 1, elevation: 2, paddingLeft: 15 },
   cardTitle: { fontSize: 16, fontWeight: 'bold' },
-  dotCategory: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  dotCategory: { width: 10, height: 10, borderRadius: 5, marginRight: 6 },
   cardInfo: { fontSize: 12, marginTop: 0 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   overlayCenter: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
@@ -691,5 +698,24 @@ const styles = StyleSheet.create({
   monthBtn: { width: '30%', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
   monthBtnText: { fontWeight: 'bold' },
   unitBtn: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
-  unitText: { fontSize: 10, fontWeight: 'bold', color: '#64748b' }
+  unitText: { fontSize: 10, fontWeight: 'bold', color: '#64748b' },
+
+  // ⚠️ ESTILOS DO ERRO VISUAL
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
+  },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   View, Text, StyleSheet, TouchableOpacity, Alert, 
   Image, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, ScrollView 
@@ -19,11 +19,20 @@ export default function PerfilScreen() {
   
   const navigation = useNavigation();
   const [uploading, setUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   
   const [modalVisible, setModalVisible] = useState(false);
   const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
   const [loadingSenha, setLoadingSenha] = useState(false);
+
+  // Estado local para a foto (Optimistic UI - muda antes mesmo de salvar no banco)
+  const [localAvatar, setLocalAvatar] = useState(user?.foto ? `${API_URL}/uploads/${user.foto}` : null);
+
+  useEffect(() => {
+    // Atualiza a foto local se o contexto do usuário mudar
+    if (user?.foto) setLocalAvatar(`${API_URL}/uploads/${user.foto}`);
+  }, [user?.foto]);
 
   const getIniciais = (nome) => {
     if (!nome) return "U";
@@ -32,10 +41,12 @@ export default function PerfilScreen() {
     return (partes[0].charAt(0) + partes[partes.length - 1].charAt(0)).toUpperCase();
   };
 
+  // --- LÓGICA DE FOTO DE PERFIL ---
   async function handlePickImage() {
+    setErrorMessage("");
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
-      Alert.alert("Permissão necessária", "Precisamos acessar sua galeria para mudar a foto.");
+      setErrorMessage("Precisamos acessar sua galeria para mudar a foto.");
       return;
     }
 
@@ -43,11 +54,13 @@ export default function PerfilScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.5, // Reduzi levemente para melhorar o upload no backend
+      quality: 0.5, 
     });
 
     if (!result.canceled) {
-      handleUploadPhoto(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+      setLocalAvatar(uri); // Muda a foto na tela IMEDIATAMENTE!
+      handleUploadPhoto(uri); // Dispara o upload em segundo plano
     }
   }
 
@@ -61,6 +74,7 @@ export default function PerfilScreen() {
       const uriFinal = Platform.OS === 'android' ? localUri : localUri.replace('file://', '');
 
       const formData = new FormData();
+      // ⚠️ Atenção: Se o seu backend espera 'avatar' em vez de 'foto', mude o nome aqui
       formData.append('foto', { 
         uri: uriFinal, 
         name: filename, 
@@ -71,75 +85,80 @@ export default function PerfilScreen() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      updateUser(response.data);
-      Alert.alert("Sucesso", "Sua foto de perfil foi atualizada!");
+      // Atualiza o contexto global com os novos dados do usuário retornados pelo backend
+      if (response.data) updateUser(response.data); 
+
     } catch (error) {
       console.error("Erro Upload:", error);
-      Alert.alert("Erro", "Não conseguimos enviar sua foto. Verifique sua conexão.");
+      setErrorMessage("Não conseguimos enviar sua foto ao servidor.");
+      // Se der erro, reverte para a foto antiga
+      setLocalAvatar(user?.foto ? `${API_URL}/uploads/${user.foto}` : null);
     } finally {
       setUploading(false);
     }
   }
 
-  // Validação real de senha para evitar Erro 500 no Backend
+  // --- LÓGICA DE SENHA ---
   function validarSenha(senha) {
     const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
     return regex.test(senha);
   }
 
   async function handleChangePassword() {
-    if (!senhaAtual || !novaSenha) {
-      Alert.alert("Atenção", "Preencha os campos de senha.");
-      return;
-    }
+    setErrorMessage("");
 
-    if (!validarSenha(novaSenha)) {
-      Alert.alert("Senha Fraca", "A nova senha deve seguir os requisitos de segurança.");
-      return;
-    }
+    if (!senhaAtual || !novaSenha) return setErrorMessage("Preencha todos os campos de senha.");
+    if (!validarSenha(novaSenha)) return setErrorMessage("A nova senha deve ter letras (maiúsc./minúsc.), números e símbolos.");
 
     setLoadingSenha(true);
     try {
       await api.patch("/usuarios/senha", { senhaAtual, novaSenha });
-      Alert.alert("Sucesso", "Senha alterada com sucesso!");
+      Alert.alert("Sucesso", "Sua senha foi alterada com segurança!");
       setModalVisible(false);
       setSenhaAtual("");
       setNovaSenha("");
     } catch (error) {
-      const msg = error.response?.data?.error || "Senha atual incorreta.";
-      Alert.alert("Erro", msg);
+      setErrorMessage(error.response?.data?.error || "Senha atual incorreta.");
     } finally {
       setLoadingSenha(false);
     }
   }
 
+  // --- LOGOUT ---
   function handleLogout() {
     if (Platform.OS === 'web') {
        if (window.confirm("Deseja realmente sair?")) logout();
        return;
     }
 
-    Alert.alert("Sair", "Deseja realmente sair do ClubFlow?", [
+    Alert.alert("Sair", "Deseja realmente sair do YourFlow?", [
       { text: "Ficar", style: "cancel" },
       { text: "Sair", style: "destructive", onPress: () => logout() }
     ]);
   }
 
-  const imageUrl = user?.foto ? `${API_URL}/uploads/${user.foto}` : null;
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         
+        {/* ERRO VISUAL GLOBAL (Fora dos modais) */}
+        {errorMessage !== "" && !modalVisible && (
+          <View style={[styles.errorContainer, { marginTop: 15 }]}>
+            <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        )}
+
         <View style={styles.header}>
-          <TouchableOpacity onPress={handlePickImage} disabled={uploading} style={styles.avatarWrapper}>
+          <TouchableOpacity onPress={handlePickImage} disabled={uploading} style={styles.avatarWrapper} activeOpacity={0.7}>
             {uploading ? (
-               <View style={[styles.avatarContainer, styles.loadingAvatar]}><ActivityIndicator color="#fff" /></View>
-            ) : imageUrl ? (
-              <Image source={{ uri: imageUrl }} style={styles.avatarImage} />
+               <View style={[styles.avatarContainer, styles.loadingAvatar]}><ActivityIndicator color="#fff" size="large" /></View>
+            ) : localAvatar ? (
+               <Image source={{ uri: localAvatar }} style={styles.avatarImage} />
             ) : (
-              <View style={styles.avatarContainer}><Text style={styles.avatarText}>{getIniciais(user?.nome)}</Text></View>
+               <View style={styles.avatarContainer}><Text style={styles.avatarText}>{getIniciais(user?.nome)}</Text></View>
             )}
+            
             <View style={[styles.editIconBadge, { borderColor: colors.background }]}>
               <Ionicons name="camera" size={16} color="#fff" />
             </View>
@@ -149,7 +168,7 @@ export default function PerfilScreen() {
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => setModalVisible(true)}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => {setErrorMessage(""); setModalVisible(true);}}>
             <View style={styles.iconCircle}><Ionicons name="lock-closed-outline" size={20} color={colors.primary} /></View>
             <Text style={[styles.actionText, { color: colors.text }]}>Alterar Senha</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
@@ -172,13 +191,21 @@ export default function PerfilScreen() {
         <Text style={[styles.version, { color: colors.textSecondary }]}>YourFlow v2.0.1</Text>
       </ScrollView>
 
-      {/* MODAL SENHA - CORRIGIDO COMPORTAMENTO DE TECLADO */}
+      {/* MODAL SENHA */}
       <Modal animationType="fade" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ width: '100%' }}>
             <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Segurança</Text>
               
+              {/* ERRO VISUAL NO MODAL */}
+              {errorMessage !== "" && (
+                <View style={[styles.errorContainer, { marginBottom: 15 }]}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+              )}
+
               <Text style={[styles.labelInput, { color: colors.textSecondary }]}>Senha Atual</Text>
               <TextInput 
                 style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.inputBackground }]} 
@@ -189,7 +216,7 @@ export default function PerfilScreen() {
                 placeholderTextColor="#999"
               />
 
-              <Text style={[styles.labelInput, { color: colors.textSecondary }]}>Nova Senha</Text>
+              <Text style={[styles.labelInput, { color: colors.textSecondary, marginTop: 10 }]}>Nova Senha</Text>
               <TextInput 
                 style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.inputBackground }]} 
                 secureTextEntry 
@@ -198,7 +225,7 @@ export default function PerfilScreen() {
                 placeholder="Mínimo 6 caracteres"
                 placeholderTextColor="#999"
               />
-              <Text style={styles.hint}>* Use letras maiúsculas, números e símbolos.</Text>
+              <Text style={styles.hint}>* Use letras maiúsculas, minúsculas, números e símbolos (@$!%*?&).</Text>
               
               <View style={styles.modalButtons}>
                 <TouchableOpacity style={[styles.modalBtn, { backgroundColor: colors.border }]} onPress={() => setModalVisible(false)}>
@@ -243,25 +270,26 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 40, color: "#fff", fontWeight: "bold" },
   editIconBadge: { 
     position: 'absolute', 
-    bottom: 5, 
+    bottom: 0, 
     right: 5, 
-    backgroundColor: '#004d4d', 
-    width: 34, 
-    height: 34, 
-    borderRadius: 17, 
+    backgroundColor: '#3b82f6', 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
     justifyContent: 'center', 
     alignItems: 'center', 
     borderWidth: 3,
-    borderColor: '#fff'
+    borderColor: '#fff',
+    elevation: 4
   },
   nome: { fontSize: 24, fontWeight: "bold", letterSpacing: -0.5 },
   email: { fontSize: 14, marginTop: 2, opacity: 0.7 },
   section: { borderRadius: 20, padding: 20, marginBottom: 25, elevation: 3, shadowColor: "#000", shadowOpacity: 0.1 },
   actionButton: { flexDirection: "row", alignItems: "center", paddingVertical: 10 },
-  iconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,128,128,0.1)', justifyContent: 'center', alignItems: 'center' },
+  iconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(59, 130, 246, 0.1)', justifyContent: 'center', alignItems: 'center' },
   actionText: { flex: 1, marginLeft: 15, fontSize: 16, fontWeight: '500' },
   divider: { height: 1, marginVertical: 15, opacity: 0.3 },
-  logoutButton: { flexDirection: "row", backgroundColor: "#FDECEC", padding: 18, borderRadius: 15, justifyContent: "center", alignItems: "center", gap: 10 },
+  logoutButton: { flexDirection: "row", backgroundColor: "#fee2e2", padding: 18, borderRadius: 15, justifyContent: "center", alignItems: "center", gap: 10 },
   logoutText: { color: "#E74C3C", fontWeight: "bold", fontSize: 16 },
   version: { textAlign: "center", marginTop: 25, fontSize: 12, opacity: 0.5 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 25 },
@@ -269,7 +297,26 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 25, textAlign: 'center' },
   labelInput: { fontSize: 14, marginBottom: 8, fontWeight: '600' },
   input: { borderWidth: 1, borderRadius: 12, padding: 15, fontSize: 16, marginBottom: 5 },
-  hint: { fontSize: 11, color: '#999', marginTop: 8, fontStyle: 'italic' },
-  modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 35 },
+  hint: { fontSize: 11, color: '#999', marginTop: 8, fontStyle: 'italic', textAlign: 'center' },
+  modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30 },
   modalBtn: { flex: 1, padding: 16, borderRadius: 14, alignItems: 'center', marginHorizontal: 6 },
+  
+  // ⚠️ ESTILOS DO ERRO VISUAL
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
+  },
 });

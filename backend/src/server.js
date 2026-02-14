@@ -20,8 +20,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Servir fotos
-app.use("/uploads", express.static(path.resolve("uploads")));
+
+const path = require("path");
+
+// Libera o acesso público à pasta uploads
+// Quando o app chamar "http://seu-backend.com/uploads/foto.jpg", o Node entrega o arquivo.
+app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
 
 // --- 1. ROTAS PÚBLICAS (Abertas) ---
 app.use("/login", authRoutes);    // Mapeia para POST /login

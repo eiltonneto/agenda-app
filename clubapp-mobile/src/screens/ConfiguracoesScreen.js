@@ -1,10 +1,35 @@
 import React, { useState, useEffect, useRef } from "react";
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  Modal, SafeAreaView, Animated, Easing, Dimensions 
+  Modal, SafeAreaView, Animated, Dimensions 
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
+
+// --- COMPONENTE DO BOTÃO ANIMADO (O SEGREDO DO DESLIZE) ---
+const AnimatedSwitch = ({ isEnabled, toggleSwitch, activeColor }) => {
+  const animValue = useRef(new Animated.Value(isEnabled ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(animValue, {
+      toValue: isEnabled ? 1 : 0,
+      duration: 250,
+      useNativeDriver: false, // ⚠️ DEVE ser false para podermos animar a cor de fundo
+    }).start();
+  }, [isEnabled]);
+
+  // Interpolações: Como o botão reage de 0 a 1
+  const translateX = animValue.interpolate({ inputRange: [0, 1], outputRange: [2, 22] });
+  const backgroundColor = animValue.interpolate({ inputRange: [0, 1], outputRange: ['#cbd5e1', activeColor] });
+
+  return (
+    <TouchableOpacity activeOpacity={0.8} onPress={toggleSwitch}>
+      <Animated.View style={[{ width: 48, height: 26, borderRadius: 15, justifyContent: 'center' }, { backgroundColor }]}>
+        <Animated.View style={[{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', transform: [{ translateX }] }, styles.shadow]} />
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
 
 export default function ConfiguracoesScreen({ navigation }) {
   const { theme, toggleTheme, isDark } = useTheme();
@@ -13,31 +38,6 @@ export default function ConfiguracoesScreen({ navigation }) {
   // Estados dos Modais
   const [modalTermosVisible, setModalTermosVisible] = useState(false);
   const [modalPrivacidadeVisible, setModalPrivacidadeVisible] = useState(false);
-
-  // --- LÓGICA DO SWITCH ANIMADO (DESLIZE) ---
-  // Usamos useRef para que o valor da animação não seja resetado quando a tela re-renderizar
-  const animatedValue = useRef(new Animated.Value(isDark ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.timing(animatedValue, {
-      toValue: isDark ? 1 : 0,
-      duration: 300,
-      easing: Easing.bezier(0.4, 0, 0.2, 1),
-      useNativeDriver: false, 
-    }).start();
-  }, [isDark]);
-
-  // Interpolação da posição (deslize de 2px para 22px)
-  const translateX = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [2, 22], 
-  });
-
-  // Interpolação da cor de fundo do trilho
-  const trackColor = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["#ccc", colors.primary],
-  });
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -61,17 +61,13 @@ export default function ConfiguracoesScreen({ navigation }) {
               <Text style={[styles.label, { color: colors.text }]}>Modo Escuro</Text>
             </View>
 
-            {/* CUSTOM SWITCH ANIMADO */}
-            <TouchableOpacity activeOpacity={0.9} onPress={toggleTheme}>
-              <Animated.View style={[styles.switchTrack, { backgroundColor: trackColor }]}>
-                <Animated.View 
-                  style={[
-                    styles.switchThumb, 
-                    { transform: [{ translateX }] }
-                  ]} 
-                />
-              </Animated.View>
-            </TouchableOpacity>
+            {/* AQUI NÓS CHAMAMOS O COMPONENTE ANIMADO QUE CRIAMOS NO TOPO */}
+            <AnimatedSwitch 
+              isEnabled={isDark} 
+              toggleSwitch={toggleTheme} 
+              activeColor={colors.primary} 
+            />
+
           </View>
         </View>
 
@@ -114,7 +110,7 @@ export default function ConfiguracoesScreen({ navigation }) {
                 Bem-vindo ao YourFlow!{'\n\n'}
                 1. O uso deste aplicativo é destinado ao gerenciamento pessoal e administrativo.{'\n\n'}
                 2. Todo o conteúdo e design são propriedade intelectual de Eilton Neto.{'\n\n'}
-                3. O usuário concorda em utilizar o sistema de forma ética e responsável, especialmente no gerenciamento de rachas e finanças.{'\n\n'}
+                3. O usuário concorda em utilizar o sistema de forma ética e responsável, especialmente no gerenciamento de eventos e finanças.{'\n\n'}
                 4. O desenvolvedor não se responsabiliza por dados inseridos incorretamente pelo usuário.{'\n\n'}
                 Ao continuar, você concorda com estes termos.
               </Text>
@@ -134,7 +130,7 @@ export default function ConfiguracoesScreen({ navigation }) {
             <ScrollView style={{ maxHeight: '80%' }} showsVerticalScrollIndicator={false}>
               <Text style={[styles.modalText, { color: colors.textSecondary }]}>
                 Sua privacidade é prioridade no YourFlow:{'\n\n'}
-                1. Coletamos Nome, Email e Foto de Perfil apenas para identificação e personalização da sua experiência no clube.{'\n\n'}
+                1. Coletamos Nome, Email e Foto de Perfil apenas para identificação e personalização da sua experiência.{'\n\n'}
                 2. Seus lançamentos financeiros e de agenda são armazenados de forma segura e não são compartilhados com terceiros.{'\n\n'}
                 3. Utilizamos armazenamento local (AsyncStorage) para salvar suas preferências de tema e categorias.{'\n\n'}
                 4. Para solicitar a exclusão total da sua conta e dados, entre em contato através das configurações de perfil.{'\n'}
@@ -163,28 +159,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 16, fontWeight: '500' },
   divider: { height: 1, marginVertical: 8, opacity: 0.5 },
   version: { textAlign: 'center', marginTop: 40, fontSize: 12, lineHeight: 18, opacity: 0.6 },
-
-  // ESTILOS DO SWITCH CUSTOMIZADO (ANIMADO)
-  switchTrack: {
-    width: 48,
-    height: 26,
-    borderRadius: 15,
-    padding: 2,
-    justifyContent: 'center',
-  },
-  switchThumb: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#fff',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-  },
-
-  // Modais Estilizados
+  shadow: { elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 25 },
   modalContent: { borderRadius: 24, padding: 25, elevation: 10, maxHeight: '80%' },
   modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 20, textAlign: 'center' },

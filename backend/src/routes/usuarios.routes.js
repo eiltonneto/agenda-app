@@ -3,16 +3,21 @@ import multer from "multer";
 import bcrypt from "bcryptjs";
 import path from "path";
 import prisma from "../database/prisma.js";
-import { authMiddleware } from "../middlewares/auth.js"; // Garante que o nome do arquivo está correto
+import { authMiddleware } from "../middlewares/auth.js"; 
 
 const router = Router();
 
-// Configuração do Multer
+// --- CONFIGURAÇÃO DO MULTER (100% ES Modules) ---
 const upload = multer({
   storage: multer.diskStorage({
-    destination: path.resolve("uploads"),
+    // Define a pasta de destino (na raiz do seu backend)
+    destination: (req, file, cb) => {
+      cb(null, path.resolve("uploads")); 
+    },
+    // Cria um nome único para a foto, removendo espaços
     filename: (req, file, cb) => {
-      const fileName = `${Date.now()}-${file.originalname}`;
+      const nomeSemEspaco = file.originalname.replace(/\s/g, '_');
+      const fileName = `${Date.now()}-${nomeSemEspaco}`;
       cb(null, fileName);
     },
   }),
@@ -31,7 +36,7 @@ router.post("/", async (req, res) => {
     const senhaHash = await bcrypt.hash(senha, 8);
 
     const usuario = await prisma.usuario.create({
-      data: { nome, email, senhaHash }, // updatedAt é automático agora!
+      data: { nome, email, senhaHash }, 
     });
 
     const { senhaHash: _, ...userSemSenha } = usuario;
@@ -47,24 +52,25 @@ router.post("/", async (req, res) => {
  */
 router.use(authMiddleware);
 
-// ROTA: Atualizar Foto
+// --- ROTA: Atualizar Foto de Perfil ---
 router.patch("/foto", upload.single("foto"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "Nenhuma foto enviada." });
 
     const usuario = await prisma.usuario.update({
       where: { id: req.userId },
-      data: { foto: req.file.filename },
+      data: { foto: req.file.filename }, // Salva o nome gerado pelo Multer no banco
     });
 
     const { senhaHash, ...userSemSenha } = usuario;
     return res.json(userSemSenha);
   } catch (error) {
-    return res.status(500).json({ error: "Erro ao salvar foto." });
+    console.error("Erro na rota de foto:", error);
+    return res.status(500).json({ error: "Erro interno ao salvar foto." });
   }
 });
 
-// ROTA: Alterar Senha
+// --- ROTA: Alterar Senha ---
 router.patch("/senha", async (req, res) => {
   try {
     const { senhaAtual, novaSenha } = req.body;
