@@ -1,35 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  Modal, SafeAreaView, Animated, Dimensions 
+  Modal, SafeAreaView, Switch 
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
-
-// --- COMPONENTE DO BOTÃO ANIMADO (O SEGREDO DO DESLIZE) ---
-const AnimatedSwitch = ({ isEnabled, toggleSwitch, activeColor }) => {
-  const animValue = useRef(new Animated.Value(isEnabled ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.timing(animValue, {
-      toValue: isEnabled ? 1 : 0,
-      duration: 250,
-      useNativeDriver: false, // ⚠️ DEVE ser false para podermos animar a cor de fundo
-    }).start();
-  }, [isEnabled]);
-
-  // Interpolações: Como o botão reage de 0 a 1
-  const translateX = animValue.interpolate({ inputRange: [0, 1], outputRange: [2, 22] });
-  const backgroundColor = animValue.interpolate({ inputRange: [0, 1], outputRange: ['#cbd5e1', activeColor] });
-
-  return (
-    <TouchableOpacity activeOpacity={0.8} onPress={toggleSwitch}>
-      <Animated.View style={[{ width: 48, height: 26, borderRadius: 15, justifyContent: 'center' }, { backgroundColor }]}>
-        <Animated.View style={[{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', transform: [{ translateX }] }, styles.shadow]} />
-      </Animated.View>
-    </TouchableOpacity>
-  );
-};
 
 export default function ConfiguracoesScreen({ navigation }) {
   const { theme, toggleTheme, isDark } = useTheme();
@@ -50,7 +25,7 @@ export default function ConfiguracoesScreen({ navigation }) {
         <Text style={[styles.title, { color: colors.text }]}>Configurações</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         
         {/* SEÇÃO APARÊNCIA */}
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>APARÊNCIA</Text>
@@ -61,13 +36,15 @@ export default function ConfiguracoesScreen({ navigation }) {
               <Text style={[styles.label, { color: colors.text }]}>Modo Escuro</Text>
             </View>
 
-            {/* AQUI NÓS CHAMAMOS O COMPONENTE ANIMADO QUE CRIAMOS NO TOPO */}
-            <AnimatedSwitch 
-              isEnabled={isDark} 
-              toggleSwitch={toggleTheme} 
-              activeColor={colors.primary} 
+            {/* SWITCH NATIVO DO SISTEMA */}
+            <Switch
+              trackColor={{ false: "#cbd5e1", true: colors.primary + "80" }}
+              thumbColor={isDark ? colors.primary : "#f1f5f9"}
+              ios_backgroundColor="#cbd5e1"
+              onValueChange={toggleTheme}
+              value={isDark}
+              style={{ transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }] }} 
             />
-
           </View>
         </View>
 
@@ -159,7 +136,6 @@ const styles = StyleSheet.create({
   label: { fontSize: 16, fontWeight: '500' },
   divider: { height: 1, marginVertical: 8, opacity: 0.5 },
   version: { textAlign: 'center', marginTop: 40, fontSize: 12, lineHeight: 18, opacity: 0.6 },
-  shadow: { elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 25 },
   modalContent: { borderRadius: 24, padding: 25, elevation: 10, maxHeight: '80%' },
   modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 20, textAlign: 'center' },

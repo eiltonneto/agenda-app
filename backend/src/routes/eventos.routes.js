@@ -40,7 +40,7 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "O horário de término deve ser maior que o de início." });
     }
 
-    // LÓGICA DE CONFLITO: $T_{inicio} < E_{fim} \land T_{fim} > E_{inicio}$
+    // LÓGICA DE CONFLITO: Verifica se o campo/local já está ocupado
     const conflitoLocal = await prisma.evento.findFirst({
       where: {
         categoria_id: String(categoria_id),
@@ -57,6 +57,7 @@ router.post("/", async (req, res) => {
       });
     }
 
+    // Usando Transação para garantir que salva a Agenda e o Financeiro juntos
     const result = await prisma.$transaction(async (tx) => {
       const novoEvento = await tx.evento.create({
         data: {
@@ -72,7 +73,7 @@ router.post("/", async (req, res) => {
         }
       });
 
-      // Integração automática com o Financeiro
+      // ⚠️ CORREÇÃO 1: Integração com o Financeiro vai como PENDENTE
       if (gerarFinanceiro === true && valor) {
         const valorNumerico = parseFloat(String(valor).replace(',', '.'));
         
@@ -80,9 +81,9 @@ router.post("/", async (req, res) => {
           data: {
             descricao: `Racha: ${titulo}`,
             valor: valorNumerico,
-            tipo: "OUTRO", // Ajustado conforme seu enum TipoReceita atual
+            tipo: "OUTRO", 
             dataPrevista: dataInicio,
-            status: "RECEBIDA",
+            status: "PENDENTE", // <--- Alterado de "RECEBIDA" para "PENDENTE"
             usuarioId: userId
           }
         });
@@ -103,7 +104,8 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const userId = req.userId;
-  const { titulo, inicio, fim, categoria_id, cor_categoria, descricao } = req.body;
+  // ⚠️ Adicionámos o 'comparecido' aqui para o apanhar do frontend
+  const { titulo, inicio, fim, categoria_id, cor_categoria, descricao, comparecido } = req.body;
 
   try {
     const eventoExistente = await prisma.evento.findFirst({
@@ -131,6 +133,7 @@ router.put("/:id", async (req, res) => {
       return res.status(409).json({ error: "Este novo horário/local já está ocupado." });
     }
 
+    // 1. Atualiza o Evento na Base de Dados
     const atualizado = await prisma.evento.update({
       where: { id },
       data: {
@@ -139,12 +142,50 @@ router.put("/:id", async (req, res) => {
         fim: dataFim,
         categoria_id: localId,
         cor_categoria: cor_categoria || undefined,
-        descricao: descricao || undefined
+        descricao: descricao || undefined,
+        comparecido: comparecido !== undefined ? comparecido : undefined // <--- Guarda o status do visto
       }
     });
 
+    // ⚠️ CORREÇÃO 2: A MÁGICA DE DAR BAIXA NO FINANCEIRO AUTOMATICAMENTE
+    if (comparecido === true) {
+      // Procura a receita vinculada que está PENDENTE
+      const receitaVinculada = await prisma.receita.findFirst({
+        where: {
+          usuarioId: userId,
+          descricao: `Racha: ${eventoExistente.titulo}`,
+          status: "PENDENTE"
+        }
+      });
+
+      // Se encontrar, dá baixa!
+      if (receitaVinculada) {
+        await prisma.receita.update({
+          where: { id: receitaVinculada.id },
+          data: { status: "RECEBIDA" }
+        });
+      }
+    } else if (comparecido === false) {
+      // BÓNUS: Se o utilizador desmarcar o visto na agenda, volta para pendente no financeiro
+      const receitaVinculada = await prisma.receita.findFirst({
+        where: {
+          usuarioId: userId,
+          descricao: `Racha: ${eventoExistente.titulo}`,
+          status: "RECEBIDA"
+        }
+      });
+
+      if (receitaVinculada) {
+        await prisma.receita.update({
+          where: { id: receitaVinculada.id },
+          data: { status: "PENDENTE" }
+        });
+      }
+    }
+
     return res.json(atualizado);
   } catch (error) {
+    console.error("ERRO ATUALIZAR EVENTO:", error);
     return res.status(500).json({ error: "Erro ao atualizar." });
   }
 });

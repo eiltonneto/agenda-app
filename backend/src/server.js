@@ -2,10 +2,11 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path"; 
+import { fileURLToPath } from "url"; // 👈 IMPORTANTE: Ferramenta do Node moderno
 
-// --- IMPORTAÇÕES (Ajustadas conforme image_87ba03.png) ---
+// --- IMPORTAÇÕES ---
 import usuariosRoutes from "./routes/usuarios.routes.js"; 
-import authRoutes from "./routes/auth.routes.js"; // O arquivo correto é este!
+import authRoutes from "./routes/auth.routes.js";
 import eventosRoutes from "./routes/eventos.routes.js";
 import financeiroRoutes from "./routes/financeiro.routes.js";
 import notificacoesRoutes from "./routes/notificacoes.routes.js";
@@ -20,16 +21,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
-const path = require("path");
+// --- MÁGICA DO NODE MODERNO: Recriando o __dirname ---
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Libera o acesso público à pasta uploads
-// Quando o app chamar "http://seu-backend.com/uploads/foto.jpg", o Node entrega o arquivo.
+// O caminho '..' faz ele sair da pasta 'src' e procurar a pasta 'uploads' na raiz
 app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
 
 // --- 1. ROTAS PÚBLICAS (Abertas) ---
-app.use("/login", authRoutes);    // Mapeia para POST /login
-app.use("/usuarios", usuariosRoutes); // O POST para criar conta deve ser público dentro deste arquivo
+app.use("/login", authRoutes);    
+app.use("/usuarios", usuariosRoutes); 
 
 // --- 2. PROTEÇÃO GLOBAL ---
 app.use(authMiddleware); 
@@ -43,5 +45,5 @@ app.use("/despesas", despesasRoutes);
 
 const PORT = process.env.PORT || 3333;
 app.listen(PORT, () => {
-  console.log(`✅ ClubFlow rodando em: http://localhost:${PORT}`);
+  console.log(`✅ YourFlow rodando em: http://localhost:${PORT}`);
 });
