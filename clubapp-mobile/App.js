@@ -15,7 +15,8 @@ import AgendaScreen from "./src/screens/AgendaScreen";
 import FinanceiroScreen from "./src/screens/FinanceiroScreen";
 import PerfilScreen from "./src/screens/PerfilScreen"; 
 import ConfiguracoesScreen from "./src/screens/ConfiguracoesScreen";
-import EsqueciSenhaScreen from "./src/screens/EsqueciSenhaScreen;"
+// 👈 CORREÇÃO: Ponto e vírgula fora das aspas
+import EsqueciSenhaScreen from "./src/screens/EsqueciSenhaScreen"; 
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -35,8 +36,8 @@ function AppTabs() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          height: 85,           // 👈 Ajustado para respiro total em dispositivos modernos
-          paddingBottom: 20,    // 👈 Garante que o texto não corte em Fortaleza/CE
+          height: 85,           
+          paddingBottom: 20,    
           paddingTop: 8,
           elevation: 10,
           shadowColor: '#000',
@@ -45,7 +46,7 @@ function AppTabs() {
           shadowRadius: 5,
         },
         tabBarLabelStyle: { 
-          fontSize: 10,         // 👈 Tamanho ideal para evitar quebra de linha
+          fontSize: 10,         
           fontWeight: '700',
           marginTop: -5,
         },
@@ -66,9 +67,6 @@ function AppTabs() {
     >
       <Tab.Screen name="Agenda" component={AgendaScreen} />
       <Tab.Screen name="Financeiro" component={FinanceiroScreen} />
-      {/* Dica: Quando criar a tela de Notificações, basta substituir o Placeholder. 
-          Por enquanto, deixaremos a Agenda e Financeiro como foco do seu MVP.
-      */}
       <Tab.Screen name="Perfil" component={PerfilScreen} /> 
     </Tab.Navigator>
   );
@@ -90,14 +88,17 @@ function AppRoutes() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!user ? (
-        // Se NÃO tem usuário -> Fluxo de Autenticação
-        <Stack.Screen name="Auth" component={AuthScreen} />
+        // Fluxo de Autenticação (Deslogado)
+        <>
+          <Stack.Screen name="Auth" component={AuthScreen} />
+          {/* 👈 CORREÇÃO: Tela registrada aqui para o link funcionar */}
+          <Stack.Screen name="EsqueciSenha" component={EsqueciSenhaScreen} />
+        </>
       ) : (
-        // Se TEM usuário -> Fluxo Interno Protegido
+        // Fluxo Interno Protegido (Logado)
         <>
           <Stack.Screen name="Home" component={AppTabs} />
           <Stack.Screen name="Configuracoes" component={ConfiguracoesScreen} />
-          {/* Adicione outras telas internas aqui (ex: Detalhes do Evento) */}
         </>
       )}
     </Stack.Navigator>
@@ -109,7 +110,6 @@ export default function App() {
     <AuthProvider>
       <ThemeProvider>
         <NavigationContainer>
-          {/* O translucent ajuda a cor do LinearGradient do AuthScreen a subir até o topo */}
           <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
           <AppRoutes />
         </NavigationContainer>
