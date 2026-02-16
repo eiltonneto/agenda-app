@@ -104,7 +104,7 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const userId = req.userId;
-  // ⚠️ Adicionámos o 'comparecido' aqui para o apanhar do frontend
+  // ⚠️ 'comparecido' recebido do frontend
   const { titulo, inicio, fim, categoria_id, cor_categoria, descricao, comparecido } = req.body;
 
   try {
@@ -118,22 +118,25 @@ router.put("/:id", async (req, res) => {
     const dataFim = fim ? new Date(fim) : eventoExistente.fim;
     const localId = categoria_id ? String(categoria_id) : eventoExistente.categoria_id;
 
-    const conflito = await prisma.evento.findFirst({
-      where: {
-        categoria_id: localId,
-        id: { not: id }, 
-        AND: [
-          { inicio: { lt: dataFim } },
-          { fim: { gt: dataInicio } }
-        ]
-      }
-    });
+    // Apenas verifica conflito se as datas ou o local estiverem sendo alterados
+    if (inicio || fim || categoria_id) {
+      const conflito = await prisma.evento.findFirst({
+        where: {
+          categoria_id: localId,
+          id: { not: id }, 
+          AND: [
+            { inicio: { lt: dataFim } },
+            { fim: { gt: dataInicio } }
+          ]
+        }
+      });
 
-    if (conflito) {
-      return res.status(409).json({ error: "Este novo horário/local já está ocupado." });
+      if (conflito) {
+        return res.status(409).json({ error: "Este novo horário/local já está ocupado." });
+      }
     }
 
-    // 1. Atualiza o Evento na Base de Dados
+    // 1. Atualiza o Evento na Base de Dados (Seu código original mantido)
     const atualizado = await prisma.evento.update({
       where: { id },
       data: {
@@ -142,51 +145,45 @@ router.put("/:id", async (req, res) => {
         fim: dataFim,
         categoria_id: localId,
         cor_categoria: cor_categoria || undefined,
-        descricao: descricao || undefined,
+        descricao: descricao !== undefined ? descricao : undefined,
         comparecido: comparecido !== undefined ? comparecido : undefined // <--- Guarda o status do visto
       }
     });
 
-    // ⚠️ CORREÇÃO 2: A MÁGICA DE DAR BAIXA NO FINANCEIRO AUTOMATICAMENTE
-    if (comparecido === true) {
-      // Procura a receita vinculada que está PENDENTE
-      const receitaVinculada = await prisma.receita.findFirst({
+    // 🚀 2. A MÁGICA DA V3: Integração automática com o Financeiro
+    // Se o frontend enviou uma mudança no "comparecido", nós refletimos isso na Receita
+    if (comparecido !== undefined) {
+      const novoStatusFinanceiro = comparecido ? "RECEBIDA" : "PENDENTE";
+      
+      // Define a janela de busca para pegar a receita do mesmo dia
+      const inicioDia = new Date(atualizado.inicio);
+      inicioDia.setHours(0, 0, 0, 0);
+      
+      const fimDia = new Date(atualizado.inicio);
+      fimDia.setHours(23, 59, 59, 999);
+
+      // Procura a receita daquele dia que tenha o nome do evento e atualiza!
+      await prisma.receita.updateMany({
         where: {
           usuarioId: userId,
-          descricao: `Racha: ${eventoExistente.titulo}`,
-          status: "PENDENTE"
-        }
+          dataPrevista: {
+            gte: inicioDia,
+            lte: fimDia,
+          },
+          descricao: {
+            contains: atualizado.titulo 
+          }
+        },
+        data: {
+          status: novoStatusFinanceiro,
+        },
       });
-
-      // Se encontrar, dá baixa!
-      if (receitaVinculada) {
-        await prisma.receita.update({
-          where: { id: receitaVinculada.id },
-          data: { status: "RECEBIDA" }
-        });
-      }
-    } else if (comparecido === false) {
-      // BÓNUS: Se o utilizador desmarcar o visto na agenda, volta para pendente no financeiro
-      const receitaVinculada = await prisma.receita.findFirst({
-        where: {
-          usuarioId: userId,
-          descricao: `Racha: ${eventoExistente.titulo}`,
-          status: "RECEBIDA"
-        }
-      });
-
-      if (receitaVinculada) {
-        await prisma.receita.update({
-          where: { id: receitaVinculada.id },
-          data: { status: "PENDENTE" }
-        });
-      }
     }
 
     return res.json(atualizado);
   } catch (error) {
-    console.error("ERRO ATUALIZAR EVENTO:", error);
-    return res.status(500).json({ error: "Erro ao atualizar." });
+    console.error("Erro ao atualizar evento:", error);
+    return res.status(500).json({ error: "Erro interno no servidor." });
   }
 });
 
