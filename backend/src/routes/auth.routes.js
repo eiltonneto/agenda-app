@@ -15,46 +15,63 @@ const authConfig = {
 router.post("/", async (req, res) => {
   try {
     const { email, password, senha } = req.body;
-    const senhaLogin = password || senha; // Aceita tanto "password" quanto "senha"
+    const senhaLogin = password || senha; 
 
     if (!email || !senhaLogin) {
         return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
     }
 
-    // Busca o usuário no banco
+    // 1. Busca o usuário no banco
     const user = await prisma.usuario.findUnique({ where: { email } });
 
     if (!user) {
       return res.status(400).json({ error: "E-mail não encontrado." });
     }
 
-    // Verifica se a senha existe no banco (suporta campos diferentes para evitar erro)
+    // 2. Verifica a senha
     const senhaHashBanco = user.senha || user.password || user.senhaHash;
     if (!senhaHashBanco) {
         return res.status(500).json({ error: "Erro de cadastro: Senha não encontrada no banco." });
     }
 
-    // Compara a senha digitada com a do banco
     const checkPassword = await bcrypt.compare(senhaLogin, senhaHashBanco);
 
     if (!checkPassword) {
       return res.status(401).json({ error: "Senha incorreta." });
     }
 
-    // Gera o Token usando a configuração que criamos lá em cima
+    // 3. Gera o Token
     const token = jwt.sign({ id: user.id }, authConfig.secret, {
       expiresIn: authConfig.expiresIn,
     });
 
-    // Retorna usuário e token
+    // --- 🚀 V3: O MESTRE DA VELOCIDADE (BOOTSTRAP NO LOGIN) ---
+    // Define o início do dia de hoje para filtrar a agenda
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    // Promise.all executa as buscas SIMULTANEAMENTE no PostgreSQL
+    // Pega o primeiro e último dia do mês atual
+    const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+
+    const [eventos, receitas, despesas] = await Promise.all([
+      prisma.evento.findMany({ 
+        where: { usuarioId: user.id, inicio: { gte: primeiroDia, lte: ultimoDia } },
+        orderBy: { inicio: 'asc' } 
+      }),
+      prisma.receita.findMany({ 
+        where: { usuarioId: user.id, dataPrevista: { gte: primeiroDia, lte: ultimoDia } }
+      }),
+      prisma.despesa.findMany({ 
+        where: { usuarioId: user.id, dataVencimento: { gte: primeiroDia, lte: ultimoDia } }
+      })
+    ]);
+
     return res.json({
-      user: {
-        id: user.id,
-        nome: user.nome,
-        email: user.email,
-        foto: user.foto
-      },
+      user: { id: user.id, nome: user.nome, email: user.email, foto: user.foto },
       token,
+      eventos, receitas, despesas // 👈 Agora mandamos tudo de uma vez!
     });
 
   } catch (error) {

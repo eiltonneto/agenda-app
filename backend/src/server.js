@@ -12,6 +12,7 @@ import financeiroRoutes from "./routes/financeiro.routes.js";
 import notificacoesRoutes from "./routes/notificacoes.routes.js";
 import receitasRoutes from "./routes/receitas.routes.js";
 import despesasRoutes from "./routes/despesas.routes.js";
+import bootstrapRoutes from "./routes/bootstrap.routes.js";
 
 import { authMiddleware } from "./middlewares/auth.js"; 
 
@@ -37,6 +38,7 @@ app.use("/usuarios", usuariosRoutes);
 app.use(authMiddleware); 
 
 // --- 3. ROTAS PROTEGIDAS ---
+app.use("/bootstrap", bootstrapRoutes);
 app.use("/eventos", eventosRoutes);
 app.use("/financeiro", financeiroRoutes);
 app.use("/notificacoes", notificacoesRoutes);
