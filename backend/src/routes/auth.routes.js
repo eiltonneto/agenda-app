@@ -55,16 +55,17 @@ router.post("/", async (req, res) => {
     const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
     const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
 
+    // Busca tudo sem filtro de data apertado
     const [eventos, receitas, despesas] = await Promise.all([
       prisma.evento.findMany({ 
-        where: { usuarioId: user.id, inicio: { gte: primeiroDia, lte: ultimoDia } },
+        where: { usuarioId: user.id }, // Traz todo o histórico
         orderBy: { inicio: 'asc' } 
       }),
       prisma.receita.findMany({ 
-        where: { usuarioId: user.id, dataPrevista: { gte: primeiroDia, lte: ultimoDia } }
+        where: { usuarioId: user.id }
       }),
       prisma.despesa.findMany({ 
-        where: { usuarioId: user.id, dataVencimento: { gte: primeiroDia, lte: ultimoDia } }
+        where: { usuarioId: user.id }
       })
     ]);
 
