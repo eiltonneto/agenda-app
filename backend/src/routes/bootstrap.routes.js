@@ -36,7 +36,7 @@ router.get("/", async (req, res) => {
           usuarioId: userId,
           status: "PENDENTE"
         },
-        orderBy: { dataPrevista: 'asc' }
+        orderBy: { eventDate: 'asc' }
       })
     ]);
 

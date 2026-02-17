@@ -16,6 +16,11 @@ import bootstrapRoutes from "./routes/bootstrap.routes.js";
 
 import { authMiddleware } from "./middlewares/auth.js"; 
 
+import fs from 'fs';
+if (!fs.existsSync('./uploads')) {
+  fs.mkdirSync('./uploads');
+}
+
 dotenv.config();
 
 const app = express();
@@ -26,16 +31,20 @@ app.use(express.json());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Libera o acesso público à pasta uploads
-// O caminho '..' faz ele sair da pasta 'src' e procurar a pasta 'uploads' na raiz
-app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
+
 
 // --- 1. ROTAS PÚBLICAS (Abertas) ---
 app.get("/ping", (req, res) => {
   return res.status(200).send("pong");
 });
+
 app.use("/login", authRoutes);    
 app.use("/usuarios", usuariosRoutes); 
+
+// Libera o acesso público à pasta uploads
+// O caminho '..' faz ele sair da pasta 'src' e procurar a pasta 'uploads' na raiz
+app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
+
 
 // --- 2. PROTEÇÃO GLOBAL ---
 app.use(authMiddleware); 
