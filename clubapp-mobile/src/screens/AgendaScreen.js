@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View, Text, TouchableOpacity, Modal, TextInput, Alert, StyleSheet, 
-  ScrollView, Switch, ActivityIndicator, StatusBar, Platform, 
-  KeyboardAvoidingView, useWindowDimensions, Animated, Easing
+  ScrollView, Switch, StatusBar, Platform, KeyboardAvoidingView, 
+  useWindowDimensions, Animated, Easing
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,14 +10,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { 
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, 
-  parseISO, setYear, setMonth, isValid, addHours // 👈 Adicionado addHours
+  parseISO, setYear, setMonth, isValid, addHours
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 import api from "../services/api";
 import { useTheme } from "../context/ThemeContext";
+// 🚀 V3: Importamos o estado global que já vem hidratado do Bootstrap
+import { useAuth } from "../context/AuthContext";
 
-// ... (PRESET_COLORS e DEFAULT_CATEGORIES permanecem iguais)
 const PRESET_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#f43f5e", "#64748b", "#1e293b"];
 const DEFAULT_CATEGORIES = [
   { id: '1', name: 'Geral', color: '#64748b' },
@@ -25,24 +26,28 @@ const DEFAULT_CATEGORIES = [
   { id: '3', name: 'Lazer', color: '#10b981' }
 ];
 
-export default function AgendaScreen({ navigation }) { // Adicionado navigation caso precise
+export default function AgendaScreen({ navigation }) {
   const { theme } = useTheme();
   const colors = theme.colors;
   const { width: windowWidth } = useWindowDimensions();
   const isDesktop = windowWidth > 900;
+  
+  // Consumindo o estado global (sem necessidade de fetch inicial)
+const { eventosGlobais, setEventosGlobais, receitasGlobais, setReceitasGlobais } = useAuth();
 
-  // --- ESTADOS ---
+  //ESTADOS 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [eventos, setEventos] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [salvando, setSalvando] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [errorMessage, setErrorMessage] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState([]);
+  
+  // MODAIS
   const [modalVisivel, setModalVisivel] = useState(false);
   const [modalPickerVisivel, setModalPickerVisivel] = useState(false);
   const [modalCatVisivel, setModalCatVisivel] = useState(false); 
+  
+  // Formulário Evento
   const [pickerAno, setPickerAno] = useState(new Date().getFullYear());
   const [eventoEditando, setEventoEditando] = useState(null);
   const [titulo, setTitulo] = useState("");
@@ -53,15 +58,16 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
   const [valorFinanceiro, setValorFinanceiro] = useState("");
   const [lembreteValor, setLembreteValor] = useState("");
   const [lembreteUnidade, setLembreteUnidade] = useState("MINUTOS"); 
+  
+  // Categorias
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORIES[0]);
   const [catEditing, setCatEditing] = useState({ id: '', name: '', color: '', isNew: true }); 
 
-  // --- ⚠️ FUNÇÃO DE AJUSTE DE FUSO HORÁRIO (COMPENSAÇÃO DE 3 HORAS) ---
+  // --- ⚠️ COMPENSAÇÃO DE FUSO HORÁRIO ---
   const getLocalDate = (isoString) => {
     if (!isoString) return new Date();
     const date = parseISO(isoString);
-    // Se a data vier com 'Z' (UTC) do banco, somamos 3 horas para o horário de Brasília
     return isoString.includes('Z') ? addHours(date, 3) : date;
   };
 
@@ -92,22 +98,16 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
     setTimeout(() => setErrorMessage(""), 5000);
   };
 
-  const carregarDados = useCallback(async () => {
-    setLoading(true);
-    setErrorMessage("");
-    try {
-      const res = await api.get('/eventos');
-      setEventos(Array.isArray(res.data) ? res.data : []);
-    } catch (err) { 
-        tratarErro(err);
-    } finally { 
-        setLoading(false); 
-    }
-  }, []);
+  // 🚀 V3: Busca silenciosa (Background Fetch) apenas ao mudar o mês manualmente
+  const mudarMesSilenciosamente = (novaData) => {
+    setCurrentMonth(novaData);
+    // Dispara a requisição em background sem mostrar loading
+    api.get('/eventos').then(res => {
+      if (Array.isArray(res.data)) setEventosGlobais(res.data);
+    }).catch(e => console.log("Erro no background fetch:", e.message));
+  };
 
-  useEffect(() => { carregarDados(); }, [carregarDados]);
-
-  // --- LÓGICA DE EVENTOS ---
+  // --- LÓGICA DE EVENTOS (OPTIMISTIC UI) ---
   const handleLongPressEvento = (id) => {
     if (selectedEventIds.includes(id)) {
       setSelectedEventIds(selectedEventIds.filter(itemId => itemId !== id));
@@ -126,11 +126,19 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
 
   const excluirSelecionados = () => {
     const executeDelete = async () => {
+      const idsToDelete = [...selectedEventIds];
+      const backups = eventosGlobais.filter(e => idsToDelete.includes(e.id));
+      
+      // OTIMISTA: Limpa a tela instantaneamente
+      setSelectedEventIds([]);
+      setEventosGlobais(prev => prev.filter(e => !idsToDelete.includes(e.id)));
+
       try {
-        await api.post("/eventos/excluir-massa", { ids: selectedEventIds });
-        setSelectedEventIds([]);
-        carregarDados();
-      } catch (e) { tratarErro(e); }
+        await api.post("/eventos/excluir-massa", { ids: idsToDelete });
+      } catch (e) { 
+        setEventosGlobais(prev => [...prev, ...backups]); // Rollback
+        tratarErro(e); 
+      }
     };
     if (Platform.OS === 'web') {
       if (window.confirm(`Deseja apagar ${selectedEventIds.length} eventos selecionados?`)) executeDelete();
@@ -144,12 +152,20 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
 
   const handleExcluirEvento = (id) => {
     const executeDelete = async () => {
+      const backup = eventosGlobais.find(e => e.id === id);
+      
+      // OTIMISTA: Remove da tela antes do backend responder
+      setModalVisivel(false); 
+      setEventosGlobais(prev => prev.filter(e => e.id !== id));
+
       try {
         await api.delete(`/eventos/${id}`);
-        setModalVisivel(false); 
-        carregarDados();
-      } catch (error) { tratarErro(error); }
+      } catch (error) { 
+        setEventosGlobais(prev => [...prev, backup]); // Rollback
+        tratarErro(error); 
+      }
     };
+    
     if (Platform.OS === 'web') {
       if (window.confirm("Deseja apagar este evento?")) executeDelete();
     } else {
@@ -193,7 +209,6 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
     setEventoEditando(ev); 
     setTitulo(ev.titulo);
     try {
-        // ⚠️ Ajustando exibição das horas ao editar
         const dataInicio = getLocalDate(ev.inicio);
         const dataFim = getLocalDate(ev.fim);
         setHoraInicio(format(dataInicio, "HH:mm"));
@@ -214,8 +229,10 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
     setModalVisivel(true); 
   };
 
-  const salvarEvento = async () => {
+const salvarEvento = async () => {
     setErrorMessage(""); 
+    
+    // 👇 Validações e criação do valorFinal (Isto estava faltando!)
     if (!titulo.trim()) return setErrorMessage("O nome do evento é obrigatório.");
     if (horaInicio.length !== 5 || horaFim.length !== 5) return setErrorMessage("Preencha o horário completo (HH:mm).");
     if (horaFim <= horaInicio) return setErrorMessage("A hora de término deve ser maior que a de início.");
@@ -228,52 +245,149 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
       if (isNaN(valorFinal) || valorFinal <= 0) return setErrorMessage("Valor financeiro inválido.");
     }
 
-    setSalvando(true);
+    const dataIso = format(selectedDate, "yyyy-MM-dd");
+    const inicioFormatado = `${dataIso}T${horaInicio}:00`;
+    const fimFormatado = `${dataIso}T${horaFim}:00`;
+
+    const payload = {
+      titulo: titulo.trim(),
+      inicio: inicioFormatado, 
+      fim: fimFormatado,
+      categoria_id: selectedCategory.id,
+      tipo: selectedCategory.name, 
+      cor_categoria: selectedCategory.color,
+      descricao: observacao || "",
+      gerarFinanceiro: Boolean(gerarFinanceiro),
+      valor: valorFinal, // Agora o payload encontra a variável declarada lá em cima!
+      tipoFinanceiro: "RECEITA",
+      lembreteValor: lembreteValor ? parseInt(lembreteValor) : null,
+      lembreteUnidade: lembreteUnidade,
+      status: "PENDENTE",
+      comparecido: eventoEditando ? eventoEditando.comparecido : false
+    };
+
+    setModalVisivel(false);
+
+    // 1. CRIAÇÃO OTIMISTA (AGENDA)
+    const tempId = eventoEditando ? eventoEditando.id : `temp-${Date.now()}`;
+    const eventoOtimista = { id: tempId, ...payload, temp: !eventoEditando };
+
+    if (eventoEditando) {
+      setEventosGlobais(prev => prev.map(e => e.id === tempId ? { ...e, ...payload } : e));
+    } else {
+      setEventosGlobais(prev => [...prev, eventoOtimista]);
+
+      // 2. CRIAÇÃO OTIMISTA (FINANCEIRO): A mágica acontece aqui!
+      if (gerarFinanceiro) {
+         const receitaOtimista = {
+            id: `rec-${tempId}`, // ID temporário
+            descricao: `${selectedCategory.name}: ${payload.titulo}`,
+            valor: payload.valor,
+            status: "PENDENTE",
+            eventDate: dataIso,
+            paidAt: null,
+            tipo: selectedCategory.name,
+            tipo_financeiro: "RECEITA",
+            temp: true // Ficará levemente transparente provando que é otimista
+         };
+         // Empurra a receita pra tela do Financeiro na mesma hora!
+         setReceitasGlobais(prev => [...prev, receitaOtimista]);
+      }
+    }
+
+    // 3. REQUISIÇÃO EM BACKGROUND (Sem travar o usuário)
     try {
-      const dataIso = format(selectedDate, "yyyy-MM-dd");
-      // Enviamos sem o 'Z' para o backend tratar como local ou UTC conforme sua config
-      const inicioFormatado = `${dataIso}T${horaInicio}:00`;
-      const fimFormatado = `${dataIso}T${horaFim}:00`;
-
-      const payload = {
-        titulo: titulo.trim(),
-        inicio: inicioFormatado, 
-        fim: fimFormatado,
-        categoria_id: selectedCategory.id,
-        tipo: selectedCategory.name, 
-        cor_categoria: selectedCategory.color,
-        descricao: observacao || "",
-        gerarFinanceiro: Boolean(gerarFinanceiro),
-        valor: valorFinal,
-        tipoFinanceiro: "RECEITA",
-        lembreteValor: lembreteValor ? parseInt(lembreteValor) : null,
-        lembreteUnidade: lembreteUnidade,
-        status: "PENDENTE",
-        comparecido: false
-      };
-
       if (eventoEditando) {
-        await api.put(`/eventos/${eventoEditando.id}`, payload);
+        await api.put(`/eventos/${tempId}`, payload);
       } else {
         await api.post("/eventos", payload);
       }
 
-      setModalVisivel(false);
-      carregarDados();
+      // 4. ATUALIZAÇÃO SILENCIOSA DO FINANCEIRO (Substitui o ID temporário pelo ID real do Banco)
+      if (gerarFinanceiro) {
+        const mes = selectedDate.getMonth() + 1;
+        const ano = selectedDate.getFullYear();
+        const req = await api.get("/receitas", { params: { mes, ano } });
+        
+        setReceitasGlobais(prev => {
+          // 🚀 Agora filtramos pelo eventDate para manter a coerência
+          const outras = prev.filter(p => p.eventDate && !p.eventDate.startsWith(`${ano}-${String(mes).padStart(2, '0')}`));
+          return [...outras, ...req.data];
+        });
+      }
     } catch (e) {
       tratarErro(e);
-    } finally { 
-      setSalvando(false); 
+      // Aqui entraria a lógica de rollback caso a internet caia
     }
   };
 
-  const toggleComparecido = async (evento) => {
+const toggleComparecido = async (evento) => {
+    // Bloqueia o clique se o evento ainda for temporário (salvando no Render)
+    if (evento.temp) return;
+
+    const novoStatus = !evento.comparecido;
+   
+    // Backups para caso a internet caia
+    const backupEventos = [...eventosGlobais];
+    const backupReceitas = [...receitasGlobais];
+
+    // 1. OTIMISMO NA AGENDA: Muda o ícone na mesma hora
+    setEventosGlobais(prev => prev.map(e => e.id === evento.id ? { ...e, comparecido: novoStatus } : e));
+
+    // 2. OTIMISMO NO FINANCEIRO: A mágica da integração!
+    
+    const agora = new Date().toISOString();
+    const dataIso = evento.inicio.split('T')[0]; 
+
+    setReceitasGlobais(prev => prev.map(r => {
+
+  // 🚀 Busca pelo eventDate e pela descrição para dar a baixa otimista
+  if (r.eventDate === dataIso && r.descricao.includes(evento.titulo)) {
+    return { 
+      ...r, 
+      status: novoStatus ? "RECEBIDA" : "PENDENTE",
+      paidAt: novoStatus ? agora : null // Carimba o faturamento real!
+    };
+  }
+  return r;
+}));
+    // Procura a receita correspondente e dá a baixa automática
+    setReceitasGlobais(prev => prev.map(r => {
+      // 🚀 Busca pelo eventDate e pela descrição para dar a baixa otimista
+      if (r.eventDate === dataIso && r.descricao.includes(evento.titulo)) {
+        return { 
+          ...r, 
+          status: novoStatus ? "RECEBIDA" : "PENDENTE",
+          paidAt: novoStatus ? agora : null // Carimba o faturamento real!
+        };
+      }
+      return r;
+    }));
+
     try {
-      const novoStatus = !evento.comparecido;
-      const novosEventos = eventos.map(e => e.id === evento.id ? { ...e, comparecido: novoStatus } : e);
-      setEventos(novosEventos);
+      // 3. REQUISIÇÃO SIMPLES E DIRETA (Apenas avisa o banco da mudança do status)
       await api.put(`/eventos/${evento.id}`, { comparecido: novoStatus });
-    } catch (e) { carregarDados(); }
+      
+      // 4. ATUALIZAÇÃO SILENCIOSA DO FINANCEIRO (Usando o 'new Date' que corrigimos)
+      const dataEventoObj = new Date(evento.inicio); 
+      const mes = dataEventoObj.getMonth() + 1;
+      const ano = dataEventoObj.getFullYear();
+      
+      api.get("/receitas", { params: { mes, ano } })
+         .then(req => {
+            setReceitasGlobais(prev => {
+               // Mescla inteligente
+               const outras = prev.filter(p => p.dataPrevista && !p.dataPrevista.startsWith(`${ano}-${String(mes).padStart(2, '0')}`));
+               return [...outras, ...req.data];
+            });
+         }).catch(e => console.log("Erro na sincronização silenciosa", e));
+
+    } catch (e) { 
+      // ROLLBACK: Se a API falhar, desfaz a animação na Agenda e no Financeiro
+      setEventosGlobais(backupEventos);
+      setReceitasGlobais(backupReceitas);
+      tratarErro(e);
+    }
   };
 
   // --- GESTÃO DE CATEGORIAS ---
@@ -352,13 +466,13 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
             </TouchableOpacity>
 
             <View style={styles.headerControls}>
-              <TouchableOpacity onPress={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+              <TouchableOpacity onPress={() => mudarMesSilenciosamente(subMonths(currentMonth, 1))}>
                 <Ionicons name="chevron-back" size={26} color={colors.text} />
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.todayBtn, {backgroundColor: colors.surface}]} onPress={() => { setCurrentMonth(new Date()); setSelectedDate(new Date()); }}>
+              <TouchableOpacity style={[styles.todayBtn, {backgroundColor: colors.surface}]} onPress={() => { mudarMesSilenciosamente(new Date()); setSelectedDate(new Date()); }}>
                 <Text style={[styles.todayText, {color: colors.primary}]}>Hoje</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+              <TouchableOpacity onPress={() => mudarMesSilenciosamente(addMonths(currentMonth, 1))}>
                 <Ionicons name="chevron-forward" size={26} color={colors.text} />
               </TouchableOpacity>
             </View>
@@ -384,8 +498,9 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
           {days.map(day => {
             const isSelected = isSameDay(day, selectedDate);
             const isToday = isSameDay(day, new Date());
-            // ⚠️ CORREÇÃO: Usando getLocalDate para filtrar eventos no calendário
-            const dayEvents = eventos.filter(e => { 
+            
+            // 🚀 Lendo diretamente do estado global
+            const dayEvents = eventosGlobais.filter(e => { 
                 try { return isSameDay(getLocalDate(e.inicio), day); } 
                 catch { return false; } 
             });
@@ -405,7 +520,7 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
                 <Text style={[styles.dayNum, {color: colors.text}, isToday && {color: colors.primary, fontWeight: '900'}]}>{format(day, "d")}</Text>
                 <View style={styles.eventContainer}>
                   {dayEvents.slice(0, 3).map((ev, index) => (
-                    <View key={index} style={[styles.eventChip, { backgroundColor: ev.cor_categoria || colors.primary }]}>
+                    <View key={index} style={[styles.eventChip, { backgroundColor: ev.cor_categoria || colors.primary }, ev.temp && {opacity: 0.5}]}>
                       <Text style={styles.eventChipText} numberOfLines={1}>{ev.titulo}</Text>
                     </View>
                   ))}
@@ -424,8 +539,7 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
             </TouchableOpacity>
           </View>
 
-          {/* ⚠️ CORREÇÃO: Usando getLocalDate para listar eventos do dia selecionado */}
-          {eventos.filter(e => { try { return isSameDay(getLocalDate(e.inicio), selectedDate); } catch { return false; } }).map(ev => {
+          {eventosGlobais.filter(e => { try { return isSameDay(getLocalDate(e.inicio), selectedDate); } catch { return false; } }).map(ev => {
              const isSelected = selectedEventIds.includes(ev.id);
              return (
               <View 
@@ -433,7 +547,8 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
                 style={[
                   styles.eventCard, 
                   { backgroundColor: colors.surface, borderColor: isSelected ? colors.primary : colors.border },
-                  isSelected && { borderWidth: 2, backgroundColor: colors.primary + '15' }
+                  isSelected && { borderWidth: 2, backgroundColor: colors.primary + '15' },
+                  ev.temp && { opacity: 0.6 } // Efeito visual para itens que ainda estão salvando no background
                 ]}
               >
                 <TouchableOpacity onPress={() => toggleComparecido(ev)} style={{padding: 10, paddingLeft: 0}}>
@@ -456,7 +571,6 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
                         {ev.tipo || "GERAL"}
                      </Text>
                      <Text style={[styles.cardInfo, {color: colors.textSecondary}]}>
-                        {/* ⚠️ CORREÇÃO: Exibindo horas corretamente com o ajuste de fuso */}
                         • {isValid(getLocalDate(ev.inicio)) ? format(getLocalDate(ev.inicio), "HH:mm") : "--:--"} às {isValid(getLocalDate(ev.fim)) ? format(getLocalDate(ev.fim), "HH:mm") : "--:--"}
                      </Text>
                   </View>
@@ -469,7 +583,7 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
             )
           })}
           
-          {eventos.filter(e => { try { return isSameDay(getLocalDate(e.inicio), selectedDate); } catch { return false; } }).length === 0 && (
+          {eventosGlobais.filter(e => { try { return isSameDay(getLocalDate(e.inicio), selectedDate); } catch { return false; } }).length === 0 && (
              <Text style={styles.emptyText}>Nenhum agendamento para este dia.</Text>
           )}
         </View>
@@ -486,7 +600,6 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
                 <TouchableOpacity onPress={() => setModalVisivel(false)}><Ionicons name="close" size={24} color={colors.textSecondary} /></TouchableOpacity>
               </View>
 
-              {/* ⚠️ ERRO VISUAL NO MODAL DE EVENTO */}
               {errorMessage !== "" && (
                 <View style={[styles.errorContainer, { marginBottom: 15 }]}>
                   <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
@@ -572,8 +685,9 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
                 <Text style={styles.label}>OBSERVAÇÕES</Text>
                 <TextInput style={[styles.input, { height: 60, marginBottom: 20, color: colors.text, backgroundColor: colors.inputBackground }]} multiline value={observacao} onChangeText={setObservacao} placeholderTextColor={colors.textSecondary} />
 
-                <TouchableOpacity style={[styles.btnSave, {backgroundColor: colors.primary}]} onPress={salvarEvento} disabled={salvando}>
-                  {salvando ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSaveText}>SALVAR EVENTO</Text>}
+                {/* 🚀 O botão agora salva instantaneamente e não fica preso em 'loading' */}
+                <TouchableOpacity style={[styles.btnSave, {backgroundColor: colors.primary}]} onPress={salvarEvento}>
+                  <Text style={styles.btnSaveText}>SALVAR EVENTO</Text>
                 </TouchableOpacity>
 
               </ScrollView>
@@ -588,7 +702,6 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
           <View style={[styles.modalCatContent, {backgroundColor: colors.surface}]}>
             <Text style={[styles.modalCatTitle, {color: colors.text}]}>{catEditing.isNew ? "Criar Local/Categoria" : "Editar Local/Categoria"}</Text>
             
-            {/* ⚠️ ERRO VISUAL NO MODAL DE CATEGORIA */}
             {errorMessage !== "" && (
                 <View style={[styles.errorContainer, { marginBottom: 15 }]}>
                   <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
@@ -623,7 +736,7 @@ export default function AgendaScreen({ navigation }) { // Adicionado navigation 
                </View>
                <View style={styles.gridMonths}>
                   {['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'].map((m, i) => (
-                    <TouchableOpacity key={m} style={styles.monthBtn} onPress={() => { setCurrentMonth(setMonth(setYear(new Date(), pickerAno), i)); setModalPickerVisivel(false); }}>
+                    <TouchableOpacity key={m} style={styles.monthBtn} onPress={() => { mudarMesSilenciosamente(setMonth(setYear(new Date(), pickerAno), i)); setModalPickerVisivel(false); }}>
                       <Text style={[styles.monthBtnText, {color: colors.text}]}>{m}</Text>
                     </TouchableOpacity>
                   ))}
@@ -696,7 +809,6 @@ const styles = StyleSheet.create({
   unitBtn: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
   unitText: { fontSize: 10, fontWeight: 'bold', color: '#64748b' },
 
-  // ⚠️ ESTILOS DO ERRO VISUAL
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',

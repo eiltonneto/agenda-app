@@ -1,16 +1,17 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
   View, Text, TouchableOpacity, Modal, TextInput, Alert, StyleSheet,
-  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions
+  KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { format, addMonths, subMonths, setMonth, setYear, parseISO, isValid, getDate, getMonth, getYear } from "date-fns";
+import { format, addMonths, subMonths, setMonth, setYear, parseISO, isValid, getDate, getMonth, getYear, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useFocusEffect } from "@react-navigation/native";
 
 import api from "../services/api";
 import { useTheme } from "../context/ThemeContext";
+// 🚀 V3: Importamos o estado global hidratado pelo Bootstrap
+import { useAuth } from "../context/AuthContext";
 
 const PRESET_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#f43f5e", "#64748b", "#1e293b"];
 const MESES_CURTOS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -31,18 +32,13 @@ export default function FinanceiroScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const isDesktop = windowWidth > 800;
 
+
+  const { receitasGlobais, setReceitasGlobais, despesasGlobais, setDespesasGlobais } = useAuth();
+
   // --- ESTADOS ---
-  const [loading, setLoading] = useState(false);
   const [dataReferencia, setDataReferencia] = useState(new Date());
   const [abaAtiva, setAbaAtiva] = useState("DESPESA"); 
-  
-  // ⚠️ NOVO ESTADO: Mensagem de erro visual 
   const [errorMessage, setErrorMessage] = useState("");
-  
-  const [resumoRealizado, setResumoRealizado] = useState({ receitas: 0, despesas: 0, saldo: 0 });
-  const [resumoPrevisto, setResumoPrevisto] = useState({ receitas: 0, despesas: 0, saldo: 0 });
-  
-  const [transacoes, setTransacoes] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
 
   // --- CATEGORIAS ---
@@ -67,11 +63,56 @@ export default function FinanceiroScreen() {
 
   // Formulário
   const [descricao, setDescricao] = useState("");
-  const [observacao, setObservacao] = useState(""); // ⚠️ NOVO CAMPO: Observação detalhada
+  const [observacao, setObservacao] = useState(""); 
   const [valor, setValor] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [dataSelecionadaForm, setDataSelecionadaForm] = useState(new Date()); 
   const [status, setStatus] = useState("PENDENTE");
+
+  // --- 🚀 V3: DERIVANDO DADOS DO ESTADO GLOBAL ---
+  // A tela reage instantaneamente a mudanças no receitasGlobais/despesasGlobais
+// --- 🚀 REFINAMENTO REGIME DE CAIXA (V4) ---
+  const transacoesExibidas = useMemo(() => {
+    const listaOriginal = abaAtiva === "RECEITA" ? receitasGlobais : despesasGlobais;
+    
+    return listaOriginal.filter(t => {
+      // 1️⃣ REGRA: Pendentes aparecem SEMPRE (Controle de Inadimplência)
+      if (t.status === "PENDENTE") return true;
+
+      // 2️⃣ REGRA: Pagos/Recebidos só aparecem no mês do paidAt (Faturamento Real)
+      if (t.paidAt) {
+        const dataPagamento = parseISO(t.paidAt);
+        return isValid(dataPagamento) && isSameMonth(dataPagamento, dataReferencia);
+      }
+      return false;
+    });
+  }, [receitasGlobais, despesasGlobais, abaAtiva, dataReferencia]);
+
+// --- 🚀 AJUSTE FINAL REGIME DE CAIXA (Cálculo de Saldos) ---
+const { resumoRealizado, resumoPrevisto } = useMemo(() => {
+  let recReal = 0, despReal = 0;
+  let pendenteTotal = 0;
+
+  // Cálculo do que REALMENTE entrou/saiu no mês (paidAt)
+  receitasGlobais.forEach(t => {
+    if (t.status === 'RECEBIDA' && t.paidAt && isSameMonth(parseISO(t.paidAt), dataReferencia)) {
+      recReal += Number(t.valor);
+    }
+    if (t.status === 'PENDENTE') pendenteTotal += Number(t.valor);
+  });
+
+  despesasGlobais.forEach(t => {
+    if (t.status === 'PAGA' && t.paidAt && isSameMonth(parseISO(t.paidAt), dataReferencia)) {
+      despReal += Number(t.valor);
+    }
+  });
+
+  return {
+    resumoRealizado: { receitas: recReal, despesas: despReal, saldo: recReal - despReal },
+    // Mapeamos a inadimplência para o campo que sua UI já usa
+    resumoPrevisto: { saldo: pendenteTotal } 
+  };
+}, [receitasGlobais, despesasGlobais, dataReferencia]);
 
   // --- ATALHOS WEB ---
   useEffect(() => {
@@ -91,13 +132,11 @@ export default function FinanceiroScreen() {
 
   // --- MÁSCARA DE MOEDA (BRL) ---
   const handleMoneyMask = (text) => {
-    let val = text.replace(/\D/g, ""); // Remove tudo que não for número
+    let val = text.replace(/\D/g, "");
     if (!val) { setValor(""); return; }
-    
-    val = (Number(val) / 100).toFixed(2); // Transforma em decimal
-    val = val.replace(".", ","); // Troca ponto por vírgula
-    val = val.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1."); // Adiciona pontos de milhar
-    
+    val = (Number(val) / 100).toFixed(2);
+    val = val.replace(".", ",");
+    val = val.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
     setValor(val);
   };
 
@@ -107,7 +146,6 @@ export default function FinanceiroScreen() {
     return val.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
   };
 
-  // --- FUNÇÃO GLOBAL DE ERROS VISUAIS ---
   const tratarErro = (error) => {
     let mensagem = error.response?.data?.error || error.response?.data?.message || "Ocorreu um erro inesperado.";
     if (error.message?.includes("Network Error")) mensagem = "Sem conexão com o servidor.";
@@ -115,28 +153,8 @@ export default function FinanceiroScreen() {
     setTimeout(() => setErrorMessage(""), 5000); 
   };
 
-  // --- LÓGICA DE DADOS ---
-  const calcularResumos = (lista) => {
-    let recReal = 0, despReal = 0;
-    let recPrev = 0, despPrev = 0;
-
-    lista.forEach(t => {
-      const val = Number(t.valor);
-      const isReceita = t.tipo_financeiro === 'RECEITA' || (t.tipo && !t.categoria); 
-      const isPago = t.status === 'PAGA' || t.status === 'RECEBIDA';
-
-      if (isReceita) recPrev += val; else despPrev += val;
-      if (isPago) {
-        if (isReceita) recReal += val; else despReal += val;
-      }
-    });
-
-    setResumoRealizado({ receitas: recReal, despesas: despReal, saldo: recReal - despReal });
-    setResumoPrevisto({ receitas: recPrev, despesas: despPrev, saldo: recPrev - despPrev });
-  };
-
-  const carregarDados = useCallback(async () => {
-    setLoading(true);
+  // 🚀 V3: BUSCA EM BACKGROUND (Sem travar a tela)
+  const carregarDadosBackground = useCallback(async () => {
     setErrorMessage("");
     try {
       const mes = dataReferencia.getMonth() + 1; 
@@ -150,45 +168,73 @@ export default function FinanceiroScreen() {
       const receitas = Array.isArray(resRec.data) ? resRec.data.map(i => ({...i, tipo_financeiro: 'RECEITA'})) : [];
       const despesas = Array.isArray(resDesp.data) ? resDesp.data.map(i => ({...i, tipo_financeiro: 'DESPESA'})) : [];
       
-      const todas = [...receitas, ...despesas];
-      calcularResumos(todas);
-      setTransacoes(abaAtiva === "RECEITA" ? receitas : despesas);
-    } catch (error) { tratarErro(error); } 
-    finally { setLoading(false); }
-  }, [dataReferencia, abaAtiva]);
+      setReceitasGlobais(prev => {
+        // Mescla as novas mantendo as antigas que não são deste mês (Cache Inteligente)
+        const outras = prev.filter(p => p.eventDate && !isSameMonth(parseISO(p.eventDate), dataReferencia));
+        return [...outras, ...receitas];
+      });
+      
+      setDespesasGlobais(prev => {
+        const outras = prev.filter(p => p.eventDate && !isSameMonth(parseISO(p.eventDate), dataReferencia));
+        return [...outras, ...despesas];
+      });
 
-  useFocusEffect(useCallback(() => { carregarDados(); }, [carregarDados]));
+    } catch (error) { 
+        console.log("Erro no background fetch:", error.message);
+    } 
+  }, [dataReferencia, setReceitasGlobais]);
 
-  const toggleStatus = async (item) => {
+  useEffect(() => { carregarDadosBackground(); }, [carregarDadosBackground]);
+
+  // --- 🚀 OTIMISTA: TOGGLE STATUS ---
+    const toggleStatus = async (item) => {
+    const isReceita = abaAtiva === "RECEITA";
+    const statusPago = isReceita ? "RECEBIDA" : "PAGA";
+    const novoStatus = item.status === statusPago ? "PENDENTE" : statusPago;
+    
+    // 🗓️ Se estiver pagando, carimba a data de hoje. Se estiver voltando para pendente, limpa.
+    const agora = new Date().toISOString();
+    const novoPaidAt = novoStatus === statusPago ? agora : null;
+
+    const setter = isReceita ? setReceitasGlobais : setDespesasGlobais;
+    const backupItem = { ...item };
+
+    // Atualização otimista
+    setter(prev => prev.map(t => t.id === item.id ? { ...t, status: novoStatus, paidAt: novoPaidAt } : t));
+    
     try {
-      const novoStatus = abaAtiva === "RECEITA" 
-        ? (item.status === "RECEBIDA" ? "PENDENTE" : "RECEBIDA") 
-        : (item.status === "PAGA" ? "PENDENTE" : "PAGA");
-      const endpoint = abaAtiva === "RECEITA" ? "/receitas" : "/despesas";
-      
-      // Atualização otimista
-      const atualizados = transacoes.map(t => t.id === item.id ? { ...t, status: novoStatus } : t);
-      setTransacoes(atualizados);
-      
-      await api.patch(`${endpoint}/${item.id}/status`, { status: novoStatus }); 
-      carregarDados(); 
+      await api.patch(`${isReceita ? "/receitas" : "/despesas"}/${item.id}/status`, { 
+        status: novoStatus,
+        paidAt: novoPaidAt 
+      }); 
     } catch (e) { 
       tratarErro(e);
-      carregarDados(); // Reverte em caso de erro
+      setter(prev => prev.map(t => t.id === item.id ? backupItem : t));
     }
   };
 
-  // --- EXCLUIR MÚLTIPLOS (HEADER) ---
+  // --- 🚀 OTIMISTA: EXCLUIR MÚLTIPLOS ---
   const excluirSelecionados = async () => {
     const executeDelete = async () => {
+        const isReceita = abaAtiva === "RECEITA";
+        const route = isReceita ? "/receitas" : "/despesas";
+        const setter = isReceita ? setReceitasGlobais : setDespesasGlobais;
+        const idsToDelete = [...selectedIds];
+        
+        // Backup para possível rollback
+        const listaAtual = isReceita ? receitasGlobais : despesasGlobais;
+        const backups = listaAtual.filter(t => idsToDelete.includes(t.id));
+        
+        // OTIMISTA: Limpa a tela
+        setSelectedIds([]); 
+        setter(prev => prev.filter(t => !idsToDelete.includes(t.id)));
+
         try {
-            setLoading(true);
-            const route = abaAtiva === "RECEITA" ? "/receitas" : "/despesas";
-            await Promise.all(selectedIds.map(id => api.delete(`${route}/${id}`)));
-            setSelectedIds([]); 
-            carregarDados();
-        } catch (err) { tratarErro(err); } 
-        finally { setLoading(false); }
+            await Promise.all(idsToDelete.map(id => api.delete(`${route}/${id}`)));
+        } catch (err) { 
+            setter(prev => [...prev, ...backups]); // Reverte
+            tratarErro(err); 
+        } 
     };
 
     if (Platform.OS === 'web') {
@@ -201,13 +247,23 @@ export default function FinanceiroScreen() {
     }
   };
 
+  // --- 🚀 OTIMISTA: EXCLUIR RÁPIDO ---
   const excluirItemRapido = async (item) => {
     const execute = async () => {
+       const isReceita = abaAtiva === "RECEITA";
+       const route = isReceita ? "/receitas" : "/despesas";
+       const setter = isReceita ? setReceitasGlobais : setDespesasGlobais;
+       const backupItem = { ...item };
+
+       // OTIMISTA
+       setter(prev => prev.filter(t => t.id !== item.id));
+
        try {
-          const route = abaAtiva === "RECEITA" ? "/receitas" : "/despesas";
-          await api.delete(`${route}/${item.id}`);
-          carregarDados();
-        } catch (e) { tratarErro(e); }
+         await api.delete(`${route}/${item.id}`);
+       } catch (e) { 
+         setter(prev => [...prev, backupItem]); // Reverte
+         tratarErro(e); 
+       }
     };
     if (Platform.OS === 'web') {
       if(window.confirm(`Excluir "${item.descricao}"?`)) execute();
@@ -221,12 +277,21 @@ export default function FinanceiroScreen() {
 
   const excluirTransacaoAtual = async () => {
     const executeDelete = async () => {
+       const isReceita = abaAtiva === "RECEITA";
+       const route = isReceita ? "/receitas" : "/despesas";
+       const setter = isReceita ? setReceitasGlobais : setDespesasGlobais;
+       const backupItem = { ...transacaoEditando };
+       const id = transacaoEditando.id;
+
+       setModalVisivel(false);
+       setter(prev => prev.filter(t => t.id !== id));
+
        try {
-          const route = abaAtiva === "RECEITA" ? "/receitas" : "/despesas";
-          await api.delete(`${route}/${transacaoEditando.id}`);
-          setModalVisivel(false);
-          carregarDados();
-        } catch (e) { tratarErro(e); }
+         await api.delete(`${route}/${id}`);
+       } catch (e) { 
+         setter(prev => [...prev, backupItem]);
+         tratarErro(e); 
+       }
     };
     if (Platform.OS === 'web') {
       if(window.confirm("Deseja realmente excluir este lançamento?")) executeDelete();
@@ -258,8 +323,8 @@ export default function FinanceiroScreen() {
     setErrorMessage("");
     setTransacaoEditando(item);
     setDescricao(item.descricao);
-    setObservacao(item.observacao || ""); // Carrega a observação se existir
-    setValor(formatarValorInicial(item.valor)); // ⚠️ Aplica a máscara no valor do banco
+    setObservacao(item.observacao || ""); 
+    setValor(formatarValorInicial(item.valor)); 
     setShowInlineDatePicker(false);
     
     const catId = item.categoria_id;
@@ -274,13 +339,13 @@ export default function FinanceiroScreen() {
       setSelectedCategory({ id: 'temp', name: item.tipo || item.categoria || 'Geral', color: '#999', type: abaAtiva, backendType: 'OUTRO' });
     }
 
-    const dataIso = abaAtiva === "RECEITA" ? item.dataPrevista : item.dataVencimento;
+    const dataIso = item.eventDate;
     setDataSelecionadaForm(dataIso ? parseISO(dataIso) : new Date());
     setStatus(item.status);
     setModalVisivel(true);
   };
 
-  // --- SALVAR BLINDADO ---
+  // --- 🚀 OTIMISTA: SALVAR TRANSACAO ---
   const salvarTransacao = async () => {
     setErrorMessage("");
 
@@ -288,35 +353,58 @@ export default function FinanceiroScreen() {
     if (!valor) return setErrorMessage("Digite um valor válido.");
     if (!selectedCategory) return setErrorMessage("Selecione uma categoria.");
 
-    // Converte de "1.240,50" para o formato do banco "1240.50"
     const valorLimpo = valor.replace(/\./g, '').replace(',', '.');
     const valorFloat = parseFloat(valorLimpo);
     
     if (isNaN(valorFloat) || valorFloat <= 0) return setErrorMessage("Valor inválido.");
     
+    const dataFormatada = format(dataSelecionadaForm, "yyyy-MM-dd");
+    const isReceita = abaAtiva === "RECEITA";
+
+  const payload = { 
+    descricao: descricao.trim(), 
+    observacao: observacao.trim(), 
+    valor: valorFloat, 
+    status: status,
+
+    // MUDANÇA 
+    // Saem as chaves condicionais, entra o campo único que definimos no Prisma
+    eventDate: dataFormatada, 
+
+    // distinção de tipo/categoria apenas para a lógica de negócio do Backend
+    [isReceita ? "tipo" : "categoria"]: selectedCategory.backendType || "OUTRO",
+  };
+
+    const route = isReceita ? "/receitas" : "/despesas";
+    const setter = isReceita ? setReceitasGlobais : setDespesasGlobais;
+    
+    // OTIMISTA: Fecha modal e atualiza interface
+    setModalVisivel(false); 
+    const tempId = transacaoEditando ? transacaoEditando.id : `temp-${Date.now()}`;
+    const transacaoOtimista = { id: tempId, ...payload, temp: !transacaoEditando };
+    const backupItem = transacaoEditando ? (isReceita ? receitasGlobais : despesasGlobais).find(t => t.id === tempId) : null;
+
+    if (transacaoEditando) {
+      setter(prev => prev.map(t => t.id === tempId ? { ...t, ...payload } : t));
+    } else {
+      setter(prev => [...prev, transacaoOtimista]);
+    }
+
+    // BACKGROUND REQUEST
     try {
-      const dataFormatada = format(dataSelecionadaForm, "yyyy-MM-dd");
-
-      const payload = { 
-        descricao: descricao.trim(), 
-        observacao: observacao.trim(), // ⚠️ NOVO CAMPO
-        valor: valorFloat, 
-        status: status,
-        [abaAtiva === "RECEITA" ? "dataPrevista" : "dataVencimento"]: dataFormatada,
-        [abaAtiva === "RECEITA" ? "tipo" : "categoria"]: selectedCategory.backendType || "OUTRO",
-      };
-
-      const route = abaAtiva === "RECEITA" ? "/receitas" : "/despesas";
-
       if (transacaoEditando) {
-        await api.put(`${route}/${transacaoEditando.id}`, payload);
+        await api.put(`${route}/${tempId}`, payload);
       } else {
-        await api.post(route, payload);
+        const res = await api.post(route, payload);
+        // Atualiza ID temp para ID real
+        setter(prev => prev.map(t => t.id === tempId ? res.data : t));
       }
-      
-      setModalVisivel(false); 
-      carregarDados();
     } catch (e) { 
+      if (transacaoEditando) {
+        setter(prev => prev.map(t => t.id === tempId ? backupItem : t));
+      } else {
+        setter(prev => prev.filter(t => t.id !== tempId));
+      }
       tratarErro(e);
     }
   };
@@ -392,7 +480,6 @@ export default function FinanceiroScreen() {
         )}
       </View>
 
-      {/* ⚠️ ERRO VISUAL GERAL DA TELA */}
       {errorMessage !== "" && !modalVisivel && !modalCatVisivel && (
         <View style={[styles.errorContainer, { marginHorizontal: 20, marginTop: 15 }]}>
           <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
@@ -434,46 +521,70 @@ export default function FinanceiroScreen() {
 
         {/* LISTA */}
         <View style={[styles.listContainer, isDesktop && { paddingHorizontal: 60 }]}>
-          {loading ? <ActivityIndicator size="large" color={colors.primary} style={{marginTop: 40}} /> : (
-            transacoes.map(item => {
-              const isDone = item.status === "PAGA" || item.status === "RECEBIDA";
-              const selecionado = selectedIds.includes(item.id);
-              const catItem = categories.find(c => c.id === item.categoria_id) || categories.find(c => c.name === (item.tipo || item.categoria));
-              const nomeExibir = catItem ? catItem.name : (item.tipo || item.categoria);
-              const corBarra = catItem ? catItem.color : (abaAtiva==="RECEITA" ? "#10b981" : "#ef4444");
+{transacoesExibidas.map(item => {
+    const isDone = item.status === "PAGA" || item.status === "RECEBIDA";
+    const selecionado = selectedIds.includes(item.id);
+    const catItem = categories.find(c => c.id === item.categoria_id) || categories.find(c => c.name === (item.tipo || item.categoria));
+    
+    // 🚀 MAQUIAGEM VISUAL: Nome da Categoria
+    let nomeExibir = catItem ? catItem.name : (item.tipo || item.categoria);
+    if (nomeExibir === "OUTRO") nomeExibir = "Agenda"; 
 
-              return (
-                <TouchableOpacity 
-                  key={item.id} 
-                  style={[styles.itemCard, { backgroundColor: colors.surface }, selecionado && { borderColor: colors.primary, borderWidth: 2 }]}
-                  onPress={() => selectedIds.length > 0 ? ( selecionado ? setSelectedIds(selectedIds.filter(i => i !== item.id)) : setSelectedIds([...selectedIds, item.id]) ) : toggleStatus(item)}
-                  onLongPress={() => setSelectedIds([...selectedIds, item.id])}
-                >
-                  <View style={[styles.indicator, { backgroundColor: corBarra }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.itemTitle, { color: colors.text }, isDone && { opacity: 0.5 }]} numberOfLines={1}>{item.descricao}</Text>
-                    <Text style={styles.itemSub}>{nomeExibir || "Geral"} • {safeFormatDate(abaAtiva === "RECEITA" ? item.dataPrevista : item.dataVencimento)}</Text>
-                  </View>
-                  
-                  {/* LADO DIREITO */}
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[styles.itemVal, { color: abaAtiva === "RECEITA" ? "#10b981" : "#ef4444", opacity: isDone ? 1 : 0.6 }]}>{currencyFormatter.format(item.valor)}</Text>
-                    {!isDone && <Text style={styles.tagPendente}>Pendente</Text>}
-                    
-                    <View style={styles.cardActions}>
-                        <TouchableOpacity onPress={() => abrirModalEditar(item)} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-                           <Ionicons name="pencil" size={18} color="#94a3b8"/>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => excluirItemRapido(item)} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-                           <Ionicons name="trash-outline" size={18} color="#ef4444"/>
-                        </TouchableOpacity>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              )
-            })
+    // 🚀 EXTRAÇÃO DO HORÁRIO: Identifica o HH:mm se a data vier completa do banco
+    const dataCampo = item.eventDate;
+    const horario = dataCampo && dataCampo.includes('T') 
+      ? dataCampo.split('T')[1].substring(0, 5) 
+      : "";
+
+    const corBarra = catItem ? catItem.color : (abaAtiva === "RECEITA" ? "#10b981" : "#ef4444");
+
+    return (
+      <TouchableOpacity 
+        key={item.id} 
+        style={[
+          styles.itemCard, 
+          { backgroundColor: colors.surface }, 
+          selecionado && { borderColor: colors.primary, borderWidth: 2 },
+          item.temp && { opacity: 0.6 } 
+        ]}
+        onPress={() => selectedIds.length > 0 ? ( selecionado ? setSelectedIds(selectedIds.filter(i => i !== item.id)) : setSelectedIds([...selectedIds, item.id]) ) : toggleStatus(item)}
+        onLongPress={() => setSelectedIds([...selectedIds, item.id])}
+      >
+        <View style={[styles.indicator, { backgroundColor: corBarra }]} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.itemTitle, { color: colors.text }, isDone && { opacity: 0.5 }]} numberOfLines={1}>
+            {item.descricao}
+          </Text>
+          
+          {/* 🚀 SUBTÍTULO TURBINADO: Categoria • Data • Horário */}
+        <Text style={styles.itemSub}>
+          <Text style={{ fontWeight: 'bold' }}>{nomeExibir}</Text> • 
+          Agendado: {safeFormatDate(item.eventDate)}
+          {item.paidAt && (
+            <Text style={{ color: '#10b981' }}> • Pago: {safeFormatDate(item.paidAt)}</Text>
           )}
-          {transacoes.length === 0 && !loading && <Text style={styles.emptyText}>Nenhum lançamento neste mês.</Text>}
+        </Text>
+        </View>
+        
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={[styles.itemVal, { color: abaAtiva === "RECEITA" ? "#10b981" : "#ef4444", opacity: isDone ? 1 : 0.6 }]}>
+            {currencyFormatter.format(item.valor)}
+          </Text>
+          {!isDone && <Text style={styles.tagPendente}>Pendente</Text>}
+          
+          <View style={styles.cardActions}>
+              <TouchableOpacity onPress={() => abrirModalEditar(item)} hitSlop={{top:10,bottom:10,left:10,right:10}}>
+                 <Ionicons name="pencil" size={18} color="#94a3b8"/>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => excluirItemRapido(item)} hitSlop={{top:10,bottom:10,left:10,right:10}}>
+                 <Ionicons name="trash-outline" size={18} color="#ef4444"/>
+              </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableOpacity>
+    )
+})}
+          {transacoesExibidas.length === 0 && <Text style={styles.emptyText}>Nenhum lançamento neste mês.</Text>}
         </View>
       </ScrollView>
 
@@ -513,7 +624,6 @@ export default function FinanceiroScreen() {
               <TouchableOpacity onPress={() => setModalVisivel(false)}><Ionicons name="close" size={28} color={colors.text}/></TouchableOpacity>
             </View>
 
-            {/* ⚠️ ERRO VISUAL DENTRO DO MODAL */}
             {errorMessage !== "" && (
               <View style={[styles.errorContainer, { marginBottom: 15 }]}>
                 <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
@@ -526,7 +636,6 @@ export default function FinanceiroScreen() {
               <Text style={styles.label}>TÍTULO</Text>
               <TextInput style={[styles.inputSaaS, {color: colors.text, backgroundColor: colors.inputBackground}]} value={descricao} onChangeText={setDescricao} placeholder="Ex: Mensalidade Academia" placeholderTextColor="#999" />
               
-              {/* ⚠️ NOVO CAMPO DE DESCRIÇÃO / OBSERVAÇÕES */}
               <Text style={styles.label}>DESCRIÇÃO / OBSERVAÇÕES (Opcional)</Text>
               <TextInput 
                 style={[styles.inputSaaS, {color: colors.text, backgroundColor: colors.inputBackground, height: 60, paddingTop: 12}]} 
@@ -543,7 +652,7 @@ export default function FinanceiroScreen() {
                   <TextInput 
                      style={[styles.inputSaaS, {color: colors.text, backgroundColor: colors.inputBackground, fontWeight: 'bold'}]} 
                      value={valor} 
-                     onChangeText={handleMoneyMask} // ⚠️ MÁSCARA APLICADA AQUI
+                     onChangeText={handleMoneyMask} 
                      keyboardType="numeric" 
                      placeholder="0,00" 
                      placeholderTextColor="#999" 
@@ -753,7 +862,6 @@ const styles = StyleSheet.create({
   linkAction: { fontWeight: 'bold', fontSize: 12 },
   hintText: { fontSize: 10, color: '#ccc', fontStyle: 'italic', marginBottom: 15 },
   
-  // ⚠️ ESTILOS DO ERRO VISUAL
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',

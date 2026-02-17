@@ -67,19 +67,16 @@ export default function PerfilScreen() {
   async function handleUploadPhoto(localUri) {
   setUploading(true);
   try {
-    const filename = localUri.split('/').pop();
     
-    // Melhora a detecção da extensão
-    const ext = filename.split('.').pop();
-    const type = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-
     const formData = new FormData();
-    
-    // Criando o objeto do arquivo de forma explícita
+    const uri = Platform.OS === 'android' ? localUri : localUri.replace('file://', '');
+    const filename = uri.split('/').pop();
+    const ext = filename.split('.').pop();
+
     formData.append('foto', {
-      uri: Platform.OS === 'android' ? localUri : localUri.replace('file://', ''),
-      name: `profile_${user.id}_${Date.now()}.${ext}`, // Nome limpo e único
-      type,
+      uri,
+      name: `perfil_${Date.now()}.${ext}`,
+      type: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
     });
 
     const response = await api.patch("/usuarios/foto", formData, {
