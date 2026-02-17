@@ -31,6 +31,9 @@ const __dirname = path.dirname(__filename);
 app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
 
 // --- 1. ROTAS PÚBLICAS (Abertas) ---
+app.get("/ping", (req, res) => {
+  return res.status(200).send("pong");
+});
 app.use("/login", authRoutes);    
 app.use("/usuarios", usuariosRoutes); 
 
@@ -39,9 +42,6 @@ app.use(authMiddleware);
 
 // --- 3. ROTAS PROTEGIDAS ---
 // robô de ping para manter o servidor acordado 
-app.get("/ping", (req, res) => {
-  return res.status(200).send("pong");
-});
 
 app.use("/bootstrap", bootstrapRoutes);
 app.use("/eventos", eventosRoutes);
