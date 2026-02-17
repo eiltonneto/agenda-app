@@ -5,35 +5,30 @@ import { authMiddleware } from "../middlewares/auth.js";
 const router = Router();
 router.use(authMiddleware);
 
-// ======================================================
-// 📌 LISTAR RECEITAS (Com filtro opcional de Mês/Ano)
-// ======================================================
+// 📌 LISTAR RECEITAS (Regime de Caixa - Regra 2)
 router.get("/", async (req, res) => {
   try {
     const { mes, ano } = req.query;
+    const userId = req.userId;
 
-    let filtroData = {};
+    let whereCondition = { usuarioId: userId };
 
-    // Se passar mês e ano, filtra o intervalo
     if (mes && ano) {
       const inicio = new Date(ano, mes - 1, 1);
       const fim = new Date(ano, mes, 0, 23, 59, 59);
       
-      // Filtra pela data prevista de recebimento
-      filtroData = {
-        dataPrevista: {
-          gte: inicio,
-          lte: fim,
-        },
-      };
+      whereCondition.OR = [
+        { status: "PENDENTE" },
+        {
+          status: "RECEBIDA",
+          paidAt: { gte: inicio, lte: fim }
+        }
+      ];
     }
 
     const receitas = await prisma.receita.findMany({
-      where: {
-        usuarioId: req.userId,
-        ...filtroData,
-      },
-      orderBy: { dataPrevista: "asc" },
+      where: whereCondition,
+      orderBy: { eventDate: "asc" },
     });
 
     return res.json(receitas);
@@ -42,14 +37,12 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ======================================================
 // 📌 CRIAR NOVA RECEITA
-// ======================================================
 router.post("/", async (req, res) => {
   try {
-    const { descricao, valor, dataPrevista, tipo, status } = req.body;
+    const { descricao, valor, eventDate, tipo, status, paidAt } = req.body;
 
-    if (!descricao || !valor || !dataPrevista || !tipo) {
+    if (!descricao || !valor || !eventDate || !tipo) {
       return res.status(400).json({ error: "Dados obrigatórios faltando." });
     }
 
@@ -57,10 +50,11 @@ router.post("/", async (req, res) => {
       data: {
         usuarioId: req.userId,
         descricao,
-        valor, // O Prisma aceita string ou number para Decimal
-        dataPrevista: new Date(dataPrevista),
-        tipo, // Deve ser: 'VENDA', 'SERVICO', 'ALUGUEL', 'OUTRO'
+        valor: parseFloat(String(valor).replace(',', '.')),
+        eventDate: new Date(eventDate),
+        tipo,
         status: status || "PENDENTE",
+        paidAt: status === "RECEBIDA" ? (paidAt ? new Date(paidAt) : new Date()) : null,
       },
     });
 
@@ -71,34 +65,17 @@ router.post("/", async (req, res) => {
   }
 });
 
-// ======================================================
-// 📌 DELETAR RECEITA
-// ======================================================
-router.delete("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    await prisma.receita.delete({
-      where: { id: Number(id), usuarioId: req.userId },
-    });
-    return res.json({ message: "Receita removida" });
-  } catch (error) {
-    return res.status(500).json({ error: "Erro ao deletar receita" });
-  }
-});
-
-// ======================================================
-// 📌 MARCAR COMO RECEBIDA (Toggle Status)
-// ======================================================
+// 📌 MARCAR COMO RECEBIDA
 router.patch("/:id/status", async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // 'RECEBIDA' ou 'PENDENTE'
+    const { status, paidAt } = req.body;
 
     const receita = await prisma.receita.update({
       where: { id: Number(id), usuarioId: req.userId },
       data: { 
         status,
-        dataRecebida: status === 'RECEBIDA' ? new Date() : null 
+        paidAt: status === 'RECEBIDA' ? (paidAt ? new Date(paidAt) : new Date()) : null
       },
     });
 
@@ -108,22 +85,21 @@ router.patch("/:id/status", async (req, res) => {
   }
 });
 
-// ======================================================
 // 📌 EDITAR RECEITA
-// ======================================================
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { descricao, valor, dataPrevista, tipo, status } = req.body;
+    const { descricao, valor, eventDate, tipo, status, paidAt } = req.body;
 
     const receita = await prisma.receita.update({
       where: { id: Number(id), usuarioId: req.userId },
       data: {
         descricao,
-        valor,
-        dataPrevista: new Date(dataPrevista),
+        valor: valor ? parseFloat(String(valor).replace(',', '.')) : undefined,
+        eventDate: eventDate ? new Date(eventDate) : undefined,
         tipo,
         status,
+        paidAt: status === 'RECEBIDA' && !paidAt ? new Date() : (paidAt ? new Date(paidAt) : null)
       },
     });
 

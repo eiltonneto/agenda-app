@@ -45,34 +45,59 @@ router.post("/", async (req, res) => {
       expiresIn: authConfig.expiresIn,
     });
 
-    // --- 🚀 V3: O MESTRE DA VELOCIDADE (BOOTSTRAP NO LOGIN) ---
-    // Define o início do dia de hoje para filtrar a agenda
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
+    // --- 🚀 V4: VELOCIDADE MÁXIMA E REGIME DE CAIXA ---
+    
+    // 1. Definimos o horizonte de tempo (Mês Atual)
+// --- 🚀 REFINAMENTO REGIME DE CAIXA (V4) ---
+    const agora = new Date();
+    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+    const fimMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0, 23, 59, 59);
 
-    // Promise.all executa as buscas SIMULTANEAMENTE no PostgreSQL
-    // Pega o primeiro e último dia do mês atual
-    const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-
-    // Busca tudo sem filtro de data apertado
     const [eventos, receitas, despesas] = await Promise.all([
+      // Agenda: Traz eventos do mês atual em diante
       prisma.evento.findMany({ 
-        where: { usuarioId: user.id }, // Traz todo o histórico
+        where: { 
+          usuarioId: user.id,
+          inicio: { gte: inicioMes } 
+        },
         orderBy: { inicio: 'asc' } 
       }),
+
+      // Receitas: Segue ESTREITAMENTE o Regime de Caixa (Regra 2)
       prisma.receita.findMany({ 
-        where: { usuarioId: user.id }
+        where: { 
+          usuarioId: user.id,
+          OR: [
+            { status: "PENDENTE" }, // 1. Tudo que está atrasado ou a receber (Inadimplência)
+            { 
+              status: "RECEBIDA", 
+              paidAt: { gte: inicioMes, lte: fimMes } // 2. O que entrou no CAIXA este mês
+            }
+          ]
+        }
       }),
+
+      // Despesas: Segue ESTREITAMENTE o Regime de Caixa
       prisma.despesa.findMany({ 
-        where: { usuarioId: user.id }
+        where: { 
+          usuarioId: user.id,
+          OR: [
+            { status: "PENDENTE" },
+            { 
+              status: "PAGA", 
+              paidAt: { gte: inicioMes, lte: fimMes } 
+            }
+          ]
+        }
       })
     ]);
 
     return res.json({
       user: { id: user.id, nome: user.nome, email: user.email, foto: user.foto },
       token,
-      eventos, receitas, despesas // 👈 Agora mandamos tudo de uma vez!
+      eventos, 
+      receitas, 
+      despesas 
     });
 
   } catch (error) {

@@ -52,29 +52,37 @@ model Notificacao {
 }
 
 model Despesa {
-  id             Int              @id @default(autoincrement())
-  categoria      CategoriaDespesa
-  descricao      String
-  valor          Decimal          @db.Decimal(10, 2)
-  dataVencimento DateTime
-  dataPagamento  DateTime?
-  status         StatusDespesa    @default(PENDENTE)
-  usuarioId      Int
-  createdAt      DateTime         @default(now())
-  Usuario        Usuario          @relation(fields: [usuarioId], references: [id])
+  id              Int              @id @default(autoincrement())
+  categoria       CategoriaDespesa
+  descricao       String
+  valor           Decimal          @db.Decimal(10, 2)
+  status          StatusDespesa    @default(PENDENTE)
+  
+  // 🗓️ Estrutura Final Única
+  eventDate       DateTime?        // Data do compromisso
+  paidAt          DateTime?        // Data do pagamento real
+  createdAt       DateTime         @default(now())
+  
+  eventId         String?          
+  usuarioId       Int
+  Usuario         Usuario          @relation(fields: [usuarioId], references: [id])
 }
 
 model Receita {
-  id           Int           @id @default(autoincrement())
-  tipo         TipoReceita
-  descricao    String
-  valor        Decimal       @db.Decimal(10, 2)
-  dataPrevista DateTime?
-  dataRecebida DateTime?
-  status       StatusReceita @default(PENDENTE)
-  usuarioId    Int
-  createdAt    DateTime      @default(now())
-  Usuario      Usuario       @relation(fields: [usuarioId], references: [id])
+  id            Int           @id @default(autoincrement())
+  tipo          TipoReceita
+  descricao     String
+  valor         Decimal       @db.Decimal(10, 2)
+  status        StatusReceita @default(PENDENTE)
+  
+  // 🗓️ Estrutura Final Única
+  eventDate     DateTime?     // Data do atendimento (Agenda)
+  paidAt        DateTime?     // Data do recebimento (Caixa)
+  createdAt     DateTime      @default(now())
+
+  eventId       String?       
+  usuarioId     Int
+  Usuario       Usuario       @relation(fields: [usuarioId], references: [id])
 }
 
 enum TipoEvento {

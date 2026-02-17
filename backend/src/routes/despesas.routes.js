@@ -5,32 +5,32 @@ import { authMiddleware } from "../middlewares/auth.js";
 const router = Router();
 router.use(authMiddleware);
 
-// ======================================================
-// 📌 LISTAR DESPESAS (Com filtro opcional de Mês/Ano)
-// ======================================================
+// 📌 LISTAR DESPESAS (Regime de Caixa - Regra 2)
 router.get("/", async (req, res) => {
   try {
     const { mes, ano } = req.query;
-    let filtroData = {};
+    const userId = req.userId;
+
+    let whereCondition = { usuarioId: userId };
 
     if (mes && ano) {
       const inicio = new Date(ano, mes - 1, 1);
       const fim = new Date(ano, mes, 0, 23, 59, 59);
       
-      filtroData = {
-        dataVencimento: {
-          gte: inicio,
-          lte: fim,
-        },
-      };
+      whereCondition.OR = [
+        // 1. Mostra tudo o que está pendente (Inadimplência/Controle)
+        { status: "PENDENTE" },
+        // 2. Mostra o que foi PAGO estritamente neste mês (Regime de Caixa)
+        {
+          status: "PAGA",
+          paidAt: { gte: inicio, lte: fim }
+        }
+      ];
     }
 
     const despesas = await prisma.despesa.findMany({
-      where: {
-        usuarioId: req.userId,
-        ...filtroData,
-      },
-      orderBy: { dataVencimento: "asc" },
+      where: whereCondition,
+      orderBy: { eventDate: "asc" },
     });
 
     return res.json(despesas);
@@ -39,14 +39,12 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ======================================================
 // 📌 CRIAR NOVA DESPESA
-// ======================================================
 router.post("/", async (req, res) => {
   try {
-    const { descricao, valor, dataVencimento, categoria, status } = req.body;
+    const { descricao, valor, eventDate, categoria, status, paidAt } = req.body;
 
-    if (!descricao || !valor || !dataVencimento || !categoria) {
+    if (!descricao || !valor || !eventDate || !categoria) {
       return res.status(400).json({ error: "Dados obrigatórios faltando." });
     }
 
@@ -54,10 +52,12 @@ router.post("/", async (req, res) => {
       data: {
         usuarioId: req.userId,
         descricao,
-        valor,
-        dataVencimento: new Date(dataVencimento),
-        categoria, // 'FIXA', 'VARIAVEL', 'MANUTENCAO', etc.
+        valor: parseFloat(String(valor).replace(',', '.')),
+        eventDate: new Date(eventDate),
+        categoria,
         status: status || "PENDENTE",
+        // Se já nascer paga, carimba o paidAt
+        paidAt: status === "PAGA" ? (paidAt ? new Date(paidAt) : new Date()) : null,
       },
     });
 
@@ -68,34 +68,17 @@ router.post("/", async (req, res) => {
   }
 });
 
-// ======================================================
-// 📌 DELETAR DESPESA
-// ======================================================
-router.delete("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    await prisma.despesa.delete({
-      where: { id: Number(id), usuarioId: req.userId },
-    });
-    return res.json({ message: "Despesa removida" });
-  } catch (error) {
-    return res.status(500).json({ error: "Erro ao deletar despesa" });
-  }
-});
-
-// ======================================================
-// 📌 MARCAR COMO PAGA (Toggle Status)
-// ======================================================
+// 📌 MARCAR COMO PAGA (Regra 3: Carimba paidAt)
 router.patch("/:id/status", async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // 'PAGA' ou 'PENDENTE'
+    const { status, paidAt } = req.body;
 
     const despesa = await prisma.despesa.update({
       where: { id: Number(id), usuarioId: req.userId },
       data: { 
         status,
-        dataPagamento: status === 'PAGA' ? new Date() : null
+        paidAt: status === 'PAGA' ? (paidAt ? new Date(paidAt) : new Date()) : null
       },
     });
 
@@ -105,23 +88,21 @@ router.patch("/:id/status", async (req, res) => {
   }
 });
 
-
-// ======================================================
 // 📌 EDITAR DESPESA
-// ======================================================
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { descricao, valor, dataVencimento, categoria, status } = req.body;
+    const { descricao, valor, eventDate, categoria, status, paidAt } = req.body;
 
     const despesa = await prisma.despesa.update({
       where: { id: Number(id), usuarioId: req.userId },
       data: {
         descricao,
-        valor,
-        dataVencimento: new Date(dataVencimento),
+        valor: valor ? parseFloat(String(valor).replace(',', '.')) : undefined,
+        eventDate: eventDate ? new Date(eventDate) : undefined,
         categoria,
         status,
+        paidAt: status === 'PAGA' && !paidAt ? new Date() : (paidAt ? new Date(paidAt) : null)
       },
     });
 
