@@ -38,6 +38,11 @@ app.use("/usuarios", usuariosRoutes);
 app.use(authMiddleware); 
 
 // --- 3. ROTAS PROTEGIDAS ---
+// robô de ping para manter o servidor acordado 
+app.get("/ping", (req, res) => {
+  return res.status(200).send("pong");
+});
+
 app.use("/bootstrap", bootstrapRoutes);
 app.use("/eventos", eventosRoutes);
 app.use("/financeiro", financeiroRoutes);
