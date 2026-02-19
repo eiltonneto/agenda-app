@@ -3,54 +3,63 @@ import prisma from "../database/prisma.js";
 
 const router = Router();
 
-// Rota GET /bootstrap (Estará protegida pelo middleware JWT)
 router.get("/", async (req, res) => {
   try {
     const userId = req.userId;
 
-    // Define o início do dia de hoje (para pegar eventos daqui para a frente)
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
+    // 🚀 O AJUSTE: Pegamos o início deste mês e o início do próximo
+    const dataAtual = new Date();
+    const inicioDoMes = new Date(dataAtual.getFullYear(), dataAtual.getMonth(), 1);
+    const inicioProximoMes = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 1);
 
-    // 🚀 A MÁGICA: Promise.all dispara todas as queries no banco SIMULTANEAMENTE
-    const [usuario, eventos, receitasPendentes] = await Promise.all([
+    const [usuario, eventos, receitas, despesas] = await Promise.all([
       
-      // 1. Traz o usuário (já ignorando a senha direto na query por segurança)
       prisma.usuario.findUnique({
         where: { id: userId },
         select: { id: true, nome: true, email: true, foto: true }
       }),
 
-      // 2. Traz a agenda (Eventos a partir de hoje para não carregar passado desnecessário)
       prisma.evento.findMany({
         where: { 
-          usuarioId: userId,
-          inicio: { gte: hoje } 
+          usuario_id: userId,
+          inicio: { gte: inicioDoMes } 
         },
         orderBy: { inicio: 'asc' }
       }),
 
-      // 3. Traz o resumo financeiro (Ex: pendências para o dashboard)
       prisma.receita.findMany({
         where: { 
-          usuarioId: userId,
-          status: "PENDENTE"
+          usuario_id: userId,
+          OR: [
+            { status: "PENDENTE" },
+            { 
+              // 🚀 O PRISMA AMA ISSO: Data entre o dia 1 deste mês e o dia 1 do próximo
+              eventDate: { gte: inicioDoMes, lt: inicioProximoMes } 
+            }
+          ]
+        },
+        orderBy: { eventDate: 'asc' }
+      }),
+
+      prisma.despesa.findMany({
+        where: { 
+          usuario_id: userId,
+          OR: [
+            { status: "PENDENTE" },
+            { 
+              eventDate: { gte: inicioDoMes, lt: inicioProximoMes } 
+            }
+          ]
         },
         orderBy: { eventDate: 'asc' }
       })
     ]);
 
-    // Devolve um "pacotão" único para o frontend
-    return res.json({
-      usuario,
-      eventos,
-      receitasPendentes,
-      statusTrial: "ATIVO" // Placeholder para o futuro status de assinatura
-    });
+    return res.json({ usuario, eventos, receitas, despesas, statusTrial: "ATIVO" });
 
   } catch (error) {
     console.error("ERRO NO BOOTSTRAP:", error);
-    return res.status(500).json({ error: "Erro ao carregar os dados iniciais do sistema." });
+    return res.status(500).json({ error: "Erro ao carregar os dados iniciais." });
   }
 });
 

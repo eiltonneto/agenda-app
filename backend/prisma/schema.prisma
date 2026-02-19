@@ -1,18 +1,26 @@
-generator client {
+// Coração do banco de dados do projeto. Arquivo de configuração principal do Prisma ORM -> ferramenta que traduz o código JS para a
+linguagem de banco de dados (SQL).
+
+// Serve para modelar os dados: Estrutura que será salvo. Gerar tipagem, e sincronizar com o banco de dados real.
+
+generator client { // Diz ao prisma para criar um "cliente" de código
   provider = "prisma-client-js"
 }
 
-datasource db {
+datasource db { // Define a conexão
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// MODELS: Cada model representa uma tabela no banco de dados (PostgreSQL)
+
 model Usuario {
   id           Int           @id @default(autoincrement())
   nome         String
   email        String        @unique
   senhaHash    String
   createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt // 👈 Agora o Prisma gera isso sozinho!
+  updatedAt    DateTime      @updatedAt 
   foto         String?
   Despesa      Despesa[]
   eventos      Evento[]
