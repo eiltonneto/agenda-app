@@ -1,5 +1,5 @@
 // Coração do banco de dados do projeto. Arquivo de configuração principal do Prisma ORM -> ferramenta que traduz o código JS para a
-linguagem de banco de dados (SQL).
+// linguagem de banco de dados (SQL).
 
 // Serve para modelar os dados: Estrutura que será salvo. Gerar tipagem, e sincronizar com o banco de dados real.
 
