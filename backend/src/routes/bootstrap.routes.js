@@ -21,7 +21,7 @@ router.get("/", async (req, res) => {
 
       prisma.evento.findMany({
         where: { 
-          usuario_id: userId,
+          usuarioId: userId,
           inicio: { gte: inicioDoMes } 
         },
         orderBy: { inicio: 'asc' }
@@ -29,7 +29,7 @@ router.get("/", async (req, res) => {
 
       prisma.receita.findMany({
         where: { 
-          usuario_id: userId,
+          usuarioId: userId,
           OR: [
             { status: "PENDENTE" },
             { 
@@ -43,7 +43,7 @@ router.get("/", async (req, res) => {
 
       prisma.despesa.findMany({
         where: { 
-          usuario_id: userId,
+          usuarioId: userId,
           OR: [
             { status: "PENDENTE" },
             { 
