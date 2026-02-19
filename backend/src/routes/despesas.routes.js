@@ -120,7 +120,7 @@ router.delete("/:id", async (req, res) => {
     await prisma.despesa.delete({
       where: { 
         id: id,
-        usuario_id: req.userId 
+        usuarioId: req.userId 
       }
     });
 
@@ -143,7 +143,7 @@ router.post("/excluir-massa", async (req, res) => {
     await prisma.despesa.deleteMany({
       where: {
         id: { in: ids.map(Number) }, 
-        usuario_id: req.userId
+        usuarioId: req.userId
       }
     });
 

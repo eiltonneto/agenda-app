@@ -117,7 +117,7 @@ router.delete("/:id", async (req, res) => {
     await prisma.receita.delete({
       where: { 
         id: id,
-        usuario_id: req.userId // Segurança: só apaga se for do próprio usuário
+        usuarioId: req.userId // Segurança: só apaga se for do próprio usuário
       }
     });
 
@@ -140,7 +140,7 @@ router.post("/excluir-massa", async (req, res) => {
     await prisma.receita.deleteMany({
       where: {
         id: { in: ids.map(Number) }, // Converte todos os IDs do array para Número
-        usuario_id: req.userId
+        usuarioId: req.userId
       }
     });
 
