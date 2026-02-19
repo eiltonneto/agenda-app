@@ -112,4 +112,46 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+// --- 🗑️ ROTA: Excluir Despesa (Individual) ---
+router.delete("/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    await prisma.despesa.delete({
+      where: { 
+        id: id,
+        usuario_id: req.userId 
+      }
+    });
+
+    return res.status(200).json({ message: "Despesa excluída com sucesso." });
+  } catch (error) {
+    console.error("Erro ao excluir despesa:", error);
+    return res.status(500).json({ error: "Erro interno ao excluir o lançamento." });
+  }
+});
+
+// --- 🗑️ ROTA: Excluir Despesas em Massa ---
+router.post("/excluir-massa", async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "Nenhum ID fornecido." });
+    }
+
+    await prisma.despesa.deleteMany({
+      where: {
+        id: { in: ids.map(Number) }, 
+        usuario_id: req.userId
+      }
+    });
+
+    return res.status(200).json({ message: "Despesas excluídas com sucesso." });
+  } catch (error) {
+    console.error("Erro ao excluir em massa:", error);
+    return res.status(500).json({ error: "Erro ao excluir vários lançamentos." });
+  }
+});
+
 export default router;

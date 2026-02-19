@@ -109,4 +109,46 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+// --- 🗑️ ROTA: Excluir Receita (Individual) ---
+router.delete("/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id); // Converte para Número (o Prisma exige isso)
+
+    await prisma.receita.delete({
+      where: { 
+        id: id,
+        usuario_id: req.userId // Segurança: só apaga se for do próprio usuário
+      }
+    });
+
+    return res.status(200).json({ message: "Receita excluída com sucesso." });
+  } catch (error) {
+    console.error("Erro ao excluir receita:", error);
+    return res.status(500).json({ error: "Erro interno ao excluir o lançamento." });
+  }
+});
+
+// --- 🗑️ ROTA: Excluir Receitas em Massa ---
+router.post("/excluir-massa", async (req, res) => {
+  try {
+    const { ids } = req.body; 
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "Nenhum ID fornecido." });
+    }
+
+    await prisma.receita.deleteMany({
+      where: {
+        id: { in: ids.map(Number) }, // Converte todos os IDs do array para Número
+        usuario_id: req.userId
+      }
+    });
+
+    return res.status(200).json({ message: "Receitas excluídas com sucesso." });
+  } catch (error) {
+    console.error("Erro ao excluir em massa:", error);
+    return res.status(500).json({ error: "Erro ao excluir vários lançamentos." });
+  }
+});
+
 export default router;
