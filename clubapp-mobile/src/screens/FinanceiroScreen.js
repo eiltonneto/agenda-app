@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   View, Text, TouchableOpacity, Modal, TextInput, Alert, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions
 } from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { format, addMonths, subMonths, setMonth, setYear, parseISO, isValid, getDate, getMonth, getYear, isSameMonth } from "date-fns";
@@ -10,7 +11,7 @@ import { ptBR } from "date-fns/locale";
 
 import api from "../services/api";
 import { useTheme } from "../context/ThemeContext";
-// 🚀 V3: Importamos o estado global hidratado pelo Bootstrap
+// Importa o estado global hidratado pelo Bootstrap
 import { useAuth } from "../context/AuthContext";
 
 const PRESET_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#f43f5e", "#64748b", "#1e293b"];
@@ -35,13 +36,16 @@ export default function FinanceiroScreen() {
 
   const { receitasGlobais, setReceitasGlobais, despesasGlobais, setDespesasGlobais } = useAuth();
 
-  // --- ESTADOS ---
+  // ESTADOS
   const [dataReferencia, setDataReferencia] = useState(new Date());
   const [abaAtiva, setAbaAtiva] = useState("DESPESA"); 
   const [errorMessage, setErrorMessage] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // --- CATEGORIAS ---
+  // Guarda os IDs temporários que o usuário apagou antes de salvar
+  const excluidosTemporarios = useRef(new Set());
+
+  // CATEGORIAS 
   const [categories, setCategories] = useState([
     { id: '1', name: 'Alimentação', color: '#f59e0b', type: 'DESPESA', backendType: 'VARIAVEL' },
     { id: '2', name: 'Transporte', color: '#3b82f6', type: 'DESPESA', backendType: 'VARIAVEL' },
@@ -69,17 +73,16 @@ export default function FinanceiroScreen() {
   const [dataSelecionadaForm, setDataSelecionadaForm] = useState(new Date()); 
   const [status, setStatus] = useState("PENDENTE");
 
-  // --- 🚀 V3: DERIVANDO DADOS DO ESTADO GLOBAL ---
-  // A tela reage instantaneamente a mudanças no receitasGlobais/despesasGlobais
-// --- 🚀 REFINAMENTO REGIME DE CAIXA (V4) ---
+// A tela reage instantaneamente a mudanças no receitasGlobais/despesasGlobais
+// REGIME DE CAIXA
   const transacoesExibidas = useMemo(() => {
     const listaOriginal = abaAtiva === "RECEITA" ? receitasGlobais : despesasGlobais;
     
     return listaOriginal.filter(t => {
-      // 1️⃣ REGRA: Pendentes aparecem SEMPRE (Controle de Inadimplência)
+      // REGRA: Pendentes aparecem SEMPRE (Controle de Inadimplência)
       if (t.status === "PENDENTE") return true;
 
-      // 2️⃣ REGRA: Pagos/Recebidos só aparecem no mês do paidAt (Faturamento Real)
+      // REGRA: Pagos/Recebidos só aparecem no mês do paidAt (Faturamento Real)
       if (t.paidAt) {
         const dataPagamento = parseISO(t.paidAt);
         return isValid(dataPagamento) && isSameMonth(dataPagamento, dataReferencia);
@@ -88,7 +91,7 @@ export default function FinanceiroScreen() {
     });
   }, [receitasGlobais, despesasGlobais, abaAtiva, dataReferencia]);
 
-// --- 🚀 AJUSTE FINAL REGIME DE CAIXA (Cálculo de Saldos) ---
+// AJUSTE FINAL REGIME DE CAIXA (Cálculo de Saldos) ---
 const { resumoRealizado, resumoPrevisto } = useMemo(() => {
   let recReal = 0, despReal = 0;
   let pendenteTotal = 0;
@@ -230,7 +233,7 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
         setter(prev => prev.filter(t => !idsToDelete.includes(t.id)));
 
         try {
-            await Promise.all(idsToDelete.map(id => api.delete(`${route}/${id}`)));
+            await api.post(`${route}/excluir-massa`, { ids: idsToDelete });
         } catch (err) { 
             setter(prev => [...prev, ...backups]); // Reverte
             tratarErro(err); 
@@ -247,7 +250,7 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
     }
   };
 
-  // --- 🚀 OTIMISTA: EXCLUIR RÁPIDO ---
+  // EXCLUIR RÁPIDO 
   const excluirItemRapido = async (item) => {
     const execute = async () => {
        const isReceita = abaAtiva === "RECEITA";
@@ -255,8 +258,14 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
        const setter = isReceita ? setReceitasGlobais : setDespesasGlobais;
        const backupItem = { ...item };
 
-       // OTIMISTA
+       // Otimistic UI
        setter(prev => prev.filter(t => t.id !== item.id));
+
+       //Se é temporário, anota no caderninho e PARA por aqui.
+       if (item.temp) {
+         excluidosTemporarios.current.add(item.id);
+         return; 
+       }
 
        try {
          await api.delete(`${route}/${item.id}`);
@@ -264,6 +273,7 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
          setter(prev => [...prev, backupItem]); // Reverte
          tratarErro(e); 
        }
+       
     };
     if (Platform.OS === 'web') {
       if(window.confirm(`Excluir "${item.descricao}"?`)) execute();
@@ -394,12 +404,23 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
     try {
       if (transacaoEditando) {
         await api.put(`${route}/${tempId}`, payload);
+        setter(prev => prev.map(t => t.id === tempId ? { ...t, temp: false } : t));
       } else {
         const res = await api.post(route, payload);
-        // Atualiza ID temp para ID real
-        setter(prev => prev.map(t => t.id === tempId ? res.data : t));
+        const itemOficial = { ...res.data, tipo_financeiro: isReceita ? 'RECEITA' : 'DESPESA', temp: false };
+
+        if (excluidosTemporarios.current.has(tempId)) {
+           // O usuário apagou da tela enquanto esperava! 
+           // Então manda o servidor apagar o ID real silenciosamente.
+           await api.delete(`${route}/${itemOficial.id}`);
+           excluidosTemporarios.current.delete(tempId); // Limpa o caderninho
+        } else {
+           // O usuário não apagou. Então troca o ID temporário pelo Real.
+           setter(prev => prev.map(t => t.id === tempId ? itemOficial : t));
+        }
       }
-    } catch (e) { 
+
+    } catch (e) {
       if (transacaoEditando) {
         setter(prev => prev.map(t => t.id === tempId ? backupItem : t));
       } else {
@@ -409,7 +430,7 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
     }
   };
 
-  // --- GESTÃO DE CATEGORIAS ---
+  // GESTÃO DE CATEGORIAS 
   const abrirNovaCategoria = () => {
     setErrorMessage("");
     setCatEditing({ id: Date.now().toString(), name: "", color: PRESET_COLORS[0], type: abaAtiva, backendType: 'OUTRO', isNew: true });
@@ -526,11 +547,9 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
     const selecionado = selectedIds.includes(item.id);
     const catItem = categories.find(c => c.id === item.categoria_id) || categories.find(c => c.name === (item.tipo || item.categoria));
     
-    // 🚀 MAQUIAGEM VISUAL: Nome da Categoria
     let nomeExibir = catItem ? catItem.name : (item.tipo || item.categoria);
     if (nomeExibir === "OUTRO") nomeExibir = "Agenda"; 
 
-    // 🚀 EXTRAÇÃO DO HORÁRIO: Identifica o HH:mm se a data vier completa do banco
     const dataCampo = item.eventDate;
     const horario = dataCampo && dataCampo.includes('T') 
       ? dataCampo.split('T')[1].substring(0, 5) 
@@ -544,11 +563,13 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
         style={[
           styles.itemCard, 
           { backgroundColor: colors.surface }, 
-          selecionado && { borderColor: colors.primary, borderWidth: 2 },
-          item.temp && { opacity: 0.6 } 
+          selecionado && { borderColor: colors.primary, borderWidth: 2 }
+          // FALHA 1 CORRIGIDA: Opacidade removida. O card nasce 100% sólido.
         ]}
-        onPress={() => selectedIds.length > 0 ? ( selecionado ? setSelectedIds(selectedIds.filter(i => i !== item.id)) : setSelectedIds([...selectedIds, item.id]) ) : toggleStatus(item)}
-        onLongPress={() => setSelectedIds([...selectedIds, item.id])}
+        // FALHA 3 CORRIGIDA: Se for temporário, o clique de marcar PAGO e o longPress são ignorados silenciosamente.
+        onPress={() => item.temp ? null : (selectedIds.length > 0 ? ( selecionado ? setSelectedIds(selectedIds.filter(i => i !== item.id)) : setSelectedIds([...selectedIds, item.id]) ) : toggleStatus(item))}
+        onLongPress={() => item.temp ? null : setSelectedIds([...selectedIds, item.id])}
+        activeOpacity={item.temp ? 1 : 0.7} 
       >
         <View style={[styles.indicator, { backgroundColor: corBarra }]} />
         <View style={{ flex: 1 }}>
@@ -556,7 +577,6 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
             {item.descricao}
           </Text>
           
-          {/* 🚀 SUBTÍTULO TURBINADO: Categoria • Data • Horário */}
         <Text style={styles.itemSub}>
           <Text style={{ fontWeight: 'bold' }}>{nomeExibir}</Text> • 
           Agendado: {safeFormatDate(item.eventDate)}
@@ -573,10 +593,20 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
           {!isDone && <Text style={styles.tagPendente}>Pendente</Text>}
           
           <View style={styles.cardActions}>
-              <TouchableOpacity onPress={() => abrirModalEditar(item)} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-                 <Ionicons name="pencil" size={18} color="#94a3b8"/>
+              {/* FALHA 2 CORRIGIDA: O clique no lápis é neutralizado se o ID for temporário */}
+              <TouchableOpacity 
+                onPress={() => item.temp ? null : abrirModalEditar(item)} 
+                hitSlop={{top:10,bottom:10,left:10,right:10}}
+                activeOpacity={item.temp ? 1 : 0.2}
+              >
+                 <Ionicons name="pencil" size={18} color="#94a3b8" />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => excluirItemRapido(item)} hitSlop={{top:10,bottom:10,left:10,right:10}}>
+              
+              {/* A lixeira NÃO recebe a trava `item.temp ? null`, pois ela é a única que engatilha a exclusão assíncrona do useRef */}
+              <TouchableOpacity 
+                onPress={() => excluirItemRapido(item)} 
+                hitSlop={{top:10,bottom:10,left:10,right:10}}
+              >
                  <Ionicons name="trash-outline" size={18} color="#ef4444"/>
               </TouchableOpacity>
           </View>

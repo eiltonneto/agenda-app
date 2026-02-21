@@ -5,23 +5,22 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 
-// --- CONTEXTOS ---
+// CONTEXTOS 
 import AuthProvider, { useAuth } from "./src/context/AuthContext";
 import ThemeProvider, { useTheme } from "./src/context/ThemeContext";
 
-// --- TELAS ---
+// TELAS 
 import AuthScreen from "./src/screens/AuthScreen";
 import AgendaScreen from "./src/screens/AgendaScreen";
 import FinanceiroScreen from "./src/screens/FinanceiroScreen";
 import PerfilScreen from "./src/screens/PerfilScreen"; 
 import ConfiguracoesScreen from "./src/screens/ConfiguracoesScreen";
-// 👈 CORREÇÃO: Ponto e vírgula fora das aspas
 import EsqueciSenhaScreen from "./src/screens/EsqueciSenhaScreen"; 
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// --- NAVEGAÇÃO DE ABAS (LOGADO) ---
+// NAVEGAÇÃO DE ABAS (LOGADO) 
 function AppTabs() {
   const { theme } = useTheme();
   const colors = theme.colors;

@@ -73,30 +73,42 @@ export function AuthProvider({ children }) {
   }
 
 async function login(email, senha) {
-    // 1. Request ultra-rápido para o backend (já com o filtro de mês atual)
-    const response = await api.post("/login", { email, senha });
-    const { user: userData, token, eventos, receitas, despesas, statusTrial } = response.data;
+    try {
+      // Pega o Token no backend
+      const authResponse = await api.post("/login", { email, senha });
+      const { user: userData, token } = authResponse.data;
 
-    // 2. Autenticação imediata
-    api.defaults.headers.Authorization = `Bearer ${token}`;
+      //  Coloca o crachá na porta da API para permitir as próximas requisições
+      api.defaults.headers.Authorization = `Bearer ${token}`;
 
-    // 3. PRIORIDADE: Muda a tela na hora para o usuário não esperar
-    setUser(userData); 
+      // BOOTSTRAP IMEDIATO: Puxa Completo do mês vigente
+      const bootResponse = await api.get('/bootstrap');
+      const { eventos, receitas, despesas, statusTrial } = bootResponse.data;
 
-    // 4. Popula a memória com os dados do Regime de Caixa
-    setEventosGlobais(eventos || []);
-    setReceitasGlobais(receitas || []);
-    setDespesasGlobais(despesas || []);
-    setStatusTrial(statusTrial || "ATIVO");
+      // Salva tudo no AsyncStorage primeiro.
+      await AsyncStorage.multiSet([
+        ["@YourFlow:token", token],
+        ["@YourFlow:user", JSON.stringify(userData)],
+        ["@YourFlow:eventos", JSON.stringify(eventos || [])],
+        ["@YourFlow:receitas", JSON.stringify(receitas || [])],
+        ["@YourFlow:despesas", JSON.stringify(despesas || [])],
+      ]);
 
-    // 5. Salva no celular em background (sem await para não travar a UI)
-    AsyncStorage.multiSet([
-      ["@YourFlow:token", token],
-      ["@YourFlow:user", JSON.stringify(userData)],
-      ["@YourFlow:eventos", JSON.stringify(eventos || [])],
-      ["@YourFlow:receitas", JSON.stringify(receitas || [])],
-      ["@YourFlow:despesas", JSON.stringify(despesas || [])],
-    ]);
+      // POPULA A MEMÓRIA RAM DO APP
+      setEventosGlobais(eventos || []);
+      setReceitasGlobais(receitas || []);
+      setDespesasGlobais(despesas || []);
+      setStatusTrial(statusTrial || "ATIVO");
+
+      // Muda a tela
+      // Como o 'signed' depende do 'user', ao setar isso o app navega pra Home.
+      // E como os dados já estão no estado acima, a tela nasce pronta, sem loading.
+      setUser(userData); 
+
+    } catch (error) {
+      console.error("Erro no fluxo de Login/Bootstrap:", error);
+      throw error; // Repassa o erro para a AuthScreen mostrar o alerta (ex: "Senha Incorreta")
+    }
   }
 
   function logout() {

@@ -33,7 +33,9 @@ export default function AgendaScreen({ navigation }) {
   const isDesktop = windowWidth > 900;
   
   // Consumindo o estado global (sem necessidade de fetch inicial)
-const { eventosGlobais, setEventosGlobais, receitasGlobais, setReceitasGlobais } = useAuth();
+  const { eventosGlobais, setEventosGlobais, receitasGlobais, setReceitasGlobais } = useAuth();
+
+  const eventos = eventosGlobais || [];
 
   //ESTADOS 
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -277,7 +279,7 @@ const salvarEvento = async () => {
     } else {
       setEventosGlobais(prev => [...prev, eventoOtimista]);
 
-      // 2. CRIAÇÃO OTIMISTA (FINANCEIRO): A mágica acontece aqui!
+      // 2. CRIAÇÃO OTIMISTA (FINANCEIRO)
       if (gerarFinanceiro) {
          const receitaOtimista = {
             id: `rec-${tempId}`, // ID temporário

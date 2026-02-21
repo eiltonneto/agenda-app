@@ -12,7 +12,7 @@ import Svg, { Defs, LinearGradient as SvgGradient, Stop, Path, Polygon } from 'r
 
 import { useTheme } from "../context/ThemeContext";
 
-// --- COMPONENTE LOGO (MANTIDO INTACTO) ---
+// COMPONENTE LOGO
 const Logo = ({ width = 120, height = 120 }) => {
   return (
     <Svg width={width} height={height} viewBox="0 0 32 32" fill="none">
@@ -125,7 +125,7 @@ export default function AuthScreen() {
   const [focusedField, setFocusedField] = useState(null);
   const [lembrar, setLembrar] = useState(false);
   
-  // ⚠️ NOVO ESTADO: Mensagem de erro visual ⚠️
+  // NOVO ESTADO: Mensagem de erro 
   const [errorMessage, setErrorMessage] = useState("");
 
   const buttonScale = useRef(new Animated.Value(1)).current;
