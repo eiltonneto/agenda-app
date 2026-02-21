@@ -1,31 +1,34 @@
 import { Router } from "express";
 import multer from "multer";
 import bcrypt from "bcryptjs";
-import path from "path";
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 import prisma from "../database/prisma.js";
 import { authMiddleware } from "../middlewares/auth.js"; 
 
 const router = Router();
 
-// --- CONFIGURAÇÃO DO MULTER ---
-const upload = multer({
-  storage: multer.diskStorage({
-    // Define a pasta de destino (na raiz do seu backend)
-    destination: (req, file, cb) => {
-      cb(null, path.resolve("uploads")); 
-    },
-    // Cria um nome único para a foto, removendo espaços
-    filename: (req, file, cb) => {
-      const nomeSemEspaco = file.originalname.replace(/\s/g, '_');
-      const fileName = `${Date.now()}-${nomeSemEspaco}`;
-      cb(null, fileName);
-    },
-  }),
+// ☁️ 1. CONFIGURAÇÃO DO CLOUDINARY
+// Utiliza as variáveis de ambiente que você configurou no painel do Render
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-/** * 1. ROTA PÚBLICA: Cadastro de Usuário 
- * Deve ficar ANTES do router.use(authMiddleware) para evitar o Erro 401
- */
+// ☁️ 2. STORAGE DE NUVEM
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "clubapp_perfil",
+    allowedFormats: ["jpg", "png", "jpeg"],
+    transformation: [{ width: 500, height: 500, crop: "fill" }],
+  },
+});
+
+const upload = multer({ storage });
+
+// --- ROTA PÚBLICA: Cadastro de Usuário ---
 router.post("/", async (req, res) => {
   try {
     const { nome, email, senha } = req.body;
@@ -47,26 +50,37 @@ router.post("/", async (req, res) => {
   }
 });
 
-/**
- * 2. PROTEÇÃO: A partir daqui, todas as rotas exigem Token JWT
- */
+// --- PROTEÇÃO: Exige Token JWT ---
 router.use(authMiddleware);
 
-// --- ROTA: Atualizar Foto de Perfil ---
-router.patch("/foto", upload.single("foto"), async (req, res) => {
+// --- 🚀 ROTA: Atualizar Foto (COM ENCAPSULAMENTO DE ERRO I/O) ---
+router.patch("/foto", (req, res, next) => {
+  // O invólucro lógico: captura falhas do Cloudinary/Rede antes do Express travar
+  upload.single("foto")(req, res, function (err) {
+    if (err) {
+      console.error("Erro crítico no middleware do Multer/Cloudinary:", err);
+      return res.status(502).json({ error: "Falha na comunicação com a nuvem de arquivos. Tente novamente." });
+    }
+    // Se não houver erro de I/O, avança para a função principal
+    next();
+  });
+}, async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: "Nenhuma foto enviada." });
+    if (!req.file) return res.status(400).json({ error: "Nenhuma foto foi recebida pelo servidor." });
+
+    // No CloudinaryStorage, a URL pronta e segura fica no req.file.path
+    const linkDaFotoNuvem = req.file.path;
 
     const usuario = await prisma.usuario.update({
       where: { id: req.userId },
-      data: { foto: req.file.filename }, // Salva o nome gerado pelo Multer no banco
+      data: { foto: linkDaFotoNuvem }, // Salva o URL (http...) em vez do nome do arquivo
     });
 
     const { senhaHash, ...userSemSenha } = usuario;
     return res.json(userSemSenha);
   } catch (error) {
-    console.error("Erro na rota de foto:", error);
-    return res.status(500).json({ error: "Erro interno ao salvar foto." });
+    console.error("Erro no banco de dados na rota de foto:", error);
+    return res.status(500).json({ error: "Erro interno ao atualizar perfil." });
   }
 });
 

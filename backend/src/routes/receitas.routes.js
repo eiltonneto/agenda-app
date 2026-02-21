@@ -109,22 +109,36 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// --- 🗑️ ROTA: Excluir Receita (Individual) ---
-router.delete("/:id", async (req, res) => {
+// --- 🗑️ ROTA: Excluir Receitas em Massa ---
+router.post("/excluir-massa", async (req, res) => {
   try {
-    const id = Number(req.params.id); // Converte para Número (o Prisma exige isso)
+    const { ids } = req.body; 
 
-    await prisma.receita.delete({
-      where: { 
-        id: id,
-        usuarioId: req.userId // Segurança: só apaga se for do próprio usuário
+    // 1. Validação Estrutural: É um array válido e não está vazio?
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "Nenhum ID fornecido para exclusão." });
+    }
+
+    // 2. Saneamento de Dados (Sanitization): Garante que só passem números reais e positivos
+    const idsValidos = ids.map(Number).filter(id => !isNaN(id) && id > 0);
+
+    // 3. Validação Lógica Posterior: Sobrou algum ID real?
+    if (idsValidos.length === 0) {
+      return res.status(400).json({ error: "IDs inválidos. Atualize a tela e tente novamente." });
+    }
+
+    // 4. Execução Otimizada: 1 única query no banco de dados
+    await prisma.receita.deleteMany({
+      where: {
+        id: { in: idsValidos },
+        usuarioId: req.userId
       }
     });
 
-    return res.status(200).json({ message: "Receita excluída com sucesso." });
+    return res.status(200).json({ message: "Lançamentos excluídos com sucesso." });
   } catch (error) {
-    console.error("Erro ao excluir receita:", error);
-    return res.status(500).json({ error: "Erro interno ao excluir o lançamento." });
+    console.error("Erro ao excluir em massa:", error);
+    return res.status(500).json({ error: "Erro interno ao excluir vários lançamentos." });
   }
 });
 
@@ -132,6 +146,10 @@ router.delete("/:id", async (req, res) => {
 router.post("/excluir-massa", async (req, res) => {
   try {
     const { ids } = req.body; 
+
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ error: "ID inválido. Atualize a tela e tente novamente." });
+    }
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ error: "Nenhum ID fornecido." });

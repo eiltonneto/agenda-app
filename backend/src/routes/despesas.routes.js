@@ -117,6 +117,11 @@ router.delete("/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
 
+        if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ error: "ID inválido. Atualize a tela e tente novamente." });
+    }
+
+
     await prisma.despesa.delete({
       where: { 
         id: id,
@@ -131,18 +136,28 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// --- 🗑️ ROTA: Excluir Despesas em Massa ---
+// ROTA: Excluir Despesas em Massa 
 router.post("/excluir-massa", async (req, res) => {
   try {
     const { ids } = req.body;
 
+    // 1. Valida se é um array preenchido
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ error: "Nenhum ID fornecido." });
     }
 
+    // 2. Transforma tudo em número e filtra (remove NaNs, zeros e IDs fantasmas)
+    const idsValidos = ids.map(Number).filter(id => !isNaN(id) && id > 0);
+
+    // 3. Se após o filtro não sobrar nenhum ID válido, recusa a operação
+    if (idsValidos.length === 0) {
+      return res.status(400).json({ error: "Nenhum ID válido para exclusão." });
+    }
+
+    // 4. Executa a exclusão com segurança apenas nos IDs reais
     await prisma.despesa.deleteMany({
       where: {
-        id: { in: ids.map(Number) }, 
+        id: { in: idsValidos }, 
         usuarioId: req.userId
       }
     });
