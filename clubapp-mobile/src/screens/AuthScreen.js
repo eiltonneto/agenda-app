@@ -113,20 +113,26 @@ export default function AuthScreen() {
   const TEXT_DARK = colors.text;   
   const TEXT_GRAY = colors.textSecondary; 
 
-  const [isLogin, setIsLogin] = useState(true);
+const [isLogin, setIsLogin] = useState(true);
 
+  // 🚀 VARIÁVEIS DE LOGIN
+  const [emailLogin, setEmailLogin] = useState("");
+  const [senhaLogin, setSenhaLogin] = useState("");
+
+  // 🚀 VARIÁVEIS DE CADASTRO
   const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
+  const [emailCad, setEmailCad] = useState("");
+  const [senhaCad, setSenhaCad] = useState("");
   const [confirmaSenha, setConfirmaSenha] = useState("");
   
+  // 🚀 CONTROLES DE TELA (Estes eram os que estavam faltando!)
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [lembrar, setLembrar] = useState(false);
-  
-  // NOVO ESTADO: Mensagem de erro 
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
 
   const buttonScale = useRef(new Animated.Value(1)).current;
 
@@ -146,6 +152,7 @@ export default function AuthScreen() {
 
   const flipCard = () => {
     setErrorMessage(""); // Limpa o erro ao virar o card
+    setSuccessMessage(""); // Limpa o sucesso ao virar o card 
     if (isLogin) {
       Animated.spring(flipAnim, { toValue: 180, friction: 8, tension: 10, useNativeDriver: true }).start();
       setIsLogin(false);
@@ -171,37 +178,46 @@ export default function AuthScreen() {
     setErrorMessage(mensagem);
   };
 
-  async function handleSubmit() {
+async function handleSubmit() {
     handlePressOut();
-    setErrorMessage(""); // Limpa erros antigos
+    setErrorMessage(""); 
+    setSuccessMessage("");
     
     if (isLogin) {
-      if (!email.trim() || !senha.trim()) {
+      // 🚀 FLUXO DE LOGIN
+      if (!emailLogin.trim() || !senhaLogin.trim()) {
         return setErrorMessage("Preencha e-mail e senha.");
       }
       setLoading(true);
-      try { 
-        await login(email, senha); 
+      try {
+        await login(emailLogin, senhaLogin); 
       } catch (e) { 
         tratarErro(e);
       } finally { 
         setLoading(false); 
       }
     } else {
+      // 🚀 FLUXO DE CADASTRO
       if (!nome.trim()) return setErrorMessage("Digite seu nome.");
-      if (!email.trim()) return setErrorMessage("Digite seu e-mail.");
-      if (!senha.trim()) return setErrorMessage("Crie uma senha.");
-      if (senha !== confirmaSenha) return setErrorMessage("As senhas não conferem.");
-      if (senha.length < 6) return setErrorMessage("Sua senha deve ter no mínimo 6 caracteres.");
+      if (!emailCad.trim()) return setErrorMessage("Digite seu e-mail.");
+      if (!senhaCad.trim()) return setErrorMessage("Crie uma senha.");
+      if (senhaCad !== confirmaSenha) return setErrorMessage("As senhas não conferem.");
+      if (senhaCad.length < 6) return setErrorMessage("Sua senha deve ter no mínimo 6 caracteres.");
 
       setLoading(true);
       try {
-        await register(nome, email, senha);
-        // Sucesso no cadastro
-        setIsLogin(true); // Força voltar pro login
-        flipCard();
-        setErrorMessage("Conta criada com sucesso! Faça login.");
+        await register(nome, emailCad, senhaCad);
+        
+        // 1. Limpa os dados preenchidos
+        setNome(""); setEmailCad(""); setSenhaCad(""); setConfirmaSenha("");
+        
+        // 2. 🚀 A CORREÇÃO: Viramos o cartão e setamos os estados manualmente (Sem usar o flipCard)
+        Animated.spring(flipAnim, { toValue: 0, friction: 8, tension: 10, useNativeDriver: true }).start();
+        setIsLogin(true);
+        setSuccessMessage("Que bom ter você aqui! Faça seu login."); 
+        
       } catch (e) { 
+        console.log("🔥 MOTIVO REAL DO ERRO NO CADASTRO:", e.response?.status, e.response?.data || e.message);
         tratarErro(e);
       } finally { 
         setLoading(false); 
@@ -265,11 +281,11 @@ export default function AuthScreen() {
                 )}
 
                 <AnimatedInput 
-                    icon="email-outline" placeholder="Seu e-mail" value={email} onChangeText={setEmail} type="email-address" fieldName="emailLogin" 
+                    icon="email-outline" placeholder="Seu e-mail" value={emailLogin} onChangeText={setEmailLogin} type="email-address" fieldName="emailLogin" 
                     focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR}
                 />
                 <AnimatedInput 
-                    icon="lock-outline" placeholder="Sua senha" value={senha} onChangeText={setSenha} secure={!showPassword} onToggleSecure={() => setShowPassword(!showPassword)} fieldName="senhaLogin" 
+                    icon="lock-outline" placeholder="Sua senha" value={senhaLogin} onChangeText={setSenhaLogin} secure={!showPassword} onToggleSecure={() => setShowPassword(!showPassword)} fieldName="senhaLogin" 
                     focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR}
                 />
                 
@@ -337,8 +353,8 @@ export default function AuthScreen() {
                 )}
 
                 <AnimatedInput icon="account-outline" placeholder="Seu nome completo" value={nome} onChangeText={setNome} fieldName="nome" focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR} />
-                <AnimatedInput icon="email-outline" placeholder="Seu melhor e-mail" value={email} onChangeText={setEmail} type="email-address" fieldName="emailCad" focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR} />
-                <AnimatedInput icon="lock-outline" placeholder="Crie uma senha" value={senha} onChangeText={setSenha} secure={!showPassword} onToggleSecure={() => setShowPassword(!showPassword)} fieldName="senhaCad" focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR} />
+                <AnimatedInput icon="email-outline" placeholder="Seu melhor e-mail" value={emailCad} onChangeText={setEmailCad} type="email-address" fieldName="emailCad" focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR} />
+                <AnimatedInput icon="lock-outline" placeholder="Crie uma senha" value={senhaCad} onChangeText={setSenhaCad} secure={!showPassword} onToggleSecure={() => setShowPassword(!showPassword)} fieldName="senhaCad" focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR} />
                 <AnimatedInput icon="lock-check-outline" placeholder="Confirme a senha" value={confirmaSenha} onChangeText={setConfirmaSenha} secure={!showPassword} fieldName="confirma" focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR} />
 
                 <View style={{ height: 20 }} />

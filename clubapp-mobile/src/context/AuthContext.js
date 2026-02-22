@@ -127,6 +127,16 @@ async function login(email, senha) {
 
   // ... (restante das funções update e register)
 
+  async function register(nome, email, senha) {
+    try {
+      // Ajuste a rota "/usuarios" ou "/register" dependendo de como está no seu backend Node
+      await api.post("/usuarios", { nome, email, senha }); 
+    } catch (error) {
+      console.error("Erro no cadastro (AuthContext):", error);
+      throw error;
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -137,7 +147,7 @@ async function login(email, senha) {
         receitasGlobais, setReceitasGlobais,
         despesasGlobais, setDespesasGlobais,
         statusTrial,
-        login, logout, loadBootstrapData
+        login, logout, loadBootstrapData, register
       }}
     >
       {children}
