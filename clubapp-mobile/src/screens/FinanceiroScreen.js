@@ -72,51 +72,54 @@ export default function FinanceiroScreen() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [dataSelecionadaForm, setDataSelecionadaForm] = useState(new Date()); 
   const [status, setStatus] = useState("PENDENTE");
+// 🚀 1. Carimbo de texto (ex: "2024-05") imune a erros do celular
+  const prefixoMesAtual = useMemo(() => {
+    const ano = dataReferencia.getFullYear();
+    const mes = String(dataReferencia.getMonth() + 1).padStart(2, '0');
+    return `${ano}-${mes}`;
+  }, [dataReferencia]);
 
-// A tela reage instantaneamente a mudanças no receitasGlobais/despesasGlobais
-// REGIME DE CAIXA
+  // 🚀 2. O Filtro Blindado (Regime de Caixa)
   const transacoesExibidas = useMemo(() => {
     const listaOriginal = abaAtiva === "RECEITA" ? receitasGlobais : despesasGlobais;
     
     return listaOriginal.filter(t => {
-      // REGRA: Pendentes aparecem SEMPRE (Controle de Inadimplência)
-      if (t.status === "PENDENTE") return true;
-
-      // REGRA: Pagos/Recebidos só aparecem no mês do paidAt (Faturamento Real)
-      if (t.paidAt) {
-        const dataPagamento = parseISO(t.paidAt);
-        return isValid(dataPagamento) && isSameMonth(dataPagamento, dataReferencia);
+      // REGRA 1: Pendentes SÓ aparecem no mês original do agendamento
+      if (t.status === "PENDENTE") {
+        return t.eventDate && t.eventDate.startsWith(prefixoMesAtual);
+      }
+      // REGRA 2: Pagos SÓ aparecem no mês exato em que o dinheiro entrou/saiu
+      if (t.status === "RECEBIDA" || t.status === "PAGA") {
+        return t.paidAt && t.paidAt.startsWith(prefixoMesAtual);
       }
       return false;
     });
-  }, [receitasGlobais, despesasGlobais, abaAtiva, dataReferencia]);
+  }, [receitasGlobais, despesasGlobais, abaAtiva, prefixoMesAtual]);
 
-// AJUSTE FINAL REGIME DE CAIXA (Cálculo de Saldos) ---
-const { resumoRealizado, resumoPrevisto } = useMemo(() => {
-  let recReal = 0, despReal = 0;
-  let pendenteTotal = 0;
+  // 🚀 3. Cálculo de Saldos
+  const { resumoRealizado, resumoPrevisto } = useMemo(() => {
+    let recReal = 0, despReal = 0;
+    let pendenteTotal = 0;
 
-  // Cálculo do que REALMENTE entrou/saiu no mês (paidAt)
-  receitasGlobais.forEach(t => {
-    if (t.status === 'RECEBIDA' && t.paidAt && isSameMonth(parseISO(t.paidAt), dataReferencia)) {
-      recReal += Number(t.valor);
-    }
-    if (t.status === 'PENDENTE') pendenteTotal += Number(t.valor);
-  });
+    receitasGlobais.forEach(t => {
+      if (t.status === 'RECEBIDA' && t.paidAt && t.paidAt.startsWith(prefixoMesAtual)) {
+        recReal += Number(t.valor);
+      } else if (t.status === 'PENDENTE' && t.eventDate && t.eventDate.startsWith(prefixoMesAtual)) {
+        pendenteTotal += Number(t.valor);
+      }
+    });
 
-  despesasGlobais.forEach(t => {
-    if (t.status === 'PAGA' && t.paidAt && isSameMonth(parseISO(t.paidAt), dataReferencia)) {
-      despReal += Number(t.valor);
-    }
-  });
+    despesasGlobais.forEach(t => {
+      if (t.status === 'PAGA' && t.paidAt && t.paidAt.startsWith(prefixoMesAtual)) {
+        despReal += Number(t.valor);
+      }
+    });
 
-  return {
-    resumoRealizado: { receitas: recReal, despesas: despReal, saldo: recReal - despReal },
-    // Mapeamos a inadimplência para o campo que sua UI já usa
-    resumoPrevisto: { saldo: pendenteTotal } 
-  };
-}, [receitasGlobais, despesasGlobais, dataReferencia]);
-
+    return {
+      resumoRealizado: { receitas: recReal, despesas: despReal, saldo: recReal - despReal },
+      resumoPrevisto: { saldo: pendenteTotal } 
+    };
+  }, [receitasGlobais, despesasGlobais, prefixoMesAtual]);
   // --- ATALHOS WEB ---
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -172,22 +175,26 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
       const despesas = Array.isArray(resDesp.data) ? resDesp.data.map(i => ({...i, tipo_financeiro: 'DESPESA'})) : [];
       
       setReceitasGlobais(prev => {
-        // Mescla as novas mantendo as antigas que não são deste mês (Cache Inteligente)
-        const outras = prev.filter(p => p.eventDate && !isSameMonth(parseISO(p.eventDate), dataReferencia));
-        return [...outras, ...receitas];
+          // 🚀 DEDUPLICAÇÃO ABSOLUTA: O Map impede que o mesmo ID exista duas vezes
+          const mapa = new Map(prev.map(p => [p.id, p]));
+          receitas.forEach(r => mapa.set(r.id, r));
+          return Array.from(mapa.values());
       });
       
       setDespesasGlobais(prev => {
-        const outras = prev.filter(p => p.eventDate && !isSameMonth(parseISO(p.eventDate), dataReferencia));
-        return [...outras, ...despesas];
+         const mapa = new Map(prev.map(p => [p.id, p]));
+          despesas.forEach(d => mapa.set(d.id, d));
+          return Array.from(mapa.values());
       });
 
     } catch (error) { 
         console.log("Erro no background fetch:", error.message);
     } 
   }, [dataReferencia, setReceitasGlobais]);
+  
 
   useEffect(() => { carregarDadosBackground(); }, [carregarDadosBackground]);
+  
 
   // --- 🚀 OTIMISTA: TOGGLE STATUS ---
     const toggleStatus = async (item) => {
@@ -251,17 +258,16 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
   };
 
   // EXCLUIR RÁPIDO 
-  const excluirItemRapido = async (item) => {
+const excluirItemRapido = async (item) => {
     const execute = async () => {
        const isReceita = abaAtiva === "RECEITA";
        const route = isReceita ? "/receitas" : "/despesas";
        const setter = isReceita ? setReceitasGlobais : setDespesasGlobais;
        const backupItem = { ...item };
 
-       // Otimistic UI
+       // Remove da tela primeiro
        setter(prev => prev.filter(t => t.id !== item.id));
 
-       //Se é temporário, anota no caderninho e PARA por aqui.
        if (item.temp) {
          excluidosTemporarios.current.add(item.id);
          return; 
@@ -270,10 +276,15 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
        try {
          await api.delete(`${route}/${item.id}`);
        } catch (e) { 
-         setter(prev => [...prev, backupItem]); // Reverte
-         tratarErro(e); 
+         // 🚀 A BLINDAGEM DO FANTASMA: Se o erro for 404, não faça nada! O card já sumiu da tela com sucesso.
+         if (e.response && e.response.status === 404) {
+            console.log("Card fantasma resolvido: já estava deletado no banco.");
+         } else {
+            // Se for outro erro (ex: sem internet), devolve o card pra tela
+            setter(prev => [...prev, backupItem]); 
+            tratarErro(e); 
+         }
        }
-       
     };
     if (Platform.OS === 'web') {
       if(window.confirm(`Excluir "${item.descricao}"?`)) execute();
@@ -296,11 +307,15 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
        setModalVisivel(false);
        setter(prev => prev.filter(t => t.id !== id));
 
-       try {
+        try {
          await api.delete(`${route}/${id}`);
-       } catch (e) { 
-         setter(prev => [...prev, backupItem]);
-         tratarErro(e); 
+        } catch (e) { 
+         if (e.response && e.response.status === 404) {
+            console.log("Card fantasma: já estava deletado no banco.");
+         } else {
+            setter(prev => [...prev, backupItem]);
+            tratarErro(e); 
+         }
        }
     };
     if (Platform.OS === 'web') {
@@ -578,10 +593,14 @@ const { resumoRealizado, resumoPrevisto } = useMemo(() => {
           </Text>
           
         <Text style={styles.itemSub}>
-          <Text style={{ fontWeight: 'bold' }}>{nomeExibir}</Text> • 
-          Agendado: {safeFormatDate(item.eventDate)}
-          {item.paidAt && (
-            <Text style={{ color: '#10b981' }}> • Pago: {safeFormatDate(item.paidAt)}</Text>
+              <Text style={{ fontWeight: 'bold' }}>{nomeExibir}</Text> • 
+              Agendado: {safeFormatDate(item.eventDate)}
+          
+              {/* 🚀 AQUI ESTÁ A MÁGICA DO HORÁRIO: Só renderiza se a string existir */}
+              {horario ? ` às ${horario}` : ""}
+
+              {item.paidAt && (
+        <Text style={{ color: '#10b981' }}> • Pago: {safeFormatDate(item.paidAt)}</Text>
           )}
         </Text>
         </View>

@@ -10,7 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { 
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, 
-  parseISO, setYear, setMonth, isValid, addHours
+  parseISO, setYear, setMonth, isValid, addHours, addDays
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -152,32 +152,70 @@ export default function AgendaScreen({ navigation }) {
     }
   };
 
-  const handleExcluirEvento = (id) => {
+const handleExcluirEvento = (id) => {
     const executeDelete = async () => {
-      const backup = eventosGlobais.find(e => e.id === id);
+      const backupEvento = eventosGlobais.find(e => e.id === id);
       
-      // OTIMISTA: Remove da tela antes do backend responder
+      // 1. OTIMISTA AGENDA: Remove da tela instantaneamente
       setModalVisivel(false); 
       setEventosGlobais(prev => prev.filter(e => e.id !== id));
 
+      // 2. 🚀 OTIMISTA FINANCEIRO ABSOLUTO: O Filtro "Sniper"
+      let backupReceita = null;
+      if (backupEvento) {
+         // Pega só o "2026-02-21" e transforma o título em minúsculas
+         const dataIso = backupEvento.inicio.split('T')[0]; 
+         const tituloBusca = backupEvento.titulo.toLowerCase().trim();
+
+         setReceitasGlobais(prev => {
+            // Guarda o backup por segurança
+            backupReceita = prev.find(r => r.eventDate && r.eventDate.startsWith(dataIso) && r.descricao && r.descricao.toLowerCase().includes(tituloBusca));
+            
+            // 🚀 A MÁGICA: Varre a tela e apaga instantaneamente
+            return prev.filter(r => {
+               const mesmaData = r.eventDate && r.eventDate.startsWith(dataIso);
+               const mesmaDescricao = r.descricao && r.descricao.toLowerCase().includes(tituloBusca);
+               
+               // Se for a mesma data e a descrição contiver o título, DELETA (return false)
+               return !(mesmaData && mesmaDescricao);
+            });
+         });
+      }
+
+      // 3. Executa a exclusão real no servidor
       try {
         await api.delete(`/eventos/${id}`);
+        
+        // 4. ATUALIZAÇÃO FORÇADA: Busca os dados limpos no banco para garantir a integridade
+        if (backupEvento) {
+           const partesData = backupEvento.inicio.split('T')[0].split('-'); // ["2026", "02", "21"]
+           const ano = parseInt(partesData[0], 10);
+           const mes = parseInt(partesData[1], 10);
+           
+           const req = await api.get("/receitas", { params: { mes, ano } });
+           setReceitasGlobais(prev => {
+              const outras = prev.filter(p => p.eventDate && !p.eventDate.startsWith(`${ano}-${String(mes).padStart(2, '0')}`));
+              return [...outras, ...req.data];
+           });
+        }
+
       } catch (error) { 
-        setEventosGlobais(prev => [...prev, backup]); // Rollback
+        // 5. ROLLBACK
+        setEventosGlobais(prev => [...prev, backupEvento]); 
+        if (backupReceita) setReceitasGlobais(prev => [...prev, backupReceita]);
         tratarErro(error); 
       }
     };
     
     if (Platform.OS === 'web') {
-      if (window.confirm("Deseja apagar este evento?")) executeDelete();
+      if (window.confirm("Deseja apagar este evento e seu lançamento financeiro?")) executeDelete();
     } else {
-      Alert.alert("Excluir", "Apagar este evento?", [
+      Alert.alert("Excluir", "Apagar este evento e seu lançamento financeiro?", [
         { text: "Cancelar", style: "cancel" },
         { text: "Excluir", style: "destructive", onPress: executeDelete }
       ]);
     }
   };
-
   const handleTimeMask = (text, setter) => {
     let val = text.replace(/\D/g, "");
     if (val.length >= 3) val = val.slice(0, 2) + ":" + val.slice(2, 4);
@@ -231,14 +269,15 @@ export default function AgendaScreen({ navigation }) {
     setModalVisivel(true); 
   };
 
-const salvarEvento = async () => {
+  const salvarEvento = async () => {
     setErrorMessage(""); 
     
-    // 👇 Validações e criação do valorFinal (Isto estava faltando!)
+    // 1. Validações Iniciais
     if (!titulo.trim()) return setErrorMessage("O nome do evento é obrigatório.");
     if (horaInicio.length !== 5 || horaFim.length !== 5) return setErrorMessage("Preencha o horário completo (HH:mm).");
-    if (horaFim <= horaInicio) return setErrorMessage("A hora de término deve ser maior que a de início.");
+    if (horaInicio === horaFim) return setErrorMessage("A hora de início e término não podem ser iguais.");
 
+    // 2. 🚀 CÁLCULO FINANCEIRO (Esta era a variável que estava faltando!)
     let valorFinal = 0.0;
     if (gerarFinanceiro) {
       if (!valorFinanceiro) return setErrorMessage("Informe o valor financeiro.");
@@ -247,9 +286,18 @@ const salvarEvento = async () => {
       if (isNaN(valorFinal) || valorFinal <= 0) return setErrorMessage("Valor financeiro inválido.");
     }
 
+    // 3. MÁGICA DA VIRADA DE NOITE (Overnight)
     const dataIso = format(selectedDate, "yyyy-MM-dd");
+    let dataFimIso = dataIso;
+
+    // Se a hora final for menor que a inicial, acaba no dia seguinte!
+    if (horaFim < horaInicio) {
+        const diaSeguinte = addDays(selectedDate, 1);
+        dataFimIso = format(diaSeguinte, "yyyy-MM-dd");
+    }
+
     const inicioFormatado = `${dataIso}T${horaInicio}:00`;
-    const fimFormatado = `${dataIso}T${horaFim}:00`;
+    const fimFormatado = `${dataFimIso}T${horaFim}:00`;
 
     const payload = {
       titulo: titulo.trim(),
@@ -301,8 +349,14 @@ const salvarEvento = async () => {
     try {
       if (eventoEditando) {
         await api.put(`/eventos/${tempId}`, payload);
+        // Remove a marcaçãode 'temp' na tela 
+        setEventosGlobais(prev => prev.map(e => e.id === tempId ? { ...e, temp: false } : e));
       } else {
-        await api.post("/eventos", payload);
+        // Guarda a resposta do servidor (que contém o ID real)
+        const response = await api.post("/eventos", payload);
+        // Substituui o evento temporário fake pelo real na tela imediatamente (sem precisar esperar o próximo fetch).
+        const eventoOficial = { ...response.data, temp: false };
+        setEventosGlobais(prev => prev.map(e => e.id === tempId ? eventoOficial : e));
       }
 
       // 4. ATUALIZAÇÃO SILENCIOSA DO FINANCEIRO (Substitui o ID temporário pelo ID real do Banco)
