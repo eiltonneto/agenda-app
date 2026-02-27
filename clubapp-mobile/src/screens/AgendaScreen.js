@@ -665,7 +665,7 @@ const toggleComparecido = async (evento) => {
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.label}>NOME DO EVENTO</Text>
-                <TextInput style={[styles.input, {color: colors.text, backgroundColor: colors.inputBackground}]} value={titulo} onChangeText={setTitulo} placeholder="Ex: Pagamento Racha..." placeholderTextColor={colors.textSecondary}/>
+                <TextInput style={[styles.input, {color: colors.text, backgroundColor: colors.inputBackground}]} value={titulo} onChangeText={setTitulo} placeholder="Ex: Ocasião, Evento..." placeholderTextColor={colors.textSecondary}/>
 
                 <View style={styles.rowBetween}>
                   <Text style={styles.label}>LOCAL / CATEGORIA</Text>

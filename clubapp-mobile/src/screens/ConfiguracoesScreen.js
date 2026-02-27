@@ -72,7 +72,7 @@ export default function ConfiguracoesScreen({ navigation }) {
         </View>
 
         <Text style={[styles.version, { color: colors.textSecondary }]}>
-          Desenvolvido por Eilton Neto {'\n'} YourFlow Versão 2.0.1
+          Desenvolvido por Eilton Neto {'\n'} YourFlow Versão 3.0.1
         </Text>
 
       </ScrollView>

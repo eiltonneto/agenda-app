@@ -193,7 +193,7 @@ async function handleUploadPhoto(localUri, mimeType) {
           <Text style={styles.logoutText}>Sair do Aplicativo</Text>
         </TouchableOpacity>
 
-        <Text style={[styles.version, { color: colors.textSecondary }]}>YourFlow v2.0.1</Text>
+        <Text style={[styles.version, { color: colors.textSecondary }]}>YourFlow v3.0.1</Text>
       </ScrollView>
 
       {/* MODAL SENHA */}
