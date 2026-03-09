@@ -1,119 +1,156 @@
-# 📱 App - YourFlow
+# 📱 YourFlow
 
-O **YourFlow** é uma solução completa para gestão de clubes e associações. O sistema integra uma **Agenda de Eventos** interativa e um **Controle Financeiro** (Entradas e Saídas) com cálculo de saldo em tempo real.
+<img width="654" height="933" alt="image" src="https://github.com/user-attachments/assets/0d935ce5-f2a4-454d-adf0-afc4d515ff71" />
+<img width="654" height="933" alt="image" src="https://github.com/user-attachments/assets/8b93490a-51ef-42b5-9941-b35c9662c142" />
 
-O projeto é estruturado como um monorepo, contendo tanto o servidor (Backend) quanto o aplicativo móvel (Mobile) no mesmo repositório.
 
----
 
-## 🚀 Tecnologias Utilizadas
 
-### Backend (API)
-- **Node.js** & **Express** - Servidor e rotas.
-- **Prisma ORM** - Gerenciamento de banco de dados (SQLite/PostgreSQL).
-- **JWT (JSON Web Token)** - Autenticação segura.
-- **CORS** - Segurança de acesso a recursos.
+O **YourFlow** é uma aplicação para **gestão de clubes e associações**, combinando uma **agenda de eventos** com um **controle financeiro** simples e eficiente.
 
-### Mobile (Frontend)
-- **React Native** (via **Expo**) - Framework para desenvolvimento mobile.
-- **React Native Calendars** - Componente de calendário interativo.
-- **Date-FNS** - Manipulação robusta de datas.
-- **Axios** - Comunicação com a API.
+O projeto foi desenvolvido como **monorepo**, contendo:
+
+- Backend (API)
+- Aplicativo Mobile
 
 ---
 
-## 🛠️ Pré-requisitos
+# 🚀 Aplicação em Produção
 
-Antes de começar, certifique-se de ter instalado em sua máquina:
-- [Node.js](https://nodejs.org/) (versão 18 ou superior)
-- [Git](https://git-scm.com/)
-- Aplicativo **Expo Go** no seu celular (Android ou iOS) ou um emulador configurado.
+A API está disponível em:
+
+https://agenda-app-wheat.vercel.app/
+
+Deploy realizado utilizando **Vercel**.
 
 ---
 
-## 📦 Como Rodar o Projeto
+# 🧰 Tecnologias Utilizadas
 
-Siga os passos abaixo para instalar e executar tanto o servidor quanto o aplicativo.
+## Backend
+- Node.js
+- Express
+- Prisma ORM
+- JWT (JSON Web Token)
+- PostgreSQL / SQLite
+- CORS
 
-### 1. Configurando o Backend (Servidor)
+## Mobile
+- React Native (Expo)
+- React Native Calendars
+- Date-FNS
+- Axios
 
-Abra um terminal na raiz do projeto e execute:
+---
+
+# 📂 Estrutura do Projeto
+
+
+yourflow
+│
+├── backend
+│ ├── prisma
+│ ├── src
+│ └── package.json
+│
+└── clubapp-mobile
+├── src
+└── package.json
+
+
+---
+
+# ⚙️ Rodando o Projeto Localmente
+
+## 1️⃣ Backend
+
+Clone o repositório:
 
 ```bash
-# Entre na pasta do backend
-cd backend
+git clone https://github.com/eiltonneto/yourflow
+cd yourflow/backend
 
-# Instale as dependências
+Instale as dependências:
+
 npm install
 
-# Gere o banco de dados (Primeira vez)
-npx prisma migrate dev --name init
+Execute as migrations do banco:
 
-# Inicie o servidor
+npx prisma migrate dev
+
+Inicie o servidor:
+
 npm run dev
-O servidor rodará por padrão em: http://localhost:3333 (ou no seu IP local).
 
-2. Configurando o Mobile (App)
-Abra outro terminal na raiz do projeto (mantenha o do backend rodando) e execute:
+O servidor rodará em:
 
-Bash
+http://localhost:3333
+2️⃣ Mobile
 
-# Entre na pasta do app
+Abra outro terminal e execute:
+
 cd clubapp-mobile
-
-# Instale as dependências
 npm install
-
-# Inicie o Expo
 npx expo start
+
 Um QR Code aparecerá no terminal.
 
-No Celular: Abra o app Expo Go e escaneie o QR Code.
+Abra o aplicativo Expo Go no celular e escaneie o código.
 
-No PC (Web): Pressione a tecla w para abrir no navegador.
+📡 Configuração de IP (Para rodar no celular)
 
-⚙️ Configuração de IP (Importante)
-Para que o Celular consiga conversar com o seu Computador, eles precisam estar na mesma rede Wi-Fi.
+Celular e computador precisam estar na mesma rede Wi-Fi.
 
-Descubra o IP do seu computador (no Windows, digite ipconfig no terminal e pegue o IPv4, ex: 192.168.0.10).
+Descubra o IP da sua máquina:
 
-Vá no arquivo src/services/api.js dentro da pasta clubapp-mobile.
+ipconfig
 
-Atualize a baseURL com o seu IP:
+Exemplo:
 
-JavaScript
+192.168.0.10
+
+Abra o arquivo:
+
+clubapp-mobile/src/services/api.js
+
+E altere a baseURL:
 
 const api = axios.create({
-  baseURL: "[http://192.168.0.10:3333](http://192.168.0.10:3333)", // Substitua pelo seu IP
+  baseURL: "http://192.168.0.10:3333"
 });
-📱 Funcionalidades Principais
-🗓️ Agenda
-Visualização de calendário mensal.
+📱 Funcionalidades
+🗓️ Agenda de Eventos
 
-"Bolinhas" indicativas nos dias que possuem eventos.
+Visualização de calendário mensal
 
-Criação, Edição e Exclusão de eventos.
+Indicadores visuais nos dias com eventos
 
-Bloqueio de conflitos de horário.
+Criação, edição e exclusão de eventos
 
-💰 Financeiro
-Dashboard com Saldo em Caixa (Realizado), Receitas e Despesas.
+Prevenção de conflitos de horário
 
-Lista de transações filtrada por mês.
+💰 Controle Financeiro
 
-Previsão Inteligente: Cards pendentes mostram qual será o saldo futuro se confirmados.
+Dashboard com saldo atual
 
-Categorização de despesas e receitas.
+Registro de receitas e despesas
 
-🤝 Como Contribuir
-Faça um Fork do projeto.
+Filtro de transações por mês
 
-Crie uma Branch para sua Feature (git checkout -b feature/MinhaFeature).
+Categorização de entradas e saídas
 
-Faça o Commit (git commit -m 'Adicionando uma feature incrível').
+Previsão de saldo futuro
 
-Faça o Push (git push origin feature/MinhaFeature).
+🔐 Autenticação
 
-Abra um Pull Request.
+O sistema utiliza JWT para autenticação segura entre o aplicativo mobile e a API.
 
-Desenvolvido com 💙 por Eilton Neto.
+👨‍💻 Autor
+
+Desenvolvido por Eilton Neto
+
+GitHub
+https://github.com/eiltonneto
+
+LinkedIn
+https://linkedin.com/in/eilton-neto
