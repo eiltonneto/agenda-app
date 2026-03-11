@@ -270,14 +270,13 @@ const handleExcluirEvento = (id) => {
   };
 
   const salvarEvento = async () => {
-    setErrorMessage(""); 
-    
-    // 1. Validações Iniciais
+    setErrorMessage("");
+
+    // --- VALIDAÇÕES ---
     if (!titulo.trim()) return setErrorMessage("O nome do evento é obrigatório.");
     if (horaInicio.length !== 5 || horaFim.length !== 5) return setErrorMessage("Preencha o horário completo (HH:mm).");
     if (horaInicio === horaFim) return setErrorMessage("A hora de início e término não podem ser iguais.");
 
-    // 2. 🚀 CÁLCULO FINANCEIRO (Esta era a variável que estava faltando!)
     let valorFinal = 0.0;
     if (gerarFinanceiro) {
       if (!valorFinanceiro) return setErrorMessage("Informe o valor financeiro.");
@@ -286,14 +285,12 @@ const handleExcluirEvento = (id) => {
       if (isNaN(valorFinal) || valorFinal <= 0) return setErrorMessage("Valor financeiro inválido.");
     }
 
-    // 3. MÁGICA DA VIRADA DE NOITE (Overnight)
+    // --- CONSTRUÇÃO DAS DATAS ---
     const dataIso = format(selectedDate, "yyyy-MM-dd");
     let dataFimIso = dataIso;
-
-    // Se a hora final for menor que a inicial, acaba no dia seguinte!
     if (horaFim < horaInicio) {
-        const diaSeguinte = addDays(selectedDate, 1);
-        dataFimIso = format(diaSeguinte, "yyyy-MM-dd");
+      const diaSeguinte = addDays(selectedDate, 1);
+      dataFimIso = format(diaSeguinte, "yyyy-MM-dd");
     }
 
     const inicioFormatado = `${dataIso}T${horaInicio}:00`;
@@ -301,14 +298,14 @@ const handleExcluirEvento = (id) => {
 
     const payload = {
       titulo: titulo.trim(),
-      inicio: inicioFormatado, 
+      inicio: inicioFormatado,
       fim: fimFormatado,
       categoria_id: selectedCategory.id,
-      tipo: selectedCategory.name, 
+      tipo: selectedCategory.name,
       cor_categoria: selectedCategory.color,
       descricao: observacao || "",
       gerarFinanceiro: Boolean(gerarFinanceiro),
-      valor: valorFinal, // Agora o payload encontra a variável declarada lá em cima!
+      valor: valorFinal,
       tipoFinanceiro: "RECEITA",
       lembreteValor: lembreteValor ? parseInt(lembreteValor) : null,
       lembreteUnidade: lembreteUnidade,
@@ -316,64 +313,75 @@ const handleExcluirEvento = (id) => {
       comparecido: eventoEditando ? eventoEditando.comparecido : false
     };
 
+    // --- FECHA O MODAL E FAZ O UPDATE OTIMISTA ---
     setModalVisivel(false);
 
-    // 1. CRIAÇÃO OTIMISTA (AGENDA)
     const tempId = eventoEditando ? eventoEditando.id : `temp-${Date.now()}`;
     const eventoOtimista = { id: tempId, ...payload, temp: !eventoEditando };
+
+    // ✅ NOVO: Guardamos backups ANTES de qualquer mudança otimista.
+    // São os "pontos de restauração" para o caso de erro da API.
+    const backupEventos = [...eventosGlobais];
+    const backupReceitas = [...receitasGlobais];
 
     if (eventoEditando) {
       setEventosGlobais(prev => prev.map(e => e.id === tempId ? { ...e, ...payload } : e));
     } else {
       setEventosGlobais(prev => [...prev, eventoOtimista]);
 
-      // 2. CRIAÇÃO OTIMISTA (FINANCEIRO)
       if (gerarFinanceiro) {
-         const receitaOtimista = {
-            id: `rec-${tempId}`, // ID temporário
-            descricao: `${selectedCategory.name}: ${payload.titulo}`,
-            valor: payload.valor,
-            status: "PENDENTE",
-            eventDate: dataIso,
-            paidAt: null,
-            tipo: selectedCategory.name,
-            tipo_financeiro: "RECEITA",
-            temp: true // Ficará levemente transparente provando que é otimista
-         };
-         // Empurra a receita pra tela do Financeiro na mesma hora!
-         setReceitasGlobais(prev => [...prev, receitaOtimista]);
+        const receitaOtimista = {
+          id: `rec-${tempId}`,
+          descricao: `${selectedCategory.name}: ${payload.titulo}`,
+          valor: payload.valor,
+          status: "PENDENTE",
+          eventDate: dataIso,
+          paidAt: null,
+          tipo: selectedCategory.name,
+          tipo_financeiro: "RECEITA",
+          temp: true
+        };
+        setReceitasGlobais(prev => [...prev, receitaOtimista]);
       }
     }
 
-    // 3. REQUISIÇÃO EM BACKGROUND (Sem travar o usuário)
+    // --- REQUISIÇÃO EM BACKGROUND ---
     try {
       if (eventoEditando) {
         await api.put(`/eventos/${tempId}`, payload);
-        // Remove a marcaçãode 'temp' na tela 
         setEventosGlobais(prev => prev.map(e => e.id === tempId ? { ...e, temp: false } : e));
       } else {
-        // Guarda a resposta do servidor (que contém o ID real)
         const response = await api.post("/eventos", payload);
-        // Substituui o evento temporário fake pelo real na tela imediatamente (sem precisar esperar o próximo fetch).
         const eventoOficial = { ...response.data, temp: false };
         setEventosGlobais(prev => prev.map(e => e.id === tempId ? eventoOficial : e));
       }
 
-      // 4. ATUALIZAÇÃO SILENCIOSA DO FINANCEIRO (Substitui o ID temporário pelo ID real do Banco)
       if (gerarFinanceiro) {
         const mes = selectedDate.getMonth() + 1;
         const ano = selectedDate.getFullYear();
         const req = await api.get("/receitas", { params: { mes, ano } });
-        
         setReceitasGlobais(prev => {
-          // 🚀 Agora filtramos pelo eventDate para manter a coerência
           const outras = prev.filter(p => p.eventDate && !p.eventDate.startsWith(`${ano}-${String(mes).padStart(2, '0')}`));
           return [...outras, ...req.data];
         });
       }
+
     } catch (e) {
-      tratarErro(e);
-      // Aqui entraria a lógica de rollback caso a internet caia
+      // ✅ ROLLBACK COMPLETO: Restaura agenda e financeiro ao estado anterior
+      setEventosGlobais(backupEventos);
+      setReceitasGlobais(backupReceitas);
+
+      // ✅ REABRE O MODAL com os dados intactos para o usuário não perder o que digitou
+      setModalVisivel(true);
+
+      // ✅ MENSAGEM CONTEXTUAL: Conflito de horário vs. erro genérico
+      if (e.response?.status === 409) {
+        setErrorMessage("⚠️ Conflito de horário: este local já está reservado neste período.");
+      } else if (e.message?.includes("Network Error")) {
+        setErrorMessage("Sem conexão. Verifique sua internet e tente novamente.");
+      } else {
+        setErrorMessage(e.response?.data?.error || "Erro ao salvar. Tente novamente.");
+      }
     }
   };
 

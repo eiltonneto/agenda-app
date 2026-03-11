@@ -1,0 +1,4186 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.gitignore
+App.js
+app.json
+assets/adaptive-icon.png
+assets/bg-login.png
+assets/favicon.png
+assets/flow-svgrepo-com.svg
+assets/icon.png
+assets/logo.png
+assets/splash-icon.png
+index.js
+metro.config.js
+package.json
+src/components/AnimatedInput.js
+src/components/FloatingCard.js
+src/components/logo.js
+src/context/AuthContext.js
+src/context/ThemeContext.js
+src/routes.js
+src/screens/AgendaScreen.js
+src/screens/AuthScreen.js
+src/screens/ConfiguracoesScreen.js
+src/screens/EsqueciSenhaScreen.js
+src/screens/FinanceiroScreen.js
+src/screens/NotificacoesScreen.js
+src/screens/PerfilScreen.js
+src/services/api.js
+src/services/NotificationService.js
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".gitignore">
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+</file>
+
+<file path="App.js">
+import React from "react";
+import { View, Text, ActivityIndicator, StatusBar } from "react-native";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
+
+// CONTEXTOS 
+import AuthProvider, { useAuth } from "./src/context/AuthContext";
+import ThemeProvider, { useTheme } from "./src/context/ThemeContext";
+
+// TELAS 
+import AuthScreen from "./src/screens/AuthScreen";
+import AgendaScreen from "./src/screens/AgendaScreen";
+import FinanceiroScreen from "./src/screens/FinanceiroScreen";
+import PerfilScreen from "./src/screens/PerfilScreen"; 
+import ConfiguracoesScreen from "./src/screens/ConfiguracoesScreen";
+import EsqueciSenhaScreen from "./src/screens/EsqueciSenhaScreen"; 
+
+const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
+
+// NAVEGAÇÃO DE ABAS (LOGADO) 
+function AppTabs() {
+  const { theme } = useTheme();
+  const colors = theme.colors;
+
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarShowLabel: true,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: 85,           
+          paddingBottom: 20,    
+          paddingTop: 8,
+          elevation: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.1,
+          shadowRadius: 5,
+        },
+        tabBarLabelStyle: { 
+          fontSize: 10,         
+          fontWeight: '700',
+          marginTop: -5,
+        },
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'Agenda') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'Financeiro') {
+            iconName = focused ? 'wallet' : 'wallet-outline';
+          } else if (route.name === 'Perfil') {
+            iconName = focused ? 'person' : 'person-outline';
+          } else if (route.name === 'Notificações') {
+            iconName = focused ? 'notifications' : 'notifications-outline';
+          }
+          return <Ionicons name={iconName} size={focused ? 26 : 22} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen name="Agenda" component={AgendaScreen} />
+      <Tab.Screen name="Financeiro" component={FinanceiroScreen} />
+      <Tab.Screen name="Perfil" component={PerfilScreen} /> 
+    </Tab.Navigator>
+  );
+}
+
+// --- ROTEAMENTO PRINCIPAL ---
+function AppRoutes() {
+  const { user, loading } = useAuth();
+  const { theme } = useTheme();
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {!user ? (
+        // Fluxo de Autenticação (Deslogado)
+        <>
+          <Stack.Screen name="Auth" component={AuthScreen} />
+          {/* 👈 CORREÇÃO: Tela registrada aqui para o link funcionar */}
+          <Stack.Screen name="EsqueciSenha" component={EsqueciSenhaScreen} />
+        </>
+      ) : (
+        // Fluxo Interno Protegido (Logado)
+        <>
+          <Stack.Screen name="Home" component={AppTabs} />
+          <Stack.Screen name="Configuracoes" component={ConfiguracoesScreen} />
+        </>
+      )}
+    </Stack.Navigator>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <ThemeProvider>
+        <NavigationContainer>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+          <AppRoutes />
+        </NavigationContainer>
+      </ThemeProvider>
+    </AuthProvider>
+  );
+}
+</file>
+
+<file path="app.json">
+{
+  "expo": {
+    "name": "clubapp-mobile",
+    "slug": "clubapp-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
+  }
+}
+</file>
+
+<file path="assets/flow-svgrepo-com.svg">
+<?xml version="1.0" encoding="utf-8"?><!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+<svg width="800px" height="800px" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><linearGradient id="a" x1="-67.907" y1="-308.551" x2="-67.857" y2="-308.564" gradientTransform="matrix(87.822, 0, 0, -88.533, 5984.532, -27290.617)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffd441"/><stop offset="1" stop-color="#ffb047"/></linearGradient><linearGradient id="b" x1="-67.674" y1="-310.121" x2="-67.647" y2="-310.063" gradientTransform="matrix(87.822, 0, 0, -88.533, 5964.667, -27443)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffd754"/><stop offset="1" stop-color="#ffb532"/></linearGradient><linearGradient id="c" x1="-67.029" y1="-310.91" x2="-67.029" y2="-310.86" gradientTransform="matrix(87.822, 0, 0, -88.533, 5902.8, -27518.733)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffd642"/><stop offset="0" stop-color="#ffd441"/><stop offset="1" stop-color="#ffb532"/></linearGradient><linearGradient id="d" x1="-66.252" y1="-310.377" x2="-66.32" y2="-310.362" gradientTransform="matrix(106.198, 0, 0, -88.551, 7048.428, -27474.167)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffd441"/><stop offset="1" stop-color="#ffa829"/></linearGradient></defs><title>file_type_flow</title><path d="M23.426,29.41V22.172h-7.18l7.18,7.238" style="fill:#ffdf51;fill-opacity:0.699999988079071"/><path d="M24.231,25.306V17.477H16.466l7.766,7.829" style="fill:#ff8900;fill-opacity:0.699999988079071"/><path d="M19.515,22.171V30h7.766l-7.766-7.829" style="fill-opacity:0.699999988079071;fill:url(#a)"/><path d="M22.608,18V11.809H16.466L22.608,18" style="fill:#ffdf4f;fill-opacity:0.699999988079071"/><path d="M25.524,16.525V8.7H17.759l7.766,7.829" style="fill-opacity:0.799999952316284;fill:url(#b)"/><path d="M12.288,2V9.829h7.766L12.288,2" style="fill-opacity:0.800000011920929;fill:url(#c)"/><path d="M14.11,14.262V6.433H4.719l7.732,7.83,1.659,0" style="fill-opacity:0.879999995231628;fill:url(#d)"/><path d="M14.11,29.958V20.487H4.719l9.391,9.471" style="fill:#ffb700;fill-opacity:0.699999988079071"/><path d="M14.112,22.114V14.285H6.346l7.766,7.829" style="fill:#ffb700;fill-opacity:0.5"/><path d="M16.465,11.809v7.829h7.766l-7.766-7.829" style="fill:#ffcd25;fill-opacity:0.699999988079071"/><path d="M14.092,12.691V4.862H6.326l7.766,7.829" style="fill:#ff8900;fill-opacity:0.700000047683716"/><path d="M16.246,22.171V30h7.766l-7.766-7.829" style="fill:#ff8900;fill-opacity:0.699999988079071"/><polygon points="21.122 22.172 18.609 19.638 16.465 19.638 16.466 11.809 20.847 11.809 18.882 9.829 14.092 9.829 14.11 14.262 14.11 20.487 14.11 30 16.246 30 16.246 22.172 21.122 22.172" style="fill:#fff"/></svg>
+</file>
+
+<file path="index.js">
+import { registerRootComponent } from 'expo';
+
+import App from './App'; // Importa o seu arquivo App.js que deve estar na mesma pasta (Raiz)
+
+// registerRootComponent chama AppRegistry.registerComponent('main', () => App);
+// Isso garante que o ambiente seja configurado corretamente, seja no Expo Go ou na build nativa.
+registerRootComponent(App);
+</file>
+
+<file path="metro.config.js">
+// metro.config.js
+const { getDefaultConfig } = require("expo/metro-config");
+
+module.exports = (() => {
+  const config = getDefaultConfig(__dirname);
+
+  const { transformer, resolver } = config;
+
+  config.transformer = {
+    ...transformer,
+    babelTransformerPath: require.resolve("react-native-svg-transformer"),
+  };
+  config.resolver = {
+    ...resolver,
+    assetExts: resolver.assetExts.filter((ext) => ext !== "svg"),
+    sourceExts: [...resolver.sourceExts, "svg"],
+  };
+
+  return config;
+})();
+</file>
+
+<file path="package.json">
+{
+  "name": "clubapp-mobile",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~6.1.2",
+    "@expo/vector-icons": "^15.0.3",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "8.4.4",
+    "@react-navigation/bottom-tabs": "^7.13.0",
+    "@react-navigation/native": "^7.1.24",
+    "@react-navigation/native-stack": "^7.8.5",
+    "axios": "^1.13.2",
+    "date-fns": "^4.1.0",
+    "expo": "~54.0.27",
+    "expo-constants": "~18.0.12",
+    "expo-device": "~8.0.10",
+    "expo-image-picker": "~17.0.10",
+    "expo-linear-gradient": "~15.0.8",
+    "expo-notifications": "~0.32.15",
+    "expo-print": "~15.0.8",
+    "expo-sharing": "~14.0.8",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-calendars": "^1.1314.0",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "react-native-svg": "15.12.1",
+    "react-native-web": "^0.21.0"
+  },
+  "private": true,
+  "devDependencies": {
+    "react-native-svg-transformer": "^1.5.2"
+  }
+}
+</file>
+
+<file path="src/components/AnimatedInput.js">
+import React, { useRef, useEffect } from "react";
+import { Animated, TextInput, TouchableOpacity, StyleSheet, Platform } from "react-native";
+import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
+import { Easing } from "react-native";
+
+// PALETA (IGUAL AO AUTH)
+const THEME_COLOR = "#0ea5e9";
+const TEXT_DARK = "#0f172a";
+
+export default function AnimatedInput({
+  icon,
+  placeholder,
+  value,
+  onChange,
+  type,
+  secure,
+  onToggleSecure,
+  fieldName,
+  setFocusedField,
+  focusedField
+}) {
+  const focusAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(focusAnim, {
+      toValue: focusedField === fieldName ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+      easing: Easing.out(Easing.ease)
+    }).start();
+  }, [focusedField]);
+
+  const borderColor = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["#e2e8f0", THEME_COLOR]
+  });
+
+  const backgroundColor = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["#f8fafc", "#f0f9ff"]
+  });
+
+  const scale = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.02]
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.inputContainer,
+        {
+          borderColor,
+          backgroundColor,
+          transform: [{ scale }]
+        }
+      ]}
+    >
+      <MaterialCommunityIcons
+        name={icon}
+        size={22}
+        color={focusedField === fieldName ? THEME_COLOR : "#94a3b8"}
+        style={styles.inputIcon}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder={placeholder}
+        placeholderTextColor="#94a3b8"
+        value={value}
+        onChangeText={onChange}
+        onFocus={() => setFocusedField(fieldName)}
+        onBlur={() => setFocusedField(null)}
+        secureTextEntry={secure}
+        keyboardType={type}
+        autoCapitalize="none"
+        cursorColor={THEME_COLOR}
+      />
+
+      {onToggleSecure && (
+        <TouchableOpacity onPress={onToggleSecure} style={styles.eyeIcon}>
+          <MaterialIcons
+            name={secure ? "visibility" : "visibility-off"}
+            size={22}
+            color="#94a3b8"
+          />
+        </TouchableOpacity>
+      )}
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    height: 56,
+    paddingHorizontal: 16,
+    marginBottom: 16
+  },
+  inputIcon: { marginRight: 12 },
+  input: {
+    flex: 1,
+    height: "100%",
+    color: TEXT_DARK,
+    fontSize: 16,
+    ...(Platform.OS === "web" ? { outlineStyle: "none" } : {})
+  },
+  eyeIcon: { padding: 8 }
+});
+</file>
+
+<file path="src/components/FloatingCard.js">
+import { View, StyleSheet } from 'react-native';
+
+export default function FloatingCard({ children }) {
+  return (
+    <View style={styles.card}>
+      {children}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 10,
+  }
+});
+</file>
+
+<file path="src/components/logo.js">
+// src/components/Logo.js
+import React from 'react';
+import Svg, { Defs, LinearGradient, Stop, Path, Polygon } from 'react-native-svg';
+
+export const Logo = ({ width = 120, height = 120 }) => {
+  return (
+    // Removi qualquer style extra aqui para garantir pureza
+    <Svg width={width} height={height} viewBox="0 0 32 32" fill="none">
+      <Defs>
+        <LinearGradient id="a" x1="-67.907" y1="-308.551" x2="-67.857" y2="-308.564" gradientTransform="matrix(87.822 0 0 -88.533 5984.532 -27290.617)" gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor="#ffd441" />
+          <Stop offset="1" stopColor="#ffb047" />
+        </LinearGradient>
+        <LinearGradient id="b" x1="-67.674" y1="-310.121" x2="-67.647" y2="-310.063" gradientTransform="matrix(87.822 0 0 -88.533 5964.667 -27443)" gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor="#ffd754" />
+          <Stop offset="1" stopColor="#ffb532" />
+        </LinearGradient>
+        <LinearGradient id="c" x1="-67.029" y1="-310.91" x2="-67.029" y2="-310.86" gradientTransform="matrix(87.822 0 0 -88.533 5902.8 -27518.733)" gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor="#ffd642" />
+          <Stop offset="0" stopColor="#ffd441" />
+          <Stop offset="1" stopColor="#ffb532" />
+        </LinearGradient>
+        <LinearGradient id="d" x1="-66.252" y1="-310.377" x2="-66.32" y2="-310.362" gradientTransform="matrix(106.198 0 0 -88.551 7048.428 -27474.167)" gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor="#ffd441" />
+          <Stop offset="1" stopColor="#ffa829" />
+        </LinearGradient>
+      </Defs>
+      
+      <Path d="M23.426 29.41V22.172h-7.18l7.18 7.238" fill="#ffdf51" fillOpacity="0.7" />
+      <Path d="M24.231 25.306V17.477H16.466l7.766 7.829" fill="#ff8900" fillOpacity="0.7" />
+      <Path d="M19.515 22.171V30h7.766l-7.766-7.829" fill="url(#a)" fillOpacity="0.7" />
+      <Path d="M22.608 18V11.809H16.466L22.608 18" fill="#ffdf4f" fillOpacity="0.7" />
+      <Path d="M25.524 16.525V8.7H17.759l7.766 7.829" fill="url(#b)" fillOpacity="0.8" />
+      <Path d="M12.288 2V9.829h7.766L12.288 2" fill="url(#c)" fillOpacity="0.8" />
+      <Path d="M14.11 14.262V6.433H4.719l7.732 7.83 1.659 0" fill="url(#d)" fillOpacity="0.88" />
+      <Path d="M14.11 29.958V20.487H4.719l9.391 9.471" fill="#ffb700" fillOpacity="0.7" />
+      <Path d="M14.112 22.114V14.285H6.346l7.766 7.829" fill="#ffb700" fillOpacity="0.5" />
+      <Path d="M16.465 11.809v7.829h7.766l-7.766-7.829" fill="#ffcd25" fillOpacity="0.7" />
+      <Path d="M14.092 12.691V4.862H6.326l7.766 7.829" fill="#ff8900" fillOpacity="0.7" />
+      <Path d="M16.246 22.171V30h7.766l-7.766-7.829" fill="#ff8900" fillOpacity="0.7" />
+      <Polygon points="21.122 22.172 18.609 19.638 16.465 19.638 16.466 11.809 20.847 11.809 18.882 9.829 14.092 9.829 14.11 14.262 14.11 20.487 14.11 30 16.246 30 16.246 22.172 21.122 22.172" fill="#fff" />
+    </Svg>
+  );
+};
+</file>
+
+<file path="src/context/AuthContext.js">
+import React, { createContext, useState, useEffect, useContext } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import api from "../services/api";
+
+const AuthContext = createContext({});
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  const [despesasGlobais, setDespesasGlobais] = useState([]);
+  const [eventosGlobais, setEventosGlobais] = useState([]);
+  const [receitasGlobais, setReceitasGlobais] = useState([]);
+  const [statusTrial, setStatusTrial] = useState("ATIVO");
+
+  useEffect(() => {
+    async function loadStorageData() {
+      try {
+        // 1. Busca tudo do celular em paralelo (MUITO mais rápido)
+        const keys = [
+          "@YourFlow:user", "@YourFlow:token", "@YourFlow:eventos", 
+          "@YourFlow:receitas", "@YourFlow:despesas"
+        ];
+        const storaged = await AsyncStorage.multiGet(keys);
+        const data = Object.fromEntries(storaged);
+
+        if (data["@YourFlow:user"] && data["@YourFlow:token"]) {
+          api.defaults.headers.Authorization = `Bearer ${data["@YourFlow:token"]}`;
+          
+          // 2. POPULA A TELA INSTANTANEAMENTE (Offline-First)
+          // O usuário já vê o app aberto com os dados da última vez
+          setUser(JSON.parse(data["@YourFlow:user"]));
+          if (data["@YourFlow:eventos"]) setEventosGlobais(JSON.parse(data["@YourFlow:eventos"]));
+          if (data["@YourFlow:receitas"]) setReceitasGlobais(JSON.parse(data["@YourFlow:receitas"]));
+          if (data["@YourFlow:despesas"]) setDespesasGlobais(JSON.parse(data["@YourFlow:despesas"]));
+          
+          // 3. ATUALIZA EM SILÊNCIO (Background Sync)
+          // O app já abriu, agora ele só "refresca" os dados do Render
+          loadBootstrapData();
+        }
+      } catch (error) {
+        console.log("Erro na hidratação:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadStorageData();
+  }, []);
+
+  // --- BOOTSTRAP SILENCIOSO ---
+  async function loadBootstrapData() {
+    try {
+      // Agora o bootstrap no backend também deve ser leve
+      const response = await api.get('/bootstrap');
+      const { usuario, eventos, receitas, despesas, statusTrial } = response.data;
+      
+      setUser(usuario);
+      setEventosGlobais(eventos || []);
+      setReceitasGlobais(receitas || []);
+      setDespesasGlobais(despesas || []);
+      setStatusTrial(statusTrial || "ATIVO");
+      
+      // Atualiza o cache para a próxima abertura
+      AsyncStorage.multiSet([
+        ["@YourFlow:user", JSON.stringify(usuario)],
+        ["@YourFlow:eventos", JSON.stringify(eventos || [])],
+        ["@YourFlow:receitas", JSON.stringify(receitas || [])],
+        ["@YourFlow:despesas", JSON.stringify(despesas || [])],
+      ]);
+    } catch (error) {
+      console.log("Bootstrap em background falhou (sem problemas):", error.message);
+    }
+  }
+
+async function login(email, senha) {
+    try {
+      // Pega o Token no backend
+      const authResponse = await api.post("/login", { email, senha });
+      const { user: userData, token } = authResponse.data;
+
+      //  Coloca o crachá na porta da API para permitir as próximas requisições
+      api.defaults.headers.Authorization = `Bearer ${token}`;
+
+      // BOOTSTRAP IMEDIATO: Puxa Completo do mês vigente
+      const bootResponse = await api.get('/bootstrap');
+      const { eventos, receitas, despesas, statusTrial } = bootResponse.data;
+
+      // Salva tudo no AsyncStorage primeiro.
+      await AsyncStorage.multiSet([
+        ["@YourFlow:token", token],
+        ["@YourFlow:user", JSON.stringify(userData)],
+        ["@YourFlow:eventos", JSON.stringify(eventos || [])],
+        ["@YourFlow:receitas", JSON.stringify(receitas || [])],
+        ["@YourFlow:despesas", JSON.stringify(despesas || [])],
+      ]);
+
+      // POPULA A MEMÓRIA RAM DO APP
+      setEventosGlobais(eventos || []);
+      setReceitasGlobais(receitas || []);
+      setDespesasGlobais(despesas || []);
+      setStatusTrial(statusTrial || "ATIVO");
+
+      // Muda a tela
+      // Como o 'signed' depende do 'user', ao setar isso o app navega pra Home.
+      // E como os dados já estão no estado acima, a tela nasce pronta, sem loading.
+      setUser(userData); 
+
+    } catch (error) {
+      console.error("Erro no fluxo de Login/Bootstrap:", error);
+      throw error; // Repassa o erro para a AuthScreen mostrar o alerta (ex: "Senha Incorreta")
+    }
+  }
+
+  function logout() {
+    // Limpa tudo e volta para o login
+    AsyncStorage.multiRemove([
+      "@YourFlow:user", "@YourFlow:token", "@YourFlow:eventos", 
+      "@YourFlow:receitas", "@YourFlow:despesas"
+    ]).then(() => {
+      setUser(null);
+      setEventosGlobais([]);
+      setReceitasGlobais([]);
+      setDespesasGlobais([]);
+      delete api.defaults.headers.Authorization;
+    });
+  }
+
+  // ... (restante das funções update e register)
+
+  async function register(nome, email, senha) {
+    try {
+      // Ajuste a rota "/usuarios" ou "/register" dependendo de como está no seu backend Node
+      await api.post("/usuarios", { nome, email, senha }); 
+    } catch (error) {
+      console.error("Erro no cadastro (AuthContext):", error);
+      throw error;
+    }
+  }
+
+  return (
+    <AuthContext.Provider
+      value={{
+        signed: !!user,
+        user,
+        loading,
+        eventosGlobais, setEventosGlobais,
+        receitasGlobais, setReceitasGlobais,
+        despesasGlobais, setDespesasGlobais,
+        statusTrial,
+        login, logout, loadBootstrapData, register
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth deve ser usado dentro de AuthProvider");
+  return context;
+}
+
+export default AuthProvider;
+</file>
+
+<file path="src/context/ThemeContext.js">
+import React, { createContext, useState, useContext } from 'react';
+
+// --- DEFINIÇÃO DAS CORES (PALETA SKY ENERGY) ---
+const themes = {
+  light: {
+    isDark: false,
+    colors: {
+      primary: '#0ea5e9',       // Azul Sky (Principal)
+      background: '#f0f9ff',    // Fundo bem clarinho (Alice Blue)
+      surface: '#ffffff',       // Branco (Cartões e Modais)
+      text: '#0f172a',          // Texto Principal (Escuro)
+      textSecondary: '#64748b', // Texto Secundário (Cinza Azulado)
+      border: '#e2e8f0',        // Bordas sutis
+      inputBackground: '#f8fafc', // Fundo dos Inputs
+      
+      success: '#10b981',       // Verde (Receitas/Sucesso)
+      danger: '#ef4444',        // Vermelho (Despesas/Erro)
+      warning: '#f59e0b',       // Laranja (Avisos)
+    }
+  },
+  dark: {
+    isDark: true,
+    colors: {
+      primary: '#38bdf8',
+      background: '#0f172a',
+      surface: '#1e293b',
+      text: '#f1f5f9',
+      textSecondary: '#94a3b8',
+      border: '#334155',
+      inputBackground: '#334155',
+      
+      success: '#34d399',
+      danger: '#f87171',
+      warning: '#fbbf24',
+    }
+  }
+};
+
+// Criação do Contexto
+const ThemeContext = createContext({});
+
+export function ThemeProvider({ children }) {
+  // Começa com o tema claro (light)
+  const [theme, setTheme] = useState(themes.light);
+
+  function toggleTheme() {
+    setTheme(theme.isDark ? themes.light : themes.dark);
+  }
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+// Hook personalizado para usar o tema
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme deve ser usado dentro de um ThemeProvider');
+  }
+  return context;
+}
+
+// --- IMPORTANTE: EXPORT DEFAULT PARA EVITAR ERROS NO APP.JS ---
+export default ThemeProvider;
+</file>
+
+<file path="src/routes.js">
+import React from 'react';
+import { View, Image, ActivityIndicator } from 'react-native';
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { Ionicons } from "@expo/vector-icons";
+
+// Contextos
+import { useAuth } from './context/AuthContext';
+import { useTheme } from './context/ThemeContext';
+import { API_URL } from "./services/api";
+
+// --- TELAS ---
+// Autenticação
+import AuthScreen from "./screens/AuthScreen";
+import EsqueciSenhaScreen from "./screens/EsqueciSenhaScreen";
+
+// App (Logado)
+import AgendaScreen from "./screens/AgendaScreen";
+import FinanceiroScreen from "./screens/FinanceiroScreen";
+import NotificacoesScreen from "./screens/NotificacoesScreen";
+import PerfilScreen from "./screens/PerfilScreen";
+import ConfiguracoesScreen from "./screens/ConfiguracoesScreen";
+
+const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
+
+// --- 1. CONFIGURAÇÃO DAS ABAS (MANTIDA DO SEU CÓDIGO) ---
+function AppTabs() {
+  const { user } = useAuth();
+  const { theme } = useTheme();
+  const colors = theme.colors;
+
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarStyle: { 
+            paddingBottom: 5, 
+            height: 60, 
+            backgroundColor: colors.surface, 
+            borderTopColor: colors.border 
+        },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarIcon: ({ color, size, focused }) => {
+          // Lógica da foto do perfil nas abas
+          if (route.name === "Perfil" && user?.foto) {
+             // Se tiver foto, mostra ela (com borda se focado)
+             const imageUrl = `${API_URL}/uploads/${user.foto}`;
+             return (
+               <View style={{ padding: 2, borderWidth: focused ? 2 : 0, borderColor: color, borderRadius: 15 }}>
+                 <Image source={{ uri: imageUrl }} style={{ width: size, height: size, borderRadius: size / 2 }} />
+               </View>
+             );
+          }
+          
+          let iconName;
+          if (route.name === "Agenda") iconName = "calendar";
+          else if (route.name === "Financeiro") iconName = "cash";
+          else if (route.name === "Notificações") iconName = "notifications";
+          else if (route.name === "Perfil") iconName = "person";
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen name="Agenda" component={AgendaScreen} />
+      <Tab.Screen name="Financeiro" component={FinanceiroScreen} />
+      <Tab.Screen name="Notificações" component={NotificacoesScreen} />
+      <Tab.Screen name="Perfil" component={PerfilScreen} />
+    </Tab.Navigator>
+  );
+}
+
+// --- 2. O GUARDA DE TRÂNSITO (LÓGICA PRINCIPAL) ---
+export default function Routes() {
+  const { signed, loading } = useAuth(); // Pega o estado do AuthContext
+  const { theme } = useTheme();
+
+  // Se estiver carregando o Storage, mostra rodinha
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background } }}>
+      
+      {signed ? (
+        // === ROTAS DE USUÁRIO LOGADO ===
+        <Stack.Group>
+          {/* A tela principal agora são as Abas */}
+          <Stack.Screen name="AppTabs" component={AppTabs} />
+          {/* Telas extras que não estão na aba (ex: Configurações) entram aqui */}
+          <Stack.Screen name="Configuracoes" component={ConfiguracoesScreen} />
+        </Stack.Group>
+
+      ) : (
+        // === ROTAS DE LOGIN (NÃO LOGADO) ===
+        <Stack.Group>
+          <Stack.Screen name="Auth" component={AuthScreen} />
+          <Stack.Screen name="EsqueciSenha" component={EsqueciSenhaScreen} />
+        </Stack.Group>
+      )}
+
+    </Stack.Navigator>
+  );
+}
+</file>
+
+<file path="src/screens/AgendaScreen.js">
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import {
+  View, Text, TouchableOpacity, Modal, TextInput, Alert, StyleSheet, 
+  ScrollView, Switch, StatusBar, Platform, KeyboardAvoidingView, 
+  useWindowDimensions, Animated, Easing
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage"; 
+import { 
+  format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
+  eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, 
+  parseISO, setYear, setMonth, isValid, addHours, addDays
+} from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+import api from "../services/api";
+import { useTheme } from "../context/ThemeContext";
+// 🚀 V3: Importamos o estado global que já vem hidratado do Bootstrap
+import { useAuth } from "../context/AuthContext";
+
+const PRESET_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#f43f5e", "#64748b", "#1e293b"];
+const DEFAULT_CATEGORIES = [
+  { id: '1', name: 'Geral', color: '#64748b' },
+  { id: '2', name: 'Trabalho', color: '#3b82f6' },
+  { id: '3', name: 'Lazer', color: '#10b981' }
+];
+
+export default function AgendaScreen({ navigation }) {
+  const { theme } = useTheme();
+  const colors = theme.colors;
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktop = windowWidth > 900;
+  
+  // Consumindo o estado global (sem necessidade de fetch inicial)
+  const { eventosGlobais, setEventosGlobais, receitasGlobais, setReceitasGlobais } = useAuth();
+
+  const eventos = eventosGlobais || [];
+
+  //ESTADOS 
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [errorMessage, setErrorMessage] = useState("");
+  const [selectedEventIds, setSelectedEventIds] = useState([]);
+  
+  // MODAIS
+  const [modalVisivel, setModalVisivel] = useState(false);
+  const [modalPickerVisivel, setModalPickerVisivel] = useState(false);
+  const [modalCatVisivel, setModalCatVisivel] = useState(false); 
+  
+  // Formulário Evento
+  const [pickerAno, setPickerAno] = useState(new Date().getFullYear());
+  const [eventoEditando, setEventoEditando] = useState(null);
+  const [titulo, setTitulo] = useState("");
+  const [horaInicio, setHoraInicio] = useState(""); 
+  const [horaFim, setHoraFim] = useState(""); 
+  const [observacao, setObservacao] = useState("");
+  const [gerarFinanceiro, setGerarFinanceiro] = useState(false);
+  const [valorFinanceiro, setValorFinanceiro] = useState("");
+  const [lembreteValor, setLembreteValor] = useState("");
+  const [lembreteUnidade, setLembreteUnidade] = useState("MINUTOS"); 
+  
+  // Categorias
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORIES[0]);
+  const [catEditing, setCatEditing] = useState({ id: '', name: '', color: '', isNew: true }); 
+
+  // --- ⚠️ COMPENSAÇÃO DE FUSO HORÁRIO ---
+  const getLocalDate = (isoString) => {
+    if (!isoString) return new Date();
+    const date = parseISO(isoString);
+    return isoString.includes('Z') ? addHours(date, 3) : date;
+  };
+
+  // --- EFEITOS ---
+  useEffect(() => {
+    async function loadCategories() {
+        try {
+            const saved = await AsyncStorage.getItem("@YourFlow:categories");
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                setCategories(parsed);
+                if (parsed.length > 0) setSelectedCategory(parsed[0]);
+            }
+        } catch (e) { console.log("Erro carregar categorias", e); }
+    }
+    loadCategories();
+  }, []);
+
+  useEffect(() => {
+    fadeAnim.setValue(0);
+    Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true, easing: Easing.out(Easing.exp) }).start();
+  }, [currentMonth]);
+
+  const tratarErro = (error) => {
+    let mensagem = error.response?.data?.error || "Ocorreu um erro inesperado.";
+    if (error.message?.includes("Network Error")) mensagem = "Sem conexão com o servidor.";
+    setErrorMessage(mensagem);
+    setTimeout(() => setErrorMessage(""), 5000);
+  };
+
+  // 🚀 V3: Busca silenciosa (Background Fetch) apenas ao mudar o mês manualmente
+  const mudarMesSilenciosamente = (novaData) => {
+    setCurrentMonth(novaData);
+    // Dispara a requisição em background sem mostrar loading
+    api.get('/eventos').then(res => {
+      if (Array.isArray(res.data)) setEventosGlobais(res.data);
+    }).catch(e => console.log("Erro no background fetch:", e.message));
+  };
+
+  // --- LÓGICA DE EVENTOS (OPTIMISTIC UI) ---
+  const handleLongPressEvento = (id) => {
+    if (selectedEventIds.includes(id)) {
+      setSelectedEventIds(selectedEventIds.filter(itemId => itemId !== id));
+    } else {
+      setSelectedEventIds([...selectedEventIds, id]);
+    }
+  };
+
+  const handlePressEvento = (ev) => {
+    if (selectedEventIds.length > 0) {
+      handleLongPressEvento(ev.id);
+    } else {
+      abrirModalEdicao(ev);
+    }
+  };
+
+  const excluirSelecionados = () => {
+    const executeDelete = async () => {
+      const idsToDelete = [...selectedEventIds];
+      const backups = eventosGlobais.filter(e => idsToDelete.includes(e.id));
+      
+      // OTIMISTA: Limpa a tela instantaneamente
+      setSelectedEventIds([]);
+      setEventosGlobais(prev => prev.filter(e => !idsToDelete.includes(e.id)));
+
+      try {
+        await api.post("/eventos/excluir-massa", { ids: idsToDelete });
+      } catch (e) { 
+        setEventosGlobais(prev => [...prev, ...backups]); // Rollback
+        tratarErro(e); 
+      }
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Deseja apagar ${selectedEventIds.length} eventos selecionados?`)) executeDelete();
+    } else {
+      Alert.alert("Excluir Vários", `Deseja apagar ${selectedEventIds.length} eventos selecionados?`, [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Sim, Excluir", style: "destructive", onPress: executeDelete }
+      ]);
+    }
+  };
+
+const handleExcluirEvento = (id) => {
+    const executeDelete = async () => {
+      const backupEvento = eventosGlobais.find(e => e.id === id);
+      
+      // 1. OTIMISTA AGENDA: Remove da tela instantaneamente
+      setModalVisivel(false); 
+      setEventosGlobais(prev => prev.filter(e => e.id !== id));
+
+      // 2. 🚀 OTIMISTA FINANCEIRO ABSOLUTO: O Filtro "Sniper"
+      let backupReceita = null;
+      if (backupEvento) {
+         // Pega só o "2026-02-21" e transforma o título em minúsculas
+         const dataIso = backupEvento.inicio.split('T')[0]; 
+         const tituloBusca = backupEvento.titulo.toLowerCase().trim();
+
+         setReceitasGlobais(prev => {
+            // Guarda o backup por segurança
+            backupReceita = prev.find(r => r.eventDate && r.eventDate.startsWith(dataIso) && r.descricao && r.descricao.toLowerCase().includes(tituloBusca));
+            
+            // 🚀 A MÁGICA: Varre a tela e apaga instantaneamente
+            return prev.filter(r => {
+               const mesmaData = r.eventDate && r.eventDate.startsWith(dataIso);
+               const mesmaDescricao = r.descricao && r.descricao.toLowerCase().includes(tituloBusca);
+               
+               // Se for a mesma data e a descrição contiver o título, DELETA (return false)
+               return !(mesmaData && mesmaDescricao);
+            });
+         });
+      }
+
+      // 3. Executa a exclusão real no servidor
+      try {
+        await api.delete(`/eventos/${id}`);
+        
+        // 4. ATUALIZAÇÃO FORÇADA: Busca os dados limpos no banco para garantir a integridade
+        if (backupEvento) {
+           const partesData = backupEvento.inicio.split('T')[0].split('-'); // ["2026", "02", "21"]
+           const ano = parseInt(partesData[0], 10);
+           const mes = parseInt(partesData[1], 10);
+           
+           const req = await api.get("/receitas", { params: { mes, ano } });
+           setReceitasGlobais(prev => {
+              const outras = prev.filter(p => p.eventDate && !p.eventDate.startsWith(`${ano}-${String(mes).padStart(2, '0')}`));
+              return [...outras, ...req.data];
+           });
+        }
+
+      } catch (error) { 
+        // 5. ROLLBACK
+        setEventosGlobais(prev => [...prev, backupEvento]); 
+        if (backupReceita) setReceitasGlobais(prev => [...prev, backupReceita]);
+        tratarErro(error); 
+      }
+    };
+    
+    if (Platform.OS === 'web') {
+      if (window.confirm("Deseja apagar este evento e seu lançamento financeiro?")) executeDelete();
+    } else {
+      Alert.alert("Excluir", "Apagar este evento e seu lançamento financeiro?", [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Excluir", style: "destructive", onPress: executeDelete }
+      ]);
+    }
+  };
+  const handleTimeMask = (text, setter) => {
+    let val = text.replace(/\D/g, "");
+    if (val.length >= 3) val = val.slice(0, 2) + ":" + val.slice(2, 4);
+    setter(val.slice(0, 5));
+  };
+
+  const handleMoneyMask = (text) => {
+    let value = text.replace(/\D/g, "");
+    value = (Number(value) / 100).toFixed(2) + "";
+    value = value.replace(".", ",");
+    value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+    setValorFinanceiro(value);
+  };
+
+  const abrirModalCriacao = () => {
+    setErrorMessage("");
+    setEventoEditando(null); 
+    setTitulo(""); 
+    setHoraInicio(""); 
+    setHoraFim(""); 
+    setObservacao("");
+    setGerarFinanceiro(false);
+    setValorFinanceiro("");
+    setLembreteValor("");
+    setLembreteUnidade("MINUTOS");
+    setModalVisivel(true); 
+  };
+
+  const abrirModalEdicao = (ev) => {
+    setErrorMessage("");
+    setEventoEditando(ev); 
+    setTitulo(ev.titulo);
+    try {
+        const dataInicio = getLocalDate(ev.inicio);
+        const dataFim = getLocalDate(ev.fim);
+        setHoraInicio(format(dataInicio, "HH:mm"));
+        setHoraFim(format(dataFim, "HH:mm"));
+    } catch {
+        setHoraInicio("");
+        setHoraFim("");
+    }
+    setObservacao(ev.descricao || "");
+    setGerarFinanceiro(ev.gerarFinanceiro || false);
+    setValorFinanceiro(ev.valor ? ev.valor.toFixed(2).replace('.', ',') : "");
+    setLembreteValor(ev.lembreteValor ? String(ev.lembreteValor) : "");
+    setLembreteUnidade(ev.lembreteUnidade || "MINUTOS");
+    
+    const cat = categories.find(c => c.name === ev.tipo || c.id === ev.categoria_id);
+    if(cat) setSelectedCategory(cat);
+    
+    setModalVisivel(true); 
+  };
+
+  const salvarEvento = async () => {
+    setErrorMessage(""); 
+    
+    // 1. Validações Iniciais
+    if (!titulo.trim()) return setErrorMessage("O nome do evento é obrigatório.");
+    if (horaInicio.length !== 5 || horaFim.length !== 5) return setErrorMessage("Preencha o horário completo (HH:mm).");
+    if (horaInicio === horaFim) return setErrorMessage("A hora de início e término não podem ser iguais.");
+
+    // 2. 🚀 CÁLCULO FINANCEIRO (Esta era a variável que estava faltando!)
+    let valorFinal = 0.0;
+    if (gerarFinanceiro) {
+      if (!valorFinanceiro) return setErrorMessage("Informe o valor financeiro.");
+      const valorLimpo = valorFinanceiro.replace(/\./g, '').replace(',', '.');
+      valorFinal = parseFloat(valorLimpo);
+      if (isNaN(valorFinal) || valorFinal <= 0) return setErrorMessage("Valor financeiro inválido.");
+    }
+
+    // 3. MÁGICA DA VIRADA DE NOITE (Overnight)
+    const dataIso = format(selectedDate, "yyyy-MM-dd");
+    let dataFimIso = dataIso;
+
+    // Se a hora final for menor que a inicial, acaba no dia seguinte!
+    if (horaFim < horaInicio) {
+        const diaSeguinte = addDays(selectedDate, 1);
+        dataFimIso = format(diaSeguinte, "yyyy-MM-dd");
+    }
+
+    const inicioFormatado = `${dataIso}T${horaInicio}:00`;
+    const fimFormatado = `${dataFimIso}T${horaFim}:00`;
+
+    const payload = {
+      titulo: titulo.trim(),
+      inicio: inicioFormatado, 
+      fim: fimFormatado,
+      categoria_id: selectedCategory.id,
+      tipo: selectedCategory.name, 
+      cor_categoria: selectedCategory.color,
+      descricao: observacao || "",
+      gerarFinanceiro: Boolean(gerarFinanceiro),
+      valor: valorFinal, // Agora o payload encontra a variável declarada lá em cima!
+      tipoFinanceiro: "RECEITA",
+      lembreteValor: lembreteValor ? parseInt(lembreteValor) : null,
+      lembreteUnidade: lembreteUnidade,
+      status: "PENDENTE",
+      comparecido: eventoEditando ? eventoEditando.comparecido : false
+    };
+
+    setModalVisivel(false);
+
+    // 1. CRIAÇÃO OTIMISTA (AGENDA)
+    const tempId = eventoEditando ? eventoEditando.id : `temp-${Date.now()}`;
+    const eventoOtimista = { id: tempId, ...payload, temp: !eventoEditando };
+
+    if (eventoEditando) {
+      setEventosGlobais(prev => prev.map(e => e.id === tempId ? { ...e, ...payload } : e));
+    } else {
+      setEventosGlobais(prev => [...prev, eventoOtimista]);
+
+      // 2. CRIAÇÃO OTIMISTA (FINANCEIRO)
+      if (gerarFinanceiro) {
+         const receitaOtimista = {
+            id: `rec-${tempId}`, // ID temporário
+            descricao: `${selectedCategory.name}: ${payload.titulo}`,
+            valor: payload.valor,
+            status: "PENDENTE",
+            eventDate: dataIso,
+            paidAt: null,
+            tipo: selectedCategory.name,
+            tipo_financeiro: "RECEITA",
+            temp: true // Ficará levemente transparente provando que é otimista
+         };
+         // Empurra a receita pra tela do Financeiro na mesma hora!
+         setReceitasGlobais(prev => [...prev, receitaOtimista]);
+      }
+    }
+
+    // 3. REQUISIÇÃO EM BACKGROUND (Sem travar o usuário)
+    try {
+      if (eventoEditando) {
+        await api.put(`/eventos/${tempId}`, payload);
+        // Remove a marcaçãode 'temp' na tela 
+        setEventosGlobais(prev => prev.map(e => e.id === tempId ? { ...e, temp: false } : e));
+      } else {
+        // Guarda a resposta do servidor (que contém o ID real)
+        const response = await api.post("/eventos", payload);
+        // Substituui o evento temporário fake pelo real na tela imediatamente (sem precisar esperar o próximo fetch).
+        const eventoOficial = { ...response.data, temp: false };
+        setEventosGlobais(prev => prev.map(e => e.id === tempId ? eventoOficial : e));
+      }
+
+      // 4. ATUALIZAÇÃO SILENCIOSA DO FINANCEIRO (Substitui o ID temporário pelo ID real do Banco)
+      if (gerarFinanceiro) {
+        const mes = selectedDate.getMonth() + 1;
+        const ano = selectedDate.getFullYear();
+        const req = await api.get("/receitas", { params: { mes, ano } });
+        
+        setReceitasGlobais(prev => {
+          // 🚀 Agora filtramos pelo eventDate para manter a coerência
+          const outras = prev.filter(p => p.eventDate && !p.eventDate.startsWith(`${ano}-${String(mes).padStart(2, '0')}`));
+          return [...outras, ...req.data];
+        });
+      }
+    } catch (e) {
+      tratarErro(e);
+      // Aqui entraria a lógica de rollback caso a internet caia
+    }
+  };
+
+const toggleComparecido = async (evento) => {
+    // Bloqueia o clique se o evento ainda for temporário (salvando no Render)
+    if (evento.temp) return;
+
+    const novoStatus = !evento.comparecido;
+   
+    // Backups para caso a internet caia
+    const backupEventos = [...eventosGlobais];
+    const backupReceitas = [...receitasGlobais];
+
+    // 1. OTIMISMO NA AGENDA: Muda o ícone na mesma hora
+    setEventosGlobais(prev => prev.map(e => e.id === evento.id ? { ...e, comparecido: novoStatus } : e));
+
+    // 2. OTIMISMO NO FINANCEIRO: A mágica da integração!
+    
+    const agora = new Date().toISOString();
+    const dataIso = evento.inicio.split('T')[0]; 
+
+    setReceitasGlobais(prev => prev.map(r => {
+
+  // 🚀 Busca pelo eventDate e pela descrição para dar a baixa otimista
+  if (r.eventDate === dataIso && r.descricao.includes(evento.titulo)) {
+    return { 
+      ...r, 
+      status: novoStatus ? "RECEBIDA" : "PENDENTE",
+      paidAt: novoStatus ? agora : null // Carimba o faturamento real!
+    };
+  }
+  return r;
+}));
+    // Procura a receita correspondente e dá a baixa automática
+    setReceitasGlobais(prev => prev.map(r => {
+      // 🚀 Busca pelo eventDate e pela descrição para dar a baixa otimista
+      if (r.eventDate === dataIso && r.descricao.includes(evento.titulo)) {
+        return { 
+          ...r, 
+          status: novoStatus ? "RECEBIDA" : "PENDENTE",
+          paidAt: novoStatus ? agora : null // Carimba o faturamento real!
+        };
+      }
+      return r;
+    }));
+
+    try {
+      // 3. REQUISIÇÃO SIMPLES E DIRETA (Apenas avisa o banco da mudança do status)
+      await api.put(`/eventos/${evento.id}`, { comparecido: novoStatus });
+      
+      // 4. ATUALIZAÇÃO SILENCIOSA DO FINANCEIRO (Usando o 'new Date' que corrigimos)
+      const dataEventoObj = new Date(evento.inicio); 
+      const mes = dataEventoObj.getMonth() + 1;
+      const ano = dataEventoObj.getFullYear();
+      
+      api.get("/receitas", { params: { mes, ano } })
+         .then(req => {
+            setReceitasGlobais(prev => {
+               // Mescla inteligente
+               const outras = prev.filter(p => p.dataPrevista && !p.dataPrevista.startsWith(`${ano}-${String(mes).padStart(2, '0')}`));
+               return [...outras, ...req.data];
+            });
+         }).catch(e => console.log("Erro na sincronização silenciosa", e));
+
+    } catch (e) { 
+      // ROLLBACK: Se a API falhar, desfaz a animação na Agenda e no Financeiro
+      setEventosGlobais(backupEventos);
+      setReceitasGlobais(backupReceitas);
+      tratarErro(e);
+    }
+  };
+
+  // --- GESTÃO DE CATEGORIAS ---
+  const handleNovaCategoria = () => {
+    setErrorMessage("");
+    setCatEditing({ id: Date.now().toString(), name: "", color: PRESET_COLORS[0], isNew: true });
+    setModalCatVisivel(true);
+  };
+
+  const handleEditarCategoria = (cat) => {
+    setErrorMessage("");
+    setCatEditing({ ...cat, isNew: false });
+    setModalCatVisivel(true);
+  };
+
+  const salvarCategoriaPersistente = async () => {
+    if (!catEditing.name?.trim()) return setErrorMessage("O nome da categoria é obrigatório.");
+    let novaLista;
+    if (catEditing.isNew) {
+      novaLista = [...categories, { id: catEditing.id, name: catEditing.name, color: catEditing.color }];
+    } else {
+      novaLista = categories.map(c => c.id === catEditing.id ? catEditing : c);
+    }
+    setCategories(novaLista);
+    await AsyncStorage.setItem("@YourFlow:categories", JSON.stringify(novaLista));
+    if (catEditing.isNew || selectedCategory.id === catEditing.id) {
+        setSelectedCategory(catEditing.isNew ? novaLista[novaLista.length - 1] : catEditing);
+    }
+    setModalCatVisivel(false);
+  };
+
+  const excluirCategoriaPersistente = async () => {
+    if (categories.length <= 1) return setErrorMessage("Mantenha ao menos uma categoria.");
+    const novaLista = categories.filter(c => c.id !== catEditing.id);
+    setCategories(novaLista);
+    await AsyncStorage.setItem("@YourFlow:categories", JSON.stringify(novaLista));
+    setSelectedCategory(novaLista[0]);
+    setModalCatVisivel(false);
+  };
+
+  const days = useMemo(() => {
+    const start = startOfWeek(startOfMonth(currentMonth), { locale: ptBR });
+    const end = endOfWeek(endOfMonth(currentMonth), { locale: ptBR });
+    return eachDayOfInterval({ start, end });
+  }, [currentMonth]);
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+      <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} />
+
+      <View style={[styles.header, selectedEventIds.length > 0 && {backgroundColor: colors.primary + '20'}]}>
+        {selectedEventIds.length > 0 ? (
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flex: 1}}>
+             <View style={{flexDirection:'row', alignItems:'center'}}>
+                <TouchableOpacity onPress={() => setSelectedEventIds([])}>
+                  <Ionicons name="close" size={28} color={colors.text} />
+                </TouchableOpacity>
+                <Text style={{fontSize: 18, fontWeight:'bold', marginLeft: 15, color: colors.text}}>
+                  {selectedEventIds.length} selecionados
+                </Text>
+             </View>
+             <TouchableOpacity onPress={excluirSelecionados}>
+                <Ionicons name="trash" size={26} color={colors.danger} />
+             </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity 
+              style={styles.monthTrigger} 
+              activeOpacity={0.6}
+              onPress={() => { setPickerAno(currentMonth.getFullYear()); setModalPickerVisivel(true); }}
+            >
+              <Text style={[styles.monthLabel, {color: colors.text}]}>{format(currentMonth, "MMMM", { locale: ptBR })}</Text>
+              <Text style={[styles.yearLabel, {color: colors.textSecondary}]}>{format(currentMonth, "yyyy")}</Text>
+              <Ionicons name="chevron-down" size={20} color={colors.primary} style={{marginLeft: 5}} />
+            </TouchableOpacity>
+
+            <View style={styles.headerControls}>
+              <TouchableOpacity onPress={() => mudarMesSilenciosamente(subMonths(currentMonth, 1))}>
+                <Ionicons name="chevron-back" size={26} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.todayBtn, {backgroundColor: colors.surface}]} onPress={() => { mudarMesSilenciosamente(new Date()); setSelectedDate(new Date()); }}>
+                <Text style={[styles.todayText, {color: colors.primary}]}>Hoje</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => mudarMesSilenciosamente(addMonths(currentMonth, 1))}>
+                <Ionicons name="chevron-forward" size={26} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </View>
+
+      {errorMessage !== "" && !modalVisivel && !modalCatVisivel && (
+        <View style={[styles.errorContainer, { marginHorizontal: 20 }]}>
+          <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        </View>
+      )}
+
+      <View style={styles.weekHeader}>
+        {['DOM','SEG','TER','QUA','QUI','SEX','SÁB'].map((d, i) => (
+           <Text key={i} style={styles.weekText}>{d}</Text> 
+        ))}
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <Animated.View style={[styles.grid, { opacity: fadeAnim }]}>
+          {days.map(day => {
+            const isSelected = isSameDay(day, selectedDate);
+            const isToday = isSameDay(day, new Date());
+            
+            // 🚀 Lendo diretamente do estado global
+            const dayEvents = eventosGlobais.filter(e => { 
+                try { return isSameDay(getLocalDate(e.inicio), day); } 
+                catch { return false; } 
+            });
+            const cellWidth = (windowWidth - (isDesktop ? 120 : 20)) / 7;
+
+            return (
+              <TouchableOpacity 
+                key={day.toString()} 
+                style={[
+                  styles.dayCell, 
+                  { width: cellWidth, height: 90 }, 
+                  !isSameMonth(day, currentMonth) && styles.dayOutside, 
+                  isSelected && { backgroundColor: colors.primary + '10', borderRadius: 8, borderColor: colors.primary, borderWidth: 1 }
+                ]}
+                onPress={() => setSelectedDate(day)}
+              >
+                <Text style={[styles.dayNum, {color: colors.text}, isToday && {color: colors.primary, fontWeight: '900'}]}>{format(day, "d")}</Text>
+                <View style={styles.eventContainer}>
+                  {dayEvents.slice(0, 3).map((ev, index) => (
+                    <View key={index} style={[styles.eventChip, { backgroundColor: ev.cor_categoria || colors.primary }, ev.temp && {opacity: 0.5}]}>
+                      <Text style={styles.eventChipText} numberOfLines={1}>{ev.titulo}</Text>
+                    </View>
+                  ))}
+                  {dayEvents.length > 3 && <Text style={{fontSize: 9, color: colors.textSecondary}}>+{dayEvents.length - 3}</Text>}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </Animated.View>
+
+        <View style={[styles.detailsSection, isDesktop && { paddingHorizontal: 60 }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.dateTitle}>{format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR }).toUpperCase()}</Text>
+            <TouchableOpacity style={[styles.btnAddMini, {backgroundColor: colors.primary}]} onPress={abrirModalCriacao}>
+              <Ionicons name="add" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          {eventosGlobais.filter(e => { try { return isSameDay(getLocalDate(e.inicio), selectedDate); } catch { return false; } }).map(ev => {
+             const isSelected = selectedEventIds.includes(ev.id);
+             return (
+              <View 
+                key={ev.id} 
+                style={[
+                  styles.eventCard, 
+                  { backgroundColor: colors.surface, borderColor: isSelected ? colors.primary : colors.border },
+                  isSelected && { borderWidth: 2, backgroundColor: colors.primary + '15' },
+                  ev.temp && { opacity: 0.6 } // Efeito visual para itens que ainda estão salvando no background
+                ]}
+              >
+                <TouchableOpacity onPress={() => toggleComparecido(ev)} style={{padding: 10, paddingLeft: 0}}>
+                   <Ionicons name={ev.comparecido ? "checkbox" : "square-outline"} size={28} color={ev.comparecido ? colors.success : colors.textSecondary} />
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={{flex: 1}}
+                  onPress={() => handlePressEvento(ev)}
+                  onLongPress={() => handleLongPressEvento(ev.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.cardTitle, {color: colors.text}, ev.comparecido && { textDecorationLine: 'line-through', opacity: 0.5 }]}>
+                    {ev.titulo}
+                  </Text>
+                  
+                  <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 6, flexWrap: 'wrap'}}>
+                     <View style={[styles.dotCategory, {backgroundColor: ev.cor_categoria || colors.primary}]} />
+                     <Text style={{fontSize: 12, fontWeight: '800', color: colors.textSecondary, marginRight: 8, textTransform: 'uppercase'}}>
+                        {ev.tipo || "GERAL"}
+                     </Text>
+                     <Text style={[styles.cardInfo, {color: colors.textSecondary}]}>
+                        • {isValid(getLocalDate(ev.inicio)) ? format(getLocalDate(ev.inicio), "HH:mm") : "--:--"} às {isValid(getLocalDate(ev.fim)) ? format(getLocalDate(ev.fim), "HH:mm") : "--:--"}
+                     </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => handleExcluirEvento(ev.id)} style={{padding: 10}}>
+                  <Ionicons name="trash-outline" size={24} color={colors.danger} />
+                </TouchableOpacity>
+              </View>
+            )
+          })}
+          
+          {eventosGlobais.filter(e => { try { return isSameDay(getLocalDate(e.inicio), selectedDate); } catch { return false; } }).length === 0 && (
+             <Text style={styles.emptyText}>Nenhum agendamento para este dia.</Text>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* --- MODAL DE EVENTO --- */}
+      <Modal visible={modalVisivel} transparent animationType="slide" onRequestClose={() => setModalVisivel(false)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModalVisivel(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalKeyboard}>
+            <TouchableOpacity activeOpacity={1} style={[styles.modalContent, { backgroundColor: colors.surface, width: isDesktop ? 600 : '100%' }]}>
+              
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, {color: colors.text}]}>{eventoEditando ? "Editar Evento" : "Novo Agendamento"}</Text>
+                <TouchableOpacity onPress={() => setModalVisivel(false)}><Ionicons name="close" size={24} color={colors.textSecondary} /></TouchableOpacity>
+              </View>
+
+              {errorMessage !== "" && (
+                <View style={[styles.errorContainer, { marginBottom: 15 }]}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+              )}
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.label}>NOME DO EVENTO</Text>
+                <TextInput style={[styles.input, {color: colors.text, backgroundColor: colors.inputBackground}]} value={titulo} onChangeText={setTitulo} placeholder="Ex: Ocasião, Evento..." placeholderTextColor={colors.textSecondary}/>
+
+                <View style={styles.rowBetween}>
+                  <Text style={styles.label}>LOCAL / CATEGORIA</Text>
+                  <TouchableOpacity onPress={handleNovaCategoria}><Text style={[styles.linkAction, {color: colors.primary}]}>+ Novo Local</Text></TouchableOpacity>
+                </View>
+
+                <View style={styles.catGrid}>
+                  {categories.map(cat => (
+                    <TouchableOpacity 
+                      key={cat.id} 
+                      onPress={() => setSelectedCategory(cat)}
+                      onLongPress={() => handleEditarCategoria(cat)} 
+                      delayLongPress={400}
+                      style={[styles.catChip, selectedCategory.id === cat.id && { backgroundColor: cat.color, borderColor: cat.color }]}
+                    >
+                      <Text style={[styles.catText, selectedCategory.id === cat.id && { color: '#fff' }]}>{cat.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={styles.hintText}>* Segure para editar ou excluir.</Text>
+
+                <View style={styles.row}>
+                  <View style={{flex: 1, marginRight: 10}}>
+                    <Text style={styles.label}>INÍCIO</Text>
+                    <TextInput style={[styles.input, {color: colors.text, backgroundColor: colors.inputBackground}]} value={horaInicio} onChangeText={t => handleTimeMask(t, setHoraInicio)} placeholder="00:00" keyboardType="numeric" maxLength={5} placeholderTextColor={colors.textSecondary}/>
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.label}>FIM</Text>
+                    <TextInput style={[styles.input, {color: colors.text, backgroundColor: colors.inputBackground}]} value={horaFim} onChangeText={t => handleTimeMask(t, setHoraFim)} placeholder="00:00" keyboardType="numeric" maxLength={5} placeholderTextColor={colors.textSecondary}/>
+                  </View>
+                </View>
+
+                <Text style={styles.label}>LEMBRETE (ANTES DO EVENTO)</Text>
+                <View style={styles.row}>
+                  <View style={{flex: 1, marginRight: 10}}>
+                     <TextInput 
+                        style={[styles.input, {color: colors.text, backgroundColor: colors.inputBackground}]} 
+                        value={lembreteValor} 
+                        onChangeText={setLembreteValor} 
+                        placeholder="0" 
+                        keyboardType="numeric" 
+                     />
+                  </View>
+                  <View style={{flex: 1.5, flexDirection: 'row', gap: 5}}>
+                     {['MINUTOS', 'HORAS', 'DIAS'].map(opt => (
+                        <TouchableOpacity 
+                          key={opt}
+                          style={[styles.unitBtn, lembreteUnidade === opt && {backgroundColor: colors.primary, borderColor: colors.primary}]}
+                          onPress={() => setLembreteUnidade(opt)}
+                        >
+                           <Text style={[styles.unitText, lembreteUnidade === opt && {color: '#fff'}]}>{opt.slice(0,3)}</Text>
+                        </TouchableOpacity>
+                     ))}
+                  </View>
+                </View>
+
+                <View style={styles.financeBox}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.financeLabel}>Lançar no Financeiro?</Text>
+                    <Switch value={gerarFinanceiro} onValueChange={setGerarFinanceiro} trackColor={{true: colors.success}} thumbColor="#fff" />
+                  </View>
+                  {gerarFinanceiro && (
+                      <TextInput 
+                        style={styles.inputMoney} 
+                        placeholder="R$ 0,00" 
+                        value={valorFinanceiro} 
+                        onChangeText={handleMoneyMask} 
+                        keyboardType="numeric" 
+                      />
+                  )}
+                </View>
+
+                <Text style={styles.label}>OBSERVAÇÕES</Text>
+                <TextInput style={[styles.input, { height: 60, marginBottom: 20, color: colors.text, backgroundColor: colors.inputBackground }]} multiline value={observacao} onChangeText={setObservacao} placeholderTextColor={colors.textSecondary} />
+
+                {/* 🚀 O botão agora salva instantaneamente e não fica preso em 'loading' */}
+                <TouchableOpacity style={[styles.btnSave, {backgroundColor: colors.primary}]} onPress={salvarEvento}>
+                  <Text style={styles.btnSaveText}>SALVAR EVENTO</Text>
+                </TouchableOpacity>
+
+              </ScrollView>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* --- MODAL CATEGORIA --- */}
+      <Modal visible={modalCatVisivel} transparent animationType="fade" onRequestClose={() => setModalCatVisivel(false)}>
+        <View style={styles.overlayCenter}>
+          <View style={[styles.modalCatContent, {backgroundColor: colors.surface}]}>
+            <Text style={[styles.modalCatTitle, {color: colors.text}]}>{catEditing.isNew ? "Criar Local/Categoria" : "Editar Local/Categoria"}</Text>
+            
+            {errorMessage !== "" && (
+                <View style={[styles.errorContainer, { marginBottom: 15 }]}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+            )}
+
+            <TextInput style={[styles.input, {backgroundColor: colors.inputBackground, color: colors.text}]} value={catEditing.name} onChangeText={t => setCatEditing({...catEditing, name: t})} placeholder="Nome" />
+            <Text style={styles.label}>COR</Text>
+            <View style={styles.colorGrid}>
+              {PRESET_COLORS.map(c => <TouchableOpacity key={c} onPress={() => setCatEditing({...catEditing, color: c})} style={[styles.colorCircle, { backgroundColor: c }, catEditing.color === c && styles.colorSelected]} />)}
+            </View>
+            <View style={{flexDirection:'row', justifyContent:'space-between', marginTop: 15, width: '100%'}}>
+                {!catEditing.isNew && <TouchableOpacity onPress={excluirCategoriaPersistente}><Text style={{color: colors.danger, fontWeight:'bold', padding: 10}}>Excluir</Text></TouchableOpacity>}
+                <View style={{flexDirection:'row', gap: 10, flex: 1, justifyContent: 'flex-end'}}>
+                   <TouchableOpacity onPress={() => { setModalCatVisivel(false); setErrorMessage(""); }}><Text style={{fontWeight:'bold', padding: 10, color: colors.textSecondary}}>Cancelar</Text></TouchableOpacity>
+                   <TouchableOpacity onPress={salvarCategoriaPersistente} style={{backgroundColor: colors.primary, padding: 10, borderRadius: 8}}><Text style={{color:'#fff', fontWeight:'bold'}}>Salvar</Text></TouchableOpacity>
+                </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- MODAL ANO --- */}
+      <Modal visible={modalPickerVisivel} transparent animationType="fade" onRequestClose={() => setModalPickerVisivel(false)}>
+         <TouchableOpacity style={styles.overlayCenter} activeOpacity={1} onPress={() => setModalPickerVisivel(false)}>
+            <View style={[styles.pickerBox, {backgroundColor: colors.surface}]}>
+               <View style={styles.pickerHeader}>
+                  <TouchableOpacity onPress={() => setPickerAno(pickerAno - 1)}><Ionicons name="chevron-back" size={24} color={colors.text}/></TouchableOpacity>
+                  <Text style={[styles.pickerTitle, {color: colors.text}]}>{pickerAno}</Text>
+                  <TouchableOpacity onPress={() => setPickerAno(pickerAno + 1)}><Ionicons name="chevron-forward" size={24} color={colors.text}/></TouchableOpacity>
+               </View>
+               <View style={styles.gridMonths}>
+                  {['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'].map((m, i) => (
+                    <TouchableOpacity key={m} style={styles.monthBtn} onPress={() => { mudarMesSilenciosamente(setMonth(setYear(new Date(), pickerAno), i)); setModalPickerVisivel(false); }}>
+                      <Text style={[styles.monthBtnText, {color: colors.text}]}>{m}</Text>
+                    </TouchableOpacity>
+                  ))}
+               </View>
+            </View>
+         </TouchableOpacity>
+      </Modal>
+
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, paddingBottom: 20, paddingHorizontal: 20, minHeight: 70 },
+  monthTrigger: { flexDirection: 'row', alignItems: 'center', padding: 5 },
+  monthLabel: { fontSize: 24, fontWeight: '900', textTransform: 'capitalize' },
+  yearLabel: { fontSize: 24, fontWeight: '300', color: '#888', marginLeft: 5 },
+  headerControls: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+  todayBtn: { backgroundColor: '#f1f5f9', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20 },
+  todayText: { fontWeight: 'bold', color: '#3b82f6', fontSize: 12 },
+  weekHeader: { flexDirection: 'row', marginBottom: 5 },
+  weekText: { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: 'bold', color: '#ccc' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10 },
+  dayCell: { borderBottomWidth: 1, borderColor: '#f8f8f8', padding: 2, alignItems: 'center', justifyContent: 'flex-start' },
+  dayOutside: { opacity: 0.3 },
+  dayNum: { fontSize: 12, fontWeight: '600', color: '#333', marginBottom: 2 },
+  eventContainer: { width: '100%', alignItems: 'center', gap: 1, paddingHorizontal: 1 },
+  eventChip: { width: '100%', paddingHorizontal: 3, paddingVertical: 2, borderRadius: 4, justifyContent: 'center' },
+  eventChipText: { fontSize: 8, color: '#fff', fontWeight: 'bold', textAlign: 'center' },
+  detailsSection: { padding: 20 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, marginTop: 10 },
+  dateTitle: { fontSize: 13, fontWeight: '900', color: '#94a3b8' },
+  btnAddMini: { backgroundColor: '#3b82f6', width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', elevation: 3 },
+  emptyText: { textAlign: 'center', color: '#ccc', fontStyle: 'italic', marginTop: 20 },
+  eventCard: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 20, marginBottom: 10, borderWidth: 1, elevation: 2, paddingLeft: 15 },
+  cardTitle: { fontSize: 16, fontWeight: 'bold' },
+  dotCategory: { width: 10, height: 10, borderRadius: 5, marginRight: 6 },
+  cardInfo: { fontSize: 12, marginTop: 0 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  overlayCenter: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalKeyboard: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
+  modalContent: { borderTopLeftRadius: 40, borderTopRightRadius: 40, padding: 30, maxHeight: '90%' },
+  modalCatContent: { borderRadius: 25, padding: 25, width: 320 },
+  modalTitle: { fontSize: 20, fontWeight: '900' },
+  modalCatTitle: { fontSize: 18, fontWeight: '900', marginBottom: 15 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  label: { fontSize: 10, fontWeight: '900', color: '#94a3b8', marginTop: 15, marginBottom: 8 },
+  input: { padding: 16, borderRadius: 16, fontSize: 16, borderWidth: 1, borderColor: '#e2e8f0' },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, marginBottom: 8 },
+  linkAction: { color: '#3b82f6', fontWeight: 'bold', fontSize: 12 },
+  hintText: { fontSize: 10, color: '#ccc', fontStyle: 'italic', marginTop: 5 },
+  catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  catChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: 'transparent' },
+  catText: { fontWeight: '600', fontSize: 12, color: '#475569' },
+  colorGrid: { flexDirection: 'row', gap: 10, marginBottom: 15 },
+  colorCircle: { width: 24, height: 24, borderRadius: 12 },
+  colorSelected: { borderWidth: 2, borderColor: '#000' },
+  financeBox: { marginTop: 20, padding: 15, backgroundColor: '#f0fdf4', borderRadius: 20, borderWidth: 1, borderColor: '#dcfce7' },
+  financeLabel: { fontWeight: 'bold', color: '#166534' },
+  inputMoney: { backgroundColor: '#fff', marginTop: 10, padding: 12, borderRadius: 12, fontWeight: 'bold' },
+  btnSave: { padding: 20, borderRadius: 20, alignItems: 'center', marginTop: 30, marginBottom: 20 },
+  btnSaveText: { color: '#fff', fontWeight: '900', fontSize: 14 },
+  pickerBox: { borderRadius: 30, padding: 25, alignSelf: 'center', width: 320 },
+  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  pickerTitle: { fontSize: 22, fontWeight: '900' },
+  gridMonths: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
+  monthBtn: { width: '30%', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  monthBtnText: { fontWeight: 'bold' },
+  unitBtn: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  unitText: { fontSize: 10, fontWeight: 'bold', color: '#64748b' },
+
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
+  },
+});
+</file>
+
+<file path="src/screens/AuthScreen.js">
+import React, { useState, useRef, useEffect } from "react";
+import { 
+  View, Text, TextInput, TouchableOpacity, StyleSheet, 
+  ActivityIndicator, KeyboardAvoidingView, Platform, StatusBar, Animated, 
+  ScrollView, Easing
+} from "react-native";
+import { useAuth } from "../context/AuthContext";
+import { useNavigation } from "@react-navigation/native";
+import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons'; 
+import { LinearGradient } from 'expo-linear-gradient'; 
+import Svg, { Defs, LinearGradient as SvgGradient, Stop, Path, Polygon } from 'react-native-svg';
+
+import { useTheme } from "../context/ThemeContext";
+
+// COMPONENTE LOGO
+const Logo = ({ width = 120, height = 120 }) => {
+  return (
+    <Svg width={width} height={height} viewBox="0 0 32 32" fill="none">
+      <Defs>
+        <SvgGradient id="a" x1="-67.907" y1="-308.551" x2="-67.857" y2="-308.564" gradientTransform="matrix(87.822 0 0 -88.533 5984.532 -27290.617)" gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor="#ffd441" />
+          <Stop offset="1" stopColor="#ffb047" />
+        </SvgGradient>
+        <SvgGradient id="b" x1="-67.674" y1="-310.121" x2="-67.647" y2="-310.063" gradientTransform="matrix(87.822 0 0 -88.533 5964.667 -27443)" gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor="#ffd754" />
+          <Stop offset="1" stopColor="#ffb532" />
+        </SvgGradient>
+        <SvgGradient id="c" x1="-67.029" y1="-310.91" x2="-67.029" y2="-310.86" gradientTransform="matrix(87.822 0 0 -88.533 5902.8 -27518.733)" gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor="#ffd642" />
+          <Stop offset="0" stopColor="#ffd441" />
+          <Stop offset="1" stopColor="#ffb532" />
+        </SvgGradient>
+        <SvgGradient id="d" x1="-66.252" y1="-310.377" x2="-66.32" y2="-310.362" gradientTransform="matrix(106.198 0 0 -88.551 7048.428 -27474.167)" gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor="#ffd441" />
+          <Stop offset="1" stopColor="#ffa829" />
+        </SvgGradient>
+      </Defs>
+      
+      <Path d="M23.426 29.41V22.172h-7.18l7.18 7.238" fill="#ffdf51" fillOpacity="0.7" />
+      <Path d="M24.231 25.306V17.477H16.466l7.766 7.829" fill="#ff8900" fillOpacity="0.7" />
+      <Path d="M19.515 22.171V30h7.766l-7.766-7.829" fill="url(#a)" fillOpacity="0.7" />
+      <Path d="M22.608 18V11.809H16.466L22.608 18" fill="#ffdf4f" fillOpacity="0.7" />
+      <Path d="M25.524 16.525V8.7H17.759l7.766 7.829" fill="url(#b)" fillOpacity="0.8" />
+      <Path d="M12.288 2V9.829h7.766L12.288 2" fill="url(#c)" fillOpacity="0.8" />
+      <Path d="M14.11 14.262V6.433H4.719l7.732 7.83 1.659 0" fill="url(#d)" fillOpacity="0.88" />
+      <Path d="M14.11 29.958V20.487H4.719l9.391 9.471" fill="#ffb700" fillOpacity="0.7" />
+      <Path d="M14.112 22.114V14.285H6.346l7.766 7.829" fill="#ffb700" fillOpacity="0.5" />
+      <Path d="M16.465 11.809v7.829h7.766l-7.766-7.829" fill="#ffcd25" fillOpacity="0.7" />
+      <Path d="M14.092 12.691V4.862H6.326l7.766 7.829" fill="#ff8900" fillOpacity="0.7" />
+      <Path d="M16.246 22.171V30h7.766l-7.766-7.829" fill="#ff8900" fillOpacity="0.7" />
+      <Polygon points="21.122 22.172 18.609 19.638 16.465 19.638 16.466 11.809 20.847 11.809 18.882 9.829 14.092 9.829 14.11 14.262 14.11 20.487 14.11 30 16.246 30 16.246 22.172 21.122 22.172" fill="#fff" />
+    </Svg>
+  );
+};
+
+// --- COMPONENTE INPUT ANIMADO (MANTIDO INTACTO) ---
+const AnimatedInput = ({ icon, placeholder, value, onChangeText, type, secure, onToggleSecure, fieldName, setFocusedField, focusedField, themeColor }) => {
+  const focusAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(focusAnim, {
+      toValue: focusedField === fieldName ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+      easing: Easing.out(Easing.ease)
+    }).start();
+  }, [focusedField]);
+
+  const borderColor = focusAnim.interpolate({ inputRange: [0, 1], outputRange: ['#e2e8f0', themeColor] });
+  const backgroundColor = focusAnim.interpolate({ inputRange: [0, 1], outputRange: ['#f8fafc', '#f0f9ff'] });
+  const scale = focusAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] });
+  const elevation = focusAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 4] });
+
+  return (
+    <Animated.View style={[
+      styles.inputContainer, 
+      { borderColor, backgroundColor, transform: [{ scale }], elevation }
+    ]}>
+      <MaterialCommunityIcons 
+        name={icon} size={22} 
+        color={focusedField === fieldName ? themeColor : "#94a3b8"} 
+        style={styles.inputIcon} 
+      />
+      <TextInput
+        style={styles.input}
+        placeholder={placeholder}
+        placeholderTextColor="#94a3b8"
+        value={value}
+        onChangeText={onChangeText} 
+        onFocus={() => setFocusedField(fieldName)}
+        onBlur={() => setFocusedField(null)}
+        secureTextEntry={secure}
+        keyboardType={type}
+        autoCapitalize="none"
+        cursorColor={themeColor}
+      />
+      {onToggleSecure && (
+        <TouchableOpacity onPress={onToggleSecure} style={styles.eyeIcon}>
+          <MaterialIcons name={secure ? "visibility" : "visibility-off"} size={22} color="#94a3b8" />
+        </TouchableOpacity>
+      )}
+    </Animated.View>
+  );
+};
+
+export default function AuthScreen() {
+  const { login, register } = useAuth();
+  const navigation = useNavigation();
+  const { theme } = useTheme();
+  const colors = theme.colors;
+
+  const THEME_COLOR = colors.primary; 
+  const TEXT_DARK = colors.text;   
+  const TEXT_GRAY = colors.textSecondary; 
+
+const [isLogin, setIsLogin] = useState(true);
+
+  // 🚀 VARIÁVEIS DE LOGIN
+  const [emailLogin, setEmailLogin] = useState("");
+  const [senhaLogin, setSenhaLogin] = useState("");
+
+  // 🚀 VARIÁVEIS DE CADASTRO
+  const [nome, setNome] = useState("");
+  const [emailCad, setEmailCad] = useState("");
+  const [senhaCad, setSenhaCad] = useState("");
+  const [confirmaSenha, setConfirmaSenha] = useState("");
+  
+  // 🚀 CONTROLES DE TELA (Estes eram os que estavam faltando!)
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
+  const [lembrar, setLembrar] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+
+  const buttonScale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(buttonScale, { toValue: 0.92, useNativeDriver: true, speed: 30, bounciness: 10 }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true, friction: 4, tension: 60 }).start();
+  };
+
+  const flipAnim = useRef(new Animated.Value(0)).current; 
+  const frontInterpolate = flipAnim.interpolate({ inputRange: [0, 180], outputRange: ['0deg', '180deg'] });
+  const backInterpolate = flipAnim.interpolate({ inputRange: [0, 180], outputRange: ['180deg', '360deg'] });
+  const frontOpacity = flipAnim.interpolate({ inputRange: [89, 90], outputRange: [1, 0] });
+  const backOpacity = flipAnim.interpolate({ inputRange: [89, 90], outputRange: [0, 1] });
+
+  const flipCard = () => {
+    setErrorMessage(""); // Limpa o erro ao virar o card
+    setSuccessMessage(""); // Limpa o sucesso ao virar o card 
+    if (isLogin) {
+      Animated.spring(flipAnim, { toValue: 180, friction: 8, tension: 10, useNativeDriver: true }).start();
+      setIsLogin(false);
+    } else {
+      Animated.spring(flipAnim, { toValue: 0, friction: 8, tension: 10, useNativeDriver: true }).start();
+      setIsLogin(true);
+    }
+  };
+
+  const tratarErro = (error) => {
+    let mensagem = error.response?.data?.error || error.response?.data?.message;
+
+    if (!mensagem) {
+        if (error.message && error.message.includes("Network Error")) {
+            mensagem = "Sem conexão. Verifique se o servidor está online.";
+        } else if (error.code === "ECONNABORTED") {
+            mensagem = "O servidor demorou muito para responder.";
+        } else {
+            mensagem = "Ocorreu um erro inesperado.";
+        }
+    }
+    // Em vez de Alert, usamos o estado visual para garantir que funcione na Vercel
+    setErrorMessage(mensagem);
+  };
+
+async function handleSubmit() {
+    handlePressOut();
+    setErrorMessage(""); 
+    setSuccessMessage("");
+    
+    if (isLogin) {
+      // 🚀 FLUXO DE LOGIN
+      if (!emailLogin.trim() || !senhaLogin.trim()) {
+        return setErrorMessage("Preencha e-mail e senha.");
+      }
+      setLoading(true);
+      try {
+        await login(emailLogin, senhaLogin); 
+      } catch (e) { 
+        tratarErro(e);
+      } finally { 
+        setLoading(false); 
+      }
+    } else {
+      // 🚀 FLUXO DE CADASTRO
+      if (!nome.trim()) return setErrorMessage("Digite seu nome.");
+      if (!emailCad.trim()) return setErrorMessage("Digite seu e-mail.");
+      if (!senhaCad.trim()) return setErrorMessage("Crie uma senha.");
+      if (senhaCad !== confirmaSenha) return setErrorMessage("As senhas não conferem.");
+      if (senhaCad.length < 6) return setErrorMessage("Sua senha deve ter no mínimo 6 caracteres.");
+
+      setLoading(true);
+      try {
+        await register(nome, emailCad, senhaCad);
+        
+        // 1. Limpa os dados preenchidos
+        setNome(""); setEmailCad(""); setSenhaCad(""); setConfirmaSenha("");
+        
+        // 2. 🚀 A CORREÇÃO: Viramos o cartão e setamos os estados manualmente (Sem usar o flipCard)
+        Animated.spring(flipAnim, { toValue: 0, friction: 8, tension: 10, useNativeDriver: true }).start();
+        setIsLogin(true);
+        setSuccessMessage("Que bom ter você aqui! Faça seu login."); 
+        
+      } catch (e) { 
+        console.log("🔥 MOTIVO REAL DO ERRO NO CADASTRO:", e.response?.status, e.response?.data || e.message);
+        tratarErro(e);
+      } finally { 
+        setLoading(false); 
+      }
+    }
+  }
+
+  return (
+    <LinearGradient 
+      colors={[colors.background, '#f0f9ff', '#ffffff']} 
+      style={styles.container}
+    >
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"} 
+        style={[styles.contentWrapper, { maxWidth: 480, width: '100%', alignSelf: 'center' }]}
+      >
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        >
+          
+          <View style={styles.brandHeader}>
+             <Logo width={80} height={80} /> 
+             <Text style={[styles.appName, {color: TEXT_DARK}]}>YourFlow</Text>
+             <Text style={[styles.tagline, {color: TEXT_GRAY}]}>Organize sua vida. Domine seu tempo.</Text>
+          </View>
+
+          <View style={{ minHeight: 620 }}> 
+            
+            {/* --- LOGIN --- */}
+            <Animated.View 
+              style={[
+                styles.cardFace, 
+                { opacity: frontOpacity, transform: [{ rotateY: frontInterpolate }], shadowColor: THEME_COLOR }
+              ]}
+              pointerEvents={isLogin ? 'auto' : 'none'} 
+            >
+              <View style={styles.tabHeader}>
+                <View style={[styles.tabItem, styles.tabActive]}><Text style={[styles.tabTextActive, {color: THEME_COLOR}]}>Acessar</Text></View>
+                <TouchableOpacity style={styles.tabItem} onPress={flipCard}><Text style={styles.tabTextInactive}>Criar Conta</Text></TouchableOpacity>
+              </View>
+
+              <View style={styles.securityHeader}>
+                <View style={[styles.identityShieldContainer, {backgroundColor: '#e0f2fe', borderColor: '#fff', shadowColor: THEME_COLOR}]}>
+                  <MaterialCommunityIcons name="shield-check" size={32} color={THEME_COLOR} />
+                </View>
+                <Text style={[styles.cardTitle, {color: TEXT_DARK}]}>Acesse sua conta</Text>
+                <Text style={[styles.helperText, {color: TEXT_GRAY}]}>Informe seus dados para entrar.</Text>
+              </View>
+
+              <View style={[styles.formBody, { justifyContent: 'center', flex: 1 }]}>
+                
+                {/* EXIBIÇÃO DE ERRO VISUAL */}
+                {errorMessage !== "" && isLogin && (
+                  <View style={styles.errorContainer}>
+                    <MaterialIcons name="error-outline" size={20} color="#ef4444" />
+                    <Text style={styles.errorText}>{errorMessage}</Text>
+                  </View>
+                )}
+
+                <AnimatedInput 
+                    icon="email-outline" placeholder="Seu e-mail" value={emailLogin} onChangeText={setEmailLogin} type="email-address" fieldName="emailLogin" 
+                    focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR}
+                />
+                <AnimatedInput 
+                    icon="lock-outline" placeholder="Sua senha" value={senhaLogin} onChangeText={setSenhaLogin} secure={!showPassword} onToggleSecure={() => setShowPassword(!showPassword)} fieldName="senhaLogin" 
+                    focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR}
+                />
+                
+                <View style={styles.optionsRow}>
+                  <TouchableOpacity style={styles.checkboxContainer} onPress={() => setLembrar(!lembrar)} activeOpacity={0.6}>
+                    <MaterialCommunityIcons name={lembrar ? "checkbox-marked" : "checkbox-blank-outline"} size={24} color={lembrar ? THEME_COLOR : "#cbd5e1"} />
+                    <Text style={[styles.checkboxText, {color: TEXT_GRAY}, lembrar && { color: TEXT_DARK, fontWeight: '600' }]}>Lembrar-me</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => navigation.navigate("EsqueciSenha")}>
+                    <Text style={[styles.forgotText, {color: THEME_COLOR}]}>Esqueci a senha</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{ height: 20 }} />
+
+                <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+                  <TouchableOpacity 
+                    style={[styles.loginButton, {backgroundColor: THEME_COLOR, shadowColor: THEME_COLOR}]} 
+                    onPress={handleSubmit} 
+                    onPressIn={handlePressIn} 
+                    onPressOut={handlePressOut} 
+                    disabled={loading}
+                    activeOpacity={1} 
+                  >
+                    {loading ? <ActivityIndicator color="#fff" /> : (
+                      <View style={styles.buttonContent}>
+                        <Text style={styles.loginButtonText}>Entrar na conta</Text>
+                        <MaterialCommunityIcons name="login-variant" size={24} color="#fff" style={{ marginLeft: 10 }} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </Animated.View>
+              </View>
+            </Animated.View>
+
+            {/* --- CADASTRO --- */}
+            <Animated.View 
+              style={[
+                styles.cardFace, styles.cardBack, 
+                { opacity: backOpacity, transform: [{ rotateY: backInterpolate }], shadowColor: THEME_COLOR }
+              ]}
+              pointerEvents={!isLogin ? 'auto' : 'none'}
+            >
+              <View style={styles.tabHeader}>
+                <TouchableOpacity style={styles.tabItem} onPress={flipCard}><Text style={styles.tabTextInactive}>Acessar</Text></TouchableOpacity>
+                <View style={[styles.tabItem, styles.tabActive]}><Text style={[styles.tabTextActive, {color: THEME_COLOR}]}>Criar Conta</Text></View>
+              </View>
+
+              <View style={styles.securityHeader}>
+                <View style={[styles.identityShieldContainer, {backgroundColor: '#e0f2fe', borderColor: '#fff', shadowColor: THEME_COLOR}]}>
+                  <MaterialCommunityIcons name="account-plus" size={32} color={THEME_COLOR} />
+                </View>
+                <Text style={[styles.cardTitle, {color: TEXT_DARK}]}>Comece Gratuitamente</Text>
+                <Text style={[styles.helperText, {color: TEXT_GRAY}]}>Crie sua identidade agora.</Text>
+              </View>
+
+              <View style={styles.formBody}>
+                
+                {/* EXIBIÇÃO DE ERRO VISUAL */}
+                {errorMessage !== "" && !isLogin && (
+                  <View style={styles.errorContainer}>
+                    <MaterialIcons name="error-outline" size={20} color="#ef4444" />
+                    <Text style={styles.errorText}>{errorMessage}</Text>
+                  </View>
+                )}
+
+                <AnimatedInput icon="account-outline" placeholder="Seu nome completo" value={nome} onChangeText={setNome} fieldName="nome" focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR} />
+                <AnimatedInput icon="email-outline" placeholder="Seu melhor e-mail" value={emailCad} onChangeText={setEmailCad} type="email-address" fieldName="emailCad" focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR} />
+                <AnimatedInput icon="lock-outline" placeholder="Crie uma senha" value={senhaCad} onChangeText={setSenhaCad} secure={!showPassword} onToggleSecure={() => setShowPassword(!showPassword)} fieldName="senhaCad" focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR} />
+                <AnimatedInput icon="lock-check-outline" placeholder="Confirme a senha" value={confirmaSenha} onChangeText={setConfirmaSenha} secure={!showPassword} fieldName="confirma" focusedField={focusedField} setFocusedField={setFocusedField} themeColor={THEME_COLOR} />
+
+                <View style={{ height: 20 }} />
+
+                <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+                  <TouchableOpacity 
+                    style={[styles.loginButton, {backgroundColor: THEME_COLOR, shadowColor: THEME_COLOR}]} 
+                    onPress={handleSubmit}
+                    onPressIn={handlePressIn}
+                    onPressOut={handlePressOut}
+                    disabled={loading}
+                    activeOpacity={1} 
+                  >
+                    {loading ? <ActivityIndicator color="#fff" /> : (
+                      <View style={styles.buttonContent}>
+                        <Text style={styles.loginButtonText}>Criar minha conta</Text>
+                        <MaterialCommunityIcons name="arrow-right" size={24} color="#fff" style={{ marginLeft: 10 }} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </Animated.View>
+              </View>
+            </Animated.View>
+
+          </View>
+          <View style={{ height: 50 }} /> 
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  contentWrapper: { flex: 1, paddingHorizontal: 20 },
+  brandHeader: { alignItems: 'center', marginBottom: 20, marginTop: 40 },
+  appName: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5, marginTop: 5 },
+  tagline: { fontSize: 14, fontWeight: '500', marginTop: 4, letterSpacing: 0.5 },
+
+  cardFace: {
+    backgroundColor: '#fff', 
+    borderRadius: 24, 
+    shadowOffset: { width: 0, height: 8 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 15, 
+    elevation: 8, 
+    overflow: 'hidden',
+    width: '100%',
+    height: '100%', 
+    position: 'absolute', 
+    backfaceVisibility: 'hidden', 
+  },
+  cardBack: { },
+
+  tabHeader: { flexDirection: 'row', backgroundColor: '#f1f5f9', padding: 4, margin: 12, marginBottom: 0, borderRadius: 16 },
+  tabItem: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 14 },
+  tabActive: { backgroundColor: '#fff', shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  tabTextActive: { fontWeight: 'bold', fontSize: 15 },
+  tabTextInactive: { color: '#94a3b8', fontWeight: '600', fontSize: 15 },
+
+  securityHeader: { alignItems: 'center', marginTop: 20, paddingHorizontal: 25 },
+  identityShieldContainer: { marginBottom: 15, padding: 16, borderRadius: 22, borderWidth: 2, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 },
+  cardTitle: { fontSize: 20, fontWeight: '700' },
+  helperText: { fontSize: 14, textAlign: 'center', marginTop: 8, marginBottom: 10 },
+
+  formBody: { padding: 24, paddingTop: 5 },
+  
+  // ⚠️ ESTILO DO ERRO VISUAL ⚠️
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
+  },
+
+  inputContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    borderRadius: 14, 
+    borderWidth: 1.5, 
+    height: 56, 
+    paddingHorizontal: 16, 
+    marginBottom: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 6,
+  },
+  
+  inputIcon: { marginRight: 12 },
+  input: { flex: 1, height: '100%', color: '#0f172a', fontSize: 16, ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}) },
+  eyeIcon: { padding: 8 },
+
+  optionsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, marginTop: 5 },
+  checkboxContainer: { flexDirection: 'row', alignItems: 'center' },
+  checkboxText: { fontSize: 14, marginLeft: 8 },
+  forgotText: { fontWeight: '600', fontSize: 14 },
+
+  loginButton: { width: '100%', height: 56, borderRadius: 14, justifyContent: 'center', alignItems: 'center', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
+  buttonContent: { flexDirection: 'row', alignItems: 'center' },
+  loginButtonText: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
+});
+</file>
+
+<file path="src/screens/ConfiguracoesScreen.js">
+import React, { useState } from "react";
+import { 
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, 
+  Modal, SafeAreaView, Switch 
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../context/ThemeContext";
+
+export default function ConfiguracoesScreen({ navigation }) {
+  const { theme, toggleTheme, isDark } = useTheme();
+  const colors = theme.colors;
+
+  // Estados dos Modais
+  const [modalTermosVisible, setModalTermosVisible] = useState(false);
+  const [modalPrivacidadeVisible, setModalPrivacidadeVisible] = useState(false);
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      
+      {/* HEADER */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: colors.text }]}>Configurações</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        
+        {/* SEÇÃO APARÊNCIA */}
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>APARÊNCIA</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <View style={styles.row}>
+            <View style={styles.rowIconText}>
+              <Ionicons name={isDark ? "moon" : "sunny-outline"} size={22} color={colors.text} />
+              <Text style={[styles.label, { color: colors.text }]}>Modo Escuro</Text>
+            </View>
+
+            {/* SWITCH NATIVO DO SISTEMA */}
+            <Switch
+              trackColor={{ false: "#cbd5e1", true: colors.primary + "80" }}
+              thumbColor={isDark ? colors.primary : "#f1f5f9"}
+              ios_backgroundColor="#cbd5e1"
+              onValueChange={toggleTheme}
+              value={isDark}
+              style={{ transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }] }} 
+            />
+          </View>
+        </View>
+
+        {/* SEÇÃO LEGAL */}
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>LEGAL</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          
+          <TouchableOpacity style={styles.row} onPress={() => setModalTermosVisible(true)}>
+            <View style={styles.rowIconText}>
+                <Ionicons name="document-text-outline" size={20} color={colors.text} />
+                <Text style={[styles.label, { color: colors.text }]}>Termos de Uso</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          
+          <TouchableOpacity style={styles.row} onPress={() => setModalPrivacidadeVisible(true)}>
+             <View style={styles.rowIconText}>
+                <Ionicons name="shield-checkmark-outline" size={20} color={colors.text} />
+                <Text style={[styles.label, { color: colors.text }]}>Política de Privacidade</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.version, { color: colors.textSecondary }]}>
+          Desenvolvido por Eilton Neto {'\n'} YourFlow Versão 3.0.1
+        </Text>
+
+      </ScrollView>
+
+      {/* --- MODAL TERMOS DE USO --- */}
+      <Modal animationType="slide" transparent={true} visible={modalTermosVisible} onRequestClose={() => setModalTermosVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Termos de Uso</Text>
+            <ScrollView style={{ maxHeight: '80%' }} showsVerticalScrollIndicator={false}>
+              <Text style={[styles.modalText, { color: colors.textSecondary }]}>
+                Bem-vindo ao YourFlow!{'\n\n'}
+                1. O uso deste aplicativo é destinado ao gerenciamento pessoal e administrativo.{'\n\n'}
+                2. Todo o conteúdo e design são propriedade intelectual de Eilton Neto.{'\n\n'}
+                3. O usuário concorda em utilizar o sistema de forma ética e responsável, especialmente no gerenciamento de eventos e finanças.{'\n\n'}
+                4. O desenvolvedor não se responsabiliza por dados inseridos incorretamente pelo usuário.{'\n\n'}
+                Ao continuar, você concorda com estes termos.
+              </Text>
+            </ScrollView>
+            <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.primary }]} onPress={() => setModalTermosVisible(false)}>
+              <Text style={styles.closeButtonText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- MODAL POLÍTICA DE PRIVACIDADE --- */}
+      <Modal animationType="slide" transparent={true} visible={modalPrivacidadeVisible} onRequestClose={() => setModalPrivacidadeVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Privacidade e Dados</Text>
+            <ScrollView style={{ maxHeight: '80%' }} showsVerticalScrollIndicator={false}>
+              <Text style={[styles.modalText, { color: colors.textSecondary }]}>
+                Sua privacidade é prioridade no YourFlow:{'\n\n'}
+                1. Coletamos Nome, Email e Foto de Perfil apenas para identificação e personalização da sua experiência.{'\n\n'}
+                2. Seus lançamentos financeiros e de agenda são armazenados de forma segura e não são compartilhados com terceiros.{'\n\n'}
+                3. Utilizamos armazenamento local (AsyncStorage) para salvar suas preferências de tema e categorias.{'\n\n'}
+                4. Para solicitar a exclusão total da sua conta e dados, entre em contato através das configurações de perfil.{'\n'}
+              </Text>
+            </ScrollView>
+            <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.primary }]} onPress={() => setModalPrivacidadeVisible(false)}>
+              <Text style={styles.closeButtonText}>Entendi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, paddingTop: 20, paddingHorizontal: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, marginTop: 10 },
+  backButton: { marginRight: 15 },
+  title: { fontSize: 24, fontWeight: "bold" },
+  sectionTitle: { fontSize: 13, marginBottom: 8, marginTop: 16, fontWeight: 'bold', marginLeft: 8 },
+  card: { borderRadius: 16, padding: 16, marginBottom: 10, elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 4 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 },
+  rowIconText: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  label: { fontSize: 16, fontWeight: '500' },
+  divider: { height: 1, marginVertical: 8, opacity: 0.5 },
+  version: { textAlign: 'center', marginTop: 40, fontSize: 12, lineHeight: 18, opacity: 0.6 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 25 },
+  modalContent: { borderRadius: 24, padding: 25, elevation: 10, maxHeight: '80%' },
+  modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 20, textAlign: 'center' },
+  modalText: { fontSize: 15, lineHeight: 22, textAlign: 'justify' },
+  closeButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 25 },
+  closeButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+});
+</file>
+
+<file path="src/screens/EsqueciSenhaScreen.js">
+import React, { useState, useRef, useEffect } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Animated
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+
+import { Logo } from "../components/logo";
+import AnimatedInput from "../components/AnimatedInput";
+
+// 🎨 Paleta
+const THEME_COLOR = "#0ea5e9";
+const THEME_LIGHT = "#e0f2fe";
+const TEXT_DARK = "#0f172a";
+const TEXT_GRAY = "#64748b";
+
+export default function EsqueciSenhaScreen() {
+  const navigation = useNavigation();
+
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
+
+  // animação do card
+  const cardAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(cardAnim, {
+      toValue: 1,
+      friction: 8,
+      tension: 40,
+      useNativeDriver: true
+    }).start();
+  }, []);
+
+  async function handleRecover() {
+    if (!email) {
+      Alert.alert("Ops", "Informe seu e-mail.");
+      return;
+    }
+
+    setLoading(true);
+
+    // simulação (backend entra aqui depois)
+    setTimeout(() => {
+      setLoading(false);
+      Alert.alert(
+        "E-mail enviado",
+        "Se este e-mail existir, você receberá as instruções.",
+        [{ text: "Voltar para login", onPress: () => navigation.goBack() }]
+      );
+    }, 1200);
+  }
+
+  return (
+    <View style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.contentWrapper}
+      >
+        {/* HEADER */}
+        <View style={styles.brandHeader}>
+          <Logo width={80} height={80} />
+          <Text style={styles.appName}>YourFlow</Text>
+          <Text style={styles.tagline}>Recuperação de acesso</Text>
+        </View>
+
+        {/* CARD */}
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              opacity: cardAnim,
+              transform: [
+                {
+                  scale: cardAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.95, 1]
+                  })
+                }
+              ]
+            }
+          ]}
+        >
+          <View style={styles.securityHeader}>
+            <View style={styles.iconCircle}>
+              <MaterialCommunityIcons
+                name="email-lock-outline"
+                size={32}
+                color={THEME_COLOR}
+              />
+            </View>
+
+            <Text style={styles.cardTitle}>Recuperar senha</Text>
+            <Text style={styles.helperText}>
+              Informe o e-mail cadastrado para receber o link.
+            </Text>
+          </View>
+
+          <View style={styles.formBody}>
+            <AnimatedInput
+              icon="email-outline"
+              placeholder="Seu e-mail"
+              value={email}
+              onChange={setEmail}
+              type="email-address"
+              fieldName="recoverEmail"
+              focusedField={focusedField}
+              setFocusedField={setFocusedField}
+            />
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleRecover}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.actionButtonText}>
+                  Enviar link de recuperação
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.backLink}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={styles.backText}>Voltar para login</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+/* ===================== STYLES ===================== */
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: THEME_LIGHT
+  },
+  contentWrapper: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24
+  },
+  brandHeader: {
+    alignItems: "center",
+    marginBottom: 24
+  },
+  appName: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: TEXT_DARK,
+    marginTop: 8
+  },
+  tagline: {
+    fontSize: 14,
+    color: TEXT_GRAY,
+    marginTop: 4
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6
+  },
+  securityHeader: {
+    alignItems: "center",
+    marginBottom: 24
+  },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: THEME_LIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: TEXT_DARK
+  },
+  helperText: {
+    fontSize: 14,
+    color: TEXT_GRAY,
+    textAlign: "center",
+    marginTop: 6
+  },
+  formBody: {
+    marginTop: 12
+  },
+  actionButton: {
+    backgroundColor: THEME_COLOR,
+    height: 52,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16
+  },
+  actionButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600"
+  },
+  backLink: {
+    marginTop: 20,
+    alignItems: "center"
+  },
+  backText: {
+    color: THEME_COLOR,
+    fontWeight: "600"
+  }
+});
+</file>
+
+<file path="src/screens/FinanceiroScreen.js">
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  View, Text, TouchableOpacity, Modal, TextInput, Alert, StyleSheet,
+  KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions
+} from "react-native";
+
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { format, addMonths, subMonths, setMonth, setYear, parseISO, isValid, getDate, getMonth, getYear, isSameMonth } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+import api from "../services/api";
+import { useTheme } from "../context/ThemeContext";
+// Importa o estado global hidratado pelo Bootstrap
+import { useAuth } from "../context/AuthContext";
+
+const PRESET_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#f43f5e", "#64748b", "#1e293b"];
+const MESES_CURTOS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+// Helper de Data
+const safeFormatDate = (dateString, pattern = "dd/MM") => {
+  try {
+    if (!dateString) return "--/--";
+    const date = parseISO(dateString);
+    return isValid(date) ? format(date, pattern, { locale: ptBR }) : "--/--";
+  } catch (e) { return "--/--"; }
+};
+
+export default function FinanceiroScreen() {
+  const { theme } = useTheme();
+  const colors = theme.colors;
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktop = windowWidth > 800;
+
+
+  const { receitasGlobais, setReceitasGlobais, despesasGlobais, setDespesasGlobais } = useAuth();
+
+  // ESTADOS
+  const [dataReferencia, setDataReferencia] = useState(new Date());
+  const [abaAtiva, setAbaAtiva] = useState("DESPESA"); 
+  const [errorMessage, setErrorMessage] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  // Guarda os IDs temporários que o usuário apagou antes de salvar
+  const excluidosTemporarios = useRef(new Set());
+
+  // CATEGORIAS 
+  const [categories, setCategories] = useState([
+    { id: '1', name: 'Alimentação', color: '#f59e0b', type: 'DESPESA', backendType: 'VARIAVEL' },
+    { id: '2', name: 'Transporte', color: '#3b82f6', type: 'DESPESA', backendType: 'VARIAVEL' },
+    { id: '3', name: 'Salário', color: '#10b981', type: 'RECEITA', backendType: 'SALARIO' },
+    { id: '4', name: 'Vendas', color: '#8b5cf6', type: 'RECEITA', backendType: 'VENDA' },
+    { id: '5', name: 'Serviços', color: '#f43f5e', type: 'RECEITA', backendType: 'SERVICO' },
+    { id: '6', name: 'Outros', color: '#64748b', type: 'DESPESA', backendType: 'OUTRO' }
+  ]);
+  
+  const [modalCatVisivel, setModalCatVisivel] = useState(false);
+  const [catEditing, setCatEditing] = useState({ id: '', name: '', color: PRESET_COLORS[0], type: 'DESPESA', isNew: true });
+
+  // Modais e Pickers
+  const [modalVisivel, setModalVisivel] = useState(false);
+  const [transacaoEditando, setTransacaoEditando] = useState(null);
+  const [modalMesAnoVisivel, setModalMesAnoVisivel] = useState(false);
+  const [pickerAnoHeader, setPickerAnoHeader] = useState(new Date().getFullYear());
+  const [showInlineDatePicker, setShowInlineDatePicker] = useState(false);
+
+  // Formulário
+  const [descricao, setDescricao] = useState("");
+  const [observacao, setObservacao] = useState(""); 
+  const [valor, setValor] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [dataSelecionadaForm, setDataSelecionadaForm] = useState(new Date()); 
+  const [status, setStatus] = useState("PENDENTE");
+// 🚀 1. Carimbo de texto (ex: "2024-05") imune a erros do celular
+  const prefixoMesAtual = useMemo(() => {
+    const ano = dataReferencia.getFullYear();
+    const mes = String(dataReferencia.getMonth() + 1).padStart(2, '0');
+    return `${ano}-${mes}`;
+  }, [dataReferencia]);
+
+  // 🚀 2. O Filtro Blindado (Regime de Caixa)
+  const transacoesExibidas = useMemo(() => {
+    const listaOriginal = abaAtiva === "RECEITA" ? receitasGlobais : despesasGlobais;
+    
+    return listaOriginal.filter(t => {
+      // REGRA 1: Pendentes SÓ aparecem no mês original do agendamento
+      if (t.status === "PENDENTE") {
+        return t.eventDate && t.eventDate.startsWith(prefixoMesAtual);
+      }
+      // REGRA 2: Pagos SÓ aparecem no mês exato em que o dinheiro entrou/saiu
+      if (t.status === "RECEBIDA" || t.status === "PAGA") {
+        return t.paidAt && t.paidAt.startsWith(prefixoMesAtual);
+      }
+      return false;
+    });
+  }, [receitasGlobais, despesasGlobais, abaAtiva, prefixoMesAtual]);
+
+  // 🚀 3. Cálculo de Saldos
+  const { resumoRealizado, resumoPrevisto } = useMemo(() => {
+    let recReal = 0, despReal = 0;
+    let pendenteTotal = 0;
+
+    receitasGlobais.forEach(t => {
+      if (t.status === 'RECEBIDA' && t.paidAt && t.paidAt.startsWith(prefixoMesAtual)) {
+        recReal += Number(t.valor);
+      } else if (t.status === 'PENDENTE' && t.eventDate && t.eventDate.startsWith(prefixoMesAtual)) {
+        pendenteTotal += Number(t.valor);
+      }
+    });
+
+    despesasGlobais.forEach(t => {
+      if (t.status === 'PAGA' && t.paidAt && t.paidAt.startsWith(prefixoMesAtual)) {
+        despReal += Number(t.valor);
+      }
+    });
+
+    return {
+      resumoRealizado: { receitas: recReal, despesas: despReal, saldo: recReal - despReal },
+      resumoPrevisto: { saldo: pendenteTotal } 
+    };
+  }, [receitasGlobais, despesasGlobais, prefixoMesAtual]);
+  // --- ATALHOS WEB ---
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleEsc = (e) => { 
+        if (e.key === "Escape") { 
+          if (modalCatVisivel) setModalCatVisivel(false);
+          else if (modalVisivel) setModalVisivel(false);
+          else if (modalMesAnoVisivel) setModalMesAnoVisivel(false);
+          else setSelectedIds([]); 
+        }
+      };
+      window.addEventListener("keydown", handleEsc);
+      return () => window.removeEventListener("keydown", handleEsc);
+    }
+  }, [modalCatVisivel, modalVisivel, modalMesAnoVisivel]);
+
+  // --- MÁSCARA DE MOEDA (BRL) ---
+  const handleMoneyMask = (text) => {
+    let val = text.replace(/\D/g, "");
+    if (!val) { setValor(""); return; }
+    val = (Number(val) / 100).toFixed(2);
+    val = val.replace(".", ",");
+    val = val.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+    setValor(val);
+  };
+
+  const formatarValorInicial = (num) => {
+    if (!num) return "";
+    let val = Number(num).toFixed(2).replace(".", ",");
+    return val.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+  };
+
+  const tratarErro = (error) => {
+    let mensagem = error.response?.data?.error || error.response?.data?.message || "Ocorreu um erro inesperado.";
+    if (error.message?.includes("Network Error")) mensagem = "Sem conexão com o servidor.";
+    setErrorMessage(mensagem);
+    setTimeout(() => setErrorMessage(""), 5000); 
+  };
+
+  // 🚀 V3: BUSCA EM BACKGROUND (Sem travar a tela)
+  const carregarDadosBackground = useCallback(async () => {
+    setErrorMessage("");
+    try {
+      const mes = dataReferencia.getMonth() + 1; 
+      const ano = dataReferencia.getFullYear();
+      
+      const [resRec, resDesp] = await Promise.all([
+        api.get("/receitas", { params: { mes, ano } }),
+        api.get("/despesas", { params: { mes, ano } })
+      ]);
+
+      const receitas = Array.isArray(resRec.data) ? resRec.data.map(i => ({...i, tipo_financeiro: 'RECEITA'})) : [];
+      const despesas = Array.isArray(resDesp.data) ? resDesp.data.map(i => ({...i, tipo_financeiro: 'DESPESA'})) : [];
+      
+      setReceitasGlobais(prev => {
+          // 🚀 DEDUPLICAÇÃO ABSOLUTA: O Map impede que o mesmo ID exista duas vezes
+          const mapa = new Map(prev.map(p => [p.id, p]));
+          receitas.forEach(r => mapa.set(r.id, r));
+          return Array.from(mapa.values());
+      });
+      
+      setDespesasGlobais(prev => {
+         const mapa = new Map(prev.map(p => [p.id, p]));
+          despesas.forEach(d => mapa.set(d.id, d));
+          return Array.from(mapa.values());
+      });
+
+    } catch (error) { 
+        console.log("Erro no background fetch:", error.message);
+    } 
+  }, [dataReferencia, setReceitasGlobais]);
+  
+
+  useEffect(() => { carregarDadosBackground(); }, [carregarDadosBackground]);
+  
+
+  // --- 🚀 OTIMISTA: TOGGLE STATUS ---
+    const toggleStatus = async (item) => {
+    const isReceita = abaAtiva === "RECEITA";
+    const statusPago = isReceita ? "RECEBIDA" : "PAGA";
+    const novoStatus = item.status === statusPago ? "PENDENTE" : statusPago;
+    
+    // 🗓️ Se estiver pagando, carimba a data de hoje. Se estiver voltando para pendente, limpa.
+    const agora = new Date().toISOString();
+    const novoPaidAt = novoStatus === statusPago ? agora : null;
+
+    const setter = isReceita ? setReceitasGlobais : setDespesasGlobais;
+    const backupItem = { ...item };
+
+    // Atualização otimista
+    setter(prev => prev.map(t => t.id === item.id ? { ...t, status: novoStatus, paidAt: novoPaidAt } : t));
+    
+    try {
+      await api.patch(`${isReceita ? "/receitas" : "/despesas"}/${item.id}/status`, { 
+        status: novoStatus,
+        paidAt: novoPaidAt 
+      }); 
+    } catch (e) { 
+      tratarErro(e);
+      setter(prev => prev.map(t => t.id === item.id ? backupItem : t));
+    }
+  };
+
+  // --- 🚀 OTIMISTA: EXCLUIR MÚLTIPLOS ---
+  const excluirSelecionados = async () => {
+    const executeDelete = async () => {
+        const isReceita = abaAtiva === "RECEITA";
+        const route = isReceita ? "/receitas" : "/despesas";
+        const setter = isReceita ? setReceitasGlobais : setDespesasGlobais;
+        const idsToDelete = [...selectedIds];
+        
+        // Backup para possível rollback
+        const listaAtual = isReceita ? receitasGlobais : despesasGlobais;
+        const backups = listaAtual.filter(t => idsToDelete.includes(t.id));
+        
+        // OTIMISTA: Limpa a tela
+        setSelectedIds([]); 
+        setter(prev => prev.filter(t => !idsToDelete.includes(t.id)));
+
+        try {
+            await api.post(`${route}/excluir-massa`, { ids: idsToDelete });
+        } catch (err) { 
+            setter(prev => [...prev, ...backups]); // Reverte
+            tratarErro(err); 
+        } 
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Tem certeza que deseja apagar os ${selectedIds.length} itens selecionados?`)) executeDelete();
+    } else {
+      Alert.alert("Excluir Selecionados", `Tem certeza que deseja apagar ${selectedIds.length} itens?`, [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Sim, Apagar", style: "destructive", onPress: executeDelete }
+      ]);
+    }
+  };
+
+  // EXCLUIR RÁPIDO 
+const excluirItemRapido = async (item) => {
+    const execute = async () => {
+       const isReceita = abaAtiva === "RECEITA";
+       const route = isReceita ? "/receitas" : "/despesas";
+       const setter = isReceita ? setReceitasGlobais : setDespesasGlobais;
+       const backupItem = { ...item };
+
+       // Remove da tela primeiro
+       setter(prev => prev.filter(t => t.id !== item.id));
+
+       if (item.temp) {
+         excluidosTemporarios.current.add(item.id);
+         return; 
+       }
+
+       try {
+         await api.delete(`${route}/${item.id}`);
+       } catch (e) { 
+         // 🚀 A BLINDAGEM DO FANTASMA: Se o erro for 404, não faça nada! O card já sumiu da tela com sucesso.
+         if (e.response && e.response.status === 404) {
+            console.log("Card fantasma resolvido: já estava deletado no banco.");
+         } else {
+            // Se for outro erro (ex: sem internet), devolve o card pra tela
+            setter(prev => [...prev, backupItem]); 
+            tratarErro(e); 
+         }
+       }
+    };
+    if (Platform.OS === 'web') {
+      if(window.confirm(`Excluir "${item.descricao}"?`)) execute();
+    } else {
+      Alert.alert("Confirmar", "Excluir este lançamento?", [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Sim", style: "destructive", onPress: execute }
+      ]);
+    }
+  };
+
+  const excluirTransacaoAtual = async () => {
+    const executeDelete = async () => {
+       const isReceita = abaAtiva === "RECEITA";
+       const route = isReceita ? "/receitas" : "/despesas";
+       const setter = isReceita ? setReceitasGlobais : setDespesasGlobais;
+       const backupItem = { ...transacaoEditando };
+       const id = transacaoEditando.id;
+
+       setModalVisivel(false);
+       setter(prev => prev.filter(t => t.id !== id));
+
+        try {
+         await api.delete(`${route}/${id}`);
+        } catch (e) { 
+         if (e.response && e.response.status === 404) {
+            console.log("Card fantasma: já estava deletado no banco.");
+         } else {
+            setter(prev => [...prev, backupItem]);
+            tratarErro(e); 
+         }
+       }
+    };
+    if (Platform.OS === 'web') {
+      if(window.confirm("Deseja realmente excluir este lançamento?")) executeDelete();
+    } else {
+      Alert.alert("Excluir", "Deseja realmente excluir este lançamento?", [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Sim, Excluir", style: "destructive", onPress: executeDelete }
+      ]);
+    }
+  };
+
+  // --- MODAIS ---
+  const abrirModalNovo = () => {
+    setErrorMessage("");
+    setTransacaoEditando(null);
+    setDescricao("");
+    setObservacao("");
+    setValor("");
+    setDataSelecionadaForm(new Date());
+    setShowInlineDatePicker(false);
+    setStatus("PENDENTE");
+    
+    const catsCompativeis = categories.filter(c => c.type === abaAtiva);
+    setSelectedCategory(catsCompativeis.length > 0 ? catsCompativeis[0] : null);
+    setModalVisivel(true);
+  };
+
+  const abrirModalEditar = (item) => {
+    setErrorMessage("");
+    setTransacaoEditando(item);
+    setDescricao(item.descricao);
+    setObservacao(item.observacao || ""); 
+    setValor(formatarValorInicial(item.valor)); 
+    setShowInlineDatePicker(false);
+    
+    const catId = item.categoria_id;
+    let foundCat = categories.find(c => c.id === catId);
+    if (!foundCat) {
+      const catNome = abaAtiva === "RECEITA" ? item.tipo : item.categoria;
+      foundCat = categories.find(c => c.name === catNome);
+    }
+    if (foundCat) {
+      setSelectedCategory(foundCat);
+    } else {
+      setSelectedCategory({ id: 'temp', name: item.tipo || item.categoria || 'Geral', color: '#999', type: abaAtiva, backendType: 'OUTRO' });
+    }
+
+    const dataIso = item.eventDate;
+    setDataSelecionadaForm(dataIso ? parseISO(dataIso) : new Date());
+    setStatus(item.status);
+    setModalVisivel(true);
+  };
+
+  // --- 🚀 OTIMISTA: SALVAR TRANSACAO ---
+  const salvarTransacao = async () => {
+    setErrorMessage("");
+
+    if (!descricao.trim()) return setErrorMessage("Digite um título/nome para o lançamento.");
+    if (!valor) return setErrorMessage("Digite um valor válido.");
+    if (!selectedCategory) return setErrorMessage("Selecione uma categoria.");
+
+    const valorLimpo = valor.replace(/\./g, '').replace(',', '.');
+    const valorFloat = parseFloat(valorLimpo);
+    
+    if (isNaN(valorFloat) || valorFloat <= 0) return setErrorMessage("Valor inválido.");
+    
+    const dataFormatada = format(dataSelecionadaForm, "yyyy-MM-dd");
+    const isReceita = abaAtiva === "RECEITA";
+
+  const payload = { 
+    descricao: descricao.trim(), 
+    observacao: observacao.trim(), 
+    valor: valorFloat, 
+    status: status,
+
+    // MUDANÇA 
+    // Saem as chaves condicionais, entra o campo único que definimos no Prisma
+    eventDate: dataFormatada, 
+
+    // distinção de tipo/categoria apenas para a lógica de negócio do Backend
+    [isReceita ? "tipo" : "categoria"]: selectedCategory.backendType || "OUTRO",
+  };
+
+    const route = isReceita ? "/receitas" : "/despesas";
+    const setter = isReceita ? setReceitasGlobais : setDespesasGlobais;
+    
+    // OTIMISTA: Fecha modal e atualiza interface
+    setModalVisivel(false); 
+    const tempId = transacaoEditando ? transacaoEditando.id : `temp-${Date.now()}`;
+    const transacaoOtimista = { id: tempId, ...payload, temp: !transacaoEditando };
+    const backupItem = transacaoEditando ? (isReceita ? receitasGlobais : despesasGlobais).find(t => t.id === tempId) : null;
+
+    if (transacaoEditando) {
+      setter(prev => prev.map(t => t.id === tempId ? { ...t, ...payload } : t));
+    } else {
+      setter(prev => [...prev, transacaoOtimista]);
+    }
+
+    // BACKGROUND REQUEST
+    try {
+      if (transacaoEditando) {
+        await api.put(`${route}/${tempId}`, payload);
+        setter(prev => prev.map(t => t.id === tempId ? { ...t, temp: false } : t));
+      } else {
+        const res = await api.post(route, payload);
+        const itemOficial = { ...res.data, tipo_financeiro: isReceita ? 'RECEITA' : 'DESPESA', temp: false };
+
+        if (excluidosTemporarios.current.has(tempId)) {
+           // O usuário apagou da tela enquanto esperava! 
+           // Então manda o servidor apagar o ID real silenciosamente.
+           await api.delete(`${route}/${itemOficial.id}`);
+           excluidosTemporarios.current.delete(tempId); // Limpa o caderninho
+        } else {
+           // O usuário não apagou. Então troca o ID temporário pelo Real.
+           setter(prev => prev.map(t => t.id === tempId ? itemOficial : t));
+        }
+      }
+
+    } catch (e) {
+      if (transacaoEditando) {
+        setter(prev => prev.map(t => t.id === tempId ? backupItem : t));
+      } else {
+        setter(prev => prev.filter(t => t.id !== tempId));
+      }
+      tratarErro(e);
+    }
+  };
+
+  // GESTÃO DE CATEGORIAS 
+  const abrirNovaCategoria = () => {
+    setErrorMessage("");
+    setCatEditing({ id: Date.now().toString(), name: "", color: PRESET_COLORS[0], type: abaAtiva, backendType: 'OUTRO', isNew: true });
+    setModalCatVisivel(true);
+  };
+
+  const abrirEditarCategoria = (cat) => {
+    setErrorMessage("");
+    setCatEditing({ ...cat, isNew: false });
+    setModalCatVisivel(true);
+  };
+
+  const salvarCategoria = () => {
+    if (!catEditing.name?.trim()) return setErrorMessage("Nome da categoria é obrigatório.");
+    
+    const categoriaSegura = { ...catEditing, backendType: catEditing.backendType || 'OUTRO' };
+    if (catEditing.isNew) {
+      setCategories([...categories, categoriaSegura]);
+      setSelectedCategory(categoriaSegura);
+    } else {
+      setCategories(categories.map(c => c.id === catEditing.id ? categoriaSegura : c));
+      if(selectedCategory?.id === catEditing.id) setSelectedCategory(categoriaSegura);
+    }
+    setModalCatVisivel(false);
+  };
+
+  const excluirCategoria = () => {
+    const executeDelete = () => {
+      setCategories(categories.filter(c => String(c.id) !== String(catEditing.id)));
+      if (selectedCategory && String(selectedCategory.id) === String(catEditing.id)) setSelectedCategory(null);
+      setModalCatVisivel(false);
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Tem certeza que deseja excluir a categoria "${catEditing.name}"?`)) executeDelete();
+    } else {
+      Alert.alert("Excluir Categoria", `Tem certeza que deseja excluir "${catEditing.name}"?`, [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Sim, Excluir", style: "destructive", onPress: executeDelete }
+      ]);
+    }
+  };
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+      
+      {/* HEADER */}
+      <View style={[styles.header, isDesktop && styles.headerDesktop, { backgroundColor: colors.surface }]}>
+        {selectedIds.length > 0 ? (
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => setSelectedIds([])}><Ionicons name="close-circle" size={28} color={colors.text}/></TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>{selectedIds.length} selecionados</Text>
+            <TouchableOpacity onPress={excluirSelecionados}>
+              <Ionicons name="trash" size={26} color={colors.danger}/>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.monthSelector} onPress={() => { setPickerAnoHeader(dataReferencia.getFullYear()); setModalMesAnoVisivel(true); }}>
+              <Text style={[styles.monthLabel, { color: colors.text }]}>{format(dataReferencia, "MMMM", { locale: ptBR })}</Text>
+              <Text style={styles.yearLabel}>{format(dataReferencia, "yyyy")}</Text>
+              <Ionicons name="chevron-down" size={20} color={colors.primary} style={{marginLeft: 5}} />
+            </TouchableOpacity>
+            <View style={styles.navArrows}>
+              <TouchableOpacity onPress={() => setDataReferencia(subMonths(dataReferencia, 1))}><Ionicons name="chevron-back" size={26} color={colors.text}/></TouchableOpacity>
+              <TouchableOpacity onPress={() => setDataReferencia(addMonths(dataReferencia, 1))}><Ionicons name="chevron-forward" size={26} color={colors.text}/></TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </View>
+
+      {errorMessage !== "" && !modalVisivel && !modalCatVisivel && (
+        <View style={[styles.errorContainer, { marginHorizontal: 20, marginTop: 15 }]}>
+          <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        </View>
+      )}
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+        
+        {/* RESUMO */}
+        <View style={[styles.resumoWrapper, isDesktop && styles.resumoDesktop]}>
+          <View style={[styles.cardResumo, { backgroundColor: colors.surface, flex: isDesktop ? 0.4 : 1 }]}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+              <View>
+                <Text style={styles.labelSaldo}>SALDO ATUAL (REALIZADO)</Text>
+                <Text style={[styles.valorSaldo, { color: resumoRealizado.saldo >= 0 ? "#10b981" : "#ef4444" }]}>{currencyFormatter.format(resumoRealizado.saldo)}</Text>
+              </View>
+              <View style={{alignItems: 'flex-end'}}>
+                 <Text style={styles.labelSaldo}>PREVISTO (MÊS)</Text>
+                 <Text style={[styles.valorSaldoPequeno, { color: '#64748b' }]}>{currencyFormatter.format(resumoPrevisto.saldo)}</Text>
+              </View>
+            </View>
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}><Text style={styles.statLabel}>ENTRADAS</Text><Text style={[styles.statValue, {color: "#10b981"}]}>{currencyFormatter.format(resumoRealizado.receitas)}</Text></View>
+              <View style={styles.statItem}><Text style={styles.statLabel}>SAÍDAS</Text><Text style={[styles.statValue, {color: "#ef4444"}]}>{currencyFormatter.format(resumoRealizado.despesas)}</Text></View>
+            </View>
+          </View>
+        </View>
+
+        {/* ABAS */}
+        <View style={[styles.tabBar, isDesktop && { width: 450, alignSelf: 'center' }]}>
+          <TouchableOpacity style={[styles.tabBtn, abaAtiva === "DESPESA" && { backgroundColor: "#ef4444" }]} onPress={() => setAbaAtiva("DESPESA")}>
+            <Text style={[styles.tabText, abaAtiva === "DESPESA" && { color: "#fff" }]}>SAÍDAS</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.tabBtn, abaAtiva === "RECEITA" && { backgroundColor: "#10b981" }]} onPress={() => setAbaAtiva("RECEITA")}>
+            <Text style={[styles.tabText, abaAtiva === "RECEITA" && { color: "#fff" }]}>ENTRADAS</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* LISTA */}
+        <View style={[styles.listContainer, isDesktop && { paddingHorizontal: 60 }]}>
+{transacoesExibidas.map(item => {
+    const isDone = item.status === "PAGA" || item.status === "RECEBIDA";
+    const selecionado = selectedIds.includes(item.id);
+    const catItem = categories.find(c => c.id === item.categoria_id) || categories.find(c => c.name === (item.tipo || item.categoria));
+    
+    let nomeExibir = catItem ? catItem.name : (item.tipo || item.categoria);
+    if (nomeExibir === "OUTRO") nomeExibir = "Agenda"; 
+
+    const dataCampo = item.eventDate;
+    const horario = dataCampo && dataCampo.includes('T') 
+      ? dataCampo.split('T')[1].substring(0, 5) 
+      : "";
+
+    const corBarra = catItem ? catItem.color : (abaAtiva === "RECEITA" ? "#10b981" : "#ef4444");
+
+    return (
+      <TouchableOpacity 
+        key={item.id} 
+        style={[
+          styles.itemCard, 
+          { backgroundColor: colors.surface }, 
+          selecionado && { borderColor: colors.primary, borderWidth: 2 }
+          // FALHA 1 CORRIGIDA: Opacidade removida. O card nasce 100% sólido.
+        ]}
+        // FALHA 3 CORRIGIDA: Se for temporário, o clique de marcar PAGO e o longPress são ignorados silenciosamente.
+        onPress={() => item.temp ? null : (selectedIds.length > 0 ? ( selecionado ? setSelectedIds(selectedIds.filter(i => i !== item.id)) : setSelectedIds([...selectedIds, item.id]) ) : toggleStatus(item))}
+        onLongPress={() => item.temp ? null : setSelectedIds([...selectedIds, item.id])}
+        activeOpacity={item.temp ? 1 : 0.7} 
+      >
+        <View style={[styles.indicator, { backgroundColor: corBarra }]} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.itemTitle, { color: colors.text }, isDone && { opacity: 0.5 }]} numberOfLines={1}>
+            {item.descricao}
+          </Text>
+          
+        <Text style={styles.itemSub}>
+              <Text style={{ fontWeight: 'bold' }}>{nomeExibir}</Text> • 
+              Agendado: {safeFormatDate(item.eventDate)}
+          
+              {/* 🚀 AQUI ESTÁ A MÁGICA DO HORÁRIO: Só renderiza se a string existir */}
+              {horario ? ` às ${horario}` : ""}
+
+              {item.paidAt && (
+        <Text style={{ color: '#10b981' }}> • Pago: {safeFormatDate(item.paidAt)}</Text>
+          )}
+        </Text>
+        </View>
+        
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={[styles.itemVal, { color: abaAtiva === "RECEITA" ? "#10b981" : "#ef4444", opacity: isDone ? 1 : 0.6 }]}>
+            {currencyFormatter.format(item.valor)}
+          </Text>
+          {!isDone && <Text style={styles.tagPendente}>Pendente</Text>}
+          
+          <View style={styles.cardActions}>
+              {/* FALHA 2 CORRIGIDA: O clique no lápis é neutralizado se o ID for temporário */}
+              <TouchableOpacity 
+                onPress={() => item.temp ? null : abrirModalEditar(item)} 
+                hitSlop={{top:10,bottom:10,left:10,right:10}}
+                activeOpacity={item.temp ? 1 : 0.2}
+              >
+                 <Ionicons name="pencil" size={18} color="#94a3b8" />
+              </TouchableOpacity>
+              
+              {/* A lixeira NÃO recebe a trava `item.temp ? null`, pois ela é a única que engatilha a exclusão assíncrona do useRef */}
+              <TouchableOpacity 
+                onPress={() => excluirItemRapido(item)} 
+                hitSlop={{top:10,bottom:10,left:10,right:10}}
+              >
+                 <Ionicons name="trash-outline" size={18} color="#ef4444"/>
+              </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableOpacity>
+    )
+})}
+          {transacoesExibidas.length === 0 && <Text style={styles.emptyText}>Nenhum lançamento neste mês.</Text>}
+        </View>
+      </ScrollView>
+
+      {/* FAB */}
+      {selectedIds.length === 0 && (
+        <TouchableOpacity style={[styles.fab, { backgroundColor: abaAtiva === "RECEITA" ? "#10b981" : "#ef4444" }]} onPress={abrirModalNovo}>
+          <Ionicons name="add" size={32} color="#fff" />
+        </TouchableOpacity>
+      )}
+
+      {/* --- MODAL PICKER MÊS/ANO --- */}
+      <Modal visible={modalMesAnoVisivel} transparent animationType="fade">
+        <View style={styles.overlayCenter}>
+          <View style={[styles.pickerBox, { backgroundColor: colors.surface }]}>
+            <View style={styles.pickerHeader}>
+              <TouchableOpacity onPress={() => setPickerAnoHeader(pickerAnoHeader - 1)}><Ionicons name="chevron-back" size={24} color={colors.text}/></TouchableOpacity>
+              <Text style={[styles.pickerYear, { color: colors.text }]}>{pickerAnoHeader}</Text>
+              <TouchableOpacity onPress={() => setPickerAnoHeader(pickerAnoHeader + 1)}><Ionicons name="chevron-forward" size={24} color={colors.text}/></TouchableOpacity>
+            </View>
+            <View style={styles.mesesGrid}>
+              {MESES_CURTOS.map((m, i) => (
+                <TouchableOpacity key={m} style={styles.mesBtn} onPress={() => { setDataReferencia(setMonth(setYear(new Date(), pickerAnoHeader), i)); setModalMesAnoVisivel(false); }}>
+                  <Text style={{ fontWeight: 'bold', color: colors.text }}>{m.toUpperCase()}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- MODAL FORMULÁRIO (ADD/EDIT) --- */}
+      <Modal visible={modalVisivel} transparent animationType="slide">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.overlayBottom}>
+          <View style={[styles.modalSaaS, { backgroundColor: colors.surface, width: isDesktop ? 600 : '100%' }]}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={[styles.modalSaaSTitle, {color: colors.text}]}>{transacaoEditando ? "Editar" : "Novo"} Lançamento</Text>
+              <TouchableOpacity onPress={() => setModalVisivel(false)}><Ionicons name="close" size={28} color={colors.text}/></TouchableOpacity>
+            </View>
+
+            {errorMessage !== "" && (
+              <View style={[styles.errorContainer, { marginBottom: 15 }]}>
+                <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
+            
+            <ScrollView showsVerticalScrollIndicator={false}>
+              
+              <Text style={styles.label}>TÍTULO</Text>
+              <TextInput style={[styles.inputSaaS, {color: colors.text, backgroundColor: colors.inputBackground}]} value={descricao} onChangeText={setDescricao} placeholder="Ex: Mensalidade Academia" placeholderTextColor="#999" />
+              
+              <Text style={styles.label}>DESCRIÇÃO / OBSERVAÇÕES (Opcional)</Text>
+              <TextInput 
+                style={[styles.inputSaaS, {color: colors.text, backgroundColor: colors.inputBackground, height: 60, paddingTop: 12}]} 
+                value={observacao} 
+                onChangeText={setObservacao} 
+                multiline
+                placeholder="Detalhes adicionais..." 
+                placeholderTextColor="#999" 
+              />
+
+              <View style={{ flexDirection: 'row', gap: 15 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>VALOR R$</Text>
+                  <TextInput 
+                     style={[styles.inputSaaS, {color: colors.text, backgroundColor: colors.inputBackground, fontWeight: 'bold'}]} 
+                     value={valor} 
+                     onChangeText={handleMoneyMask} 
+                     keyboardType="numeric" 
+                     placeholder="0,00" 
+                     placeholderTextColor="#999" 
+                  />
+                </View>
+              </View>
+
+              {/* DATA INLINE */}
+              <View style={{ marginBottom: 15 }}>
+                <Text style={styles.label}>DATA</Text>
+                <TouchableOpacity 
+                  onPress={() => setShowInlineDatePicker(!showInlineDatePicker)} 
+                  style={[styles.inputSaaS, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.inputBackground }]}
+                >
+                   <Text style={{fontSize: 16, color: colors.text}}>{format(dataSelecionadaForm, "dd/MM/yyyy")}</Text>
+                   <Ionicons name={showInlineDatePicker ? "chevron-up" : "chevron-down"} size={20} color="#999" />
+                </TouchableOpacity>
+
+                {showInlineDatePicker && (
+                  <View style={[styles.inlinePickerContainer, {backgroundColor: colors.surface}]}>
+                    <ScrollView style={styles.pickerCol} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                       {Array.from({length: 31}, (_, i) => i + 1).map(d => (
+                         <TouchableOpacity key={d} onPress={() => setDataSelecionadaForm(new Date(getYear(dataSelecionadaForm), getMonth(dataSelecionadaForm), d))} 
+                           style={[styles.pickerCell, getDate(dataSelecionadaForm) === d && {backgroundColor: colors.primary + '20'}]}>
+                            <Text style={[styles.pickerText, getDate(dataSelecionadaForm) === d && {color: colors.primary, fontWeight:'bold'}]}>{d}</Text>
+                         </TouchableOpacity>
+                       ))}
+                    </ScrollView>
+                    <ScrollView style={styles.pickerCol} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                       {MESES_CURTOS.map((m, i) => (
+                         <TouchableOpacity key={m} onPress={() => setDataSelecionadaForm(setMonth(dataSelecionadaForm, i))} 
+                           style={[styles.pickerCell, getMonth(dataSelecionadaForm) === i && {backgroundColor: colors.primary + '20'}]}>
+                            <Text style={[styles.pickerText, getMonth(dataSelecionadaForm) === i && {color: colors.primary, fontWeight:'bold'}]}>{m}</Text>
+                         </TouchableOpacity>
+                       ))}
+                    </ScrollView>
+                    <ScrollView style={styles.pickerCol} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                       {Array.from({length: 10}, (_, i) => getYear(new Date()) - 5 + i).map(y => (
+                         <TouchableOpacity key={y} onPress={() => setDataSelecionadaForm(setYear(dataSelecionadaForm, y))} 
+                           style={[styles.pickerCell, getYear(dataSelecionadaForm) === y && {backgroundColor: colors.primary + '20'}]}>
+                            <Text style={[styles.pickerText, getYear(dataSelecionadaForm) === y && {color: colors.primary, fontWeight:'bold'}]}>{y}</Text>
+                         </TouchableOpacity>
+                       ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.rowBetween}>
+                  <Text style={styles.label}>CATEGORIA</Text>
+                  <TouchableOpacity onPress={abrirNovaCategoria} style={{padding: 5}}>
+                    <Text style={[styles.linkAction, {color: colors.primary}]}>+ Gerenciar</Text>
+                  </TouchableOpacity>
+              </View>
+              
+              <View style={styles.chipsRow}>
+                {categories.filter(c => c.type === abaAtiva).map(cat => (
+                  <TouchableOpacity 
+                    key={cat.id} 
+                    onPress={() => setSelectedCategory(cat)} 
+                    onLongPress={() => abrirEditarCategoria(cat)}
+                    delayLongPress={600} 
+                    activeOpacity={0.7}
+                    style={[styles.chipItem, selectedCategory?.id === cat.id && { backgroundColor: cat.color }]}
+                  >
+                    <Text style={[styles.chipText, selectedCategory?.id === cat.id && { color: '#fff' }]}>{cat.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.hintText}>* Segure em uma categoria para editar/excluir</Text>
+
+              <View style={styles.actionButtonsContainer}>
+                {transacaoEditando && (
+                   <TouchableOpacity style={styles.btnDelete} onPress={excluirTransacaoAtual}>
+                     <Ionicons name="trash-outline" size={24} color="#ef4444" />
+                   </TouchableOpacity>
+                )}
+                
+                <TouchableOpacity 
+                  style={[styles.btnConfirm, { backgroundColor: abaAtiva === "RECEITA" ? "#10b981" : "#ef4444" }]} 
+                  onPress={salvarTransacao}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '900', fontSize: 16 }}>CONFIRMAR</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={{ height: 30 }} />
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* --- MODAL GERENCIAR CATEGORIA --- */}
+      <Modal visible={modalCatVisivel} transparent animationType="fade" onRequestClose={() => setModalCatVisivel(false)}>
+        <View style={styles.overlayCenter}>
+          <View style={[styles.modalCatContent, {backgroundColor: colors.surface}]}>
+            <Text style={[styles.modalCatTitle, {color: colors.text}]}>{catEditing?.isNew ? "Criar Categoria" : "Editar Categoria"}</Text>
+            
+            {errorMessage !== "" && (
+              <View style={[styles.errorContainer, { marginBottom: 15 }]}>
+                <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
+
+            <Text style={styles.label}>NOME DA CATEGORIA</Text>
+            <TextInput 
+              style={[styles.inputSaaS, {backgroundColor: colors.inputBackground, color: colors.text}]} 
+              value={catEditing?.name || ''} 
+              onChangeText={t => setCatEditing(prev => ({...prev, name: t}))}
+              placeholder="Ex: Alimentação"
+              placeholderTextColor="#999"
+            />
+
+            <Text style={styles.label}>COR</Text>
+            <View style={styles.colorGrid}>
+              {PRESET_COLORS.map(c => (
+                <TouchableOpacity key={c} onPress={() => setCatEditing(prev => ({...prev, color: c}))} style={[styles.colorCircle, { backgroundColor: c }, catEditing?.color === c && styles.colorSelected]} />
+              ))}
+            </View>
+
+            <View style={styles.rowBetween}>
+              {!catEditing?.isNew && (
+                <TouchableOpacity onPress={excluirCategoria} style={styles.btnDeleteCat}>
+                   <Text style={{color: colors.danger, fontWeight:'bold'}}>Excluir</Text>
+                </TouchableOpacity>
+              )}
+              <View style={{flexDirection: 'row', gap: 10, flex: 1, justifyContent: 'flex-end'}}>
+                <TouchableOpacity onPress={() => {setModalCatVisivel(false); setErrorMessage("");}} style={styles.btnCancelCat}>
+                   <Text style={{fontWeight:'bold', color: colors.textSecondary}}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={salvarCategoria} style={[styles.btnSaveCat, {backgroundColor: colors.primary}]}>
+                   <Text style={{color: '#fff', fontWeight:'bold'}}>Salvar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: { padding: 20, elevation: 4 },
+  headerDesktop: { paddingHorizontal: 60, borderBottomWidth: 1, borderColor: '#eee' },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: 'bold' },
+  monthSelector: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  monthLabel: { fontSize: 24, fontWeight: '900', textTransform: 'capitalize' },
+  yearLabel: { fontSize: 24, fontWeight: '300', marginLeft: 5 },
+  navArrows: { flexDirection: 'row', gap: 15 },
+  resumoWrapper: { padding: 20 },
+  resumoDesktop: { paddingHorizontal: 60, marginTop: 10 },
+  cardResumo: { padding: 25, borderRadius: 28, elevation: 10, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 15 },
+  labelSaldo: { fontSize: 13, color: '#aaa', fontWeight: '700', marginBottom: 5 },
+  valorSaldo: { fontSize: 32, fontWeight: '800', marginBottom: 5 },
+  valorSaldoPequeno: { fontSize: 16, fontWeight: '700' },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderColor: '#f1f1f1', paddingTop: 15, marginTop: 10 },
+  statItem: { alignItems: 'center' },
+  statLabel: { fontSize: 10, color: '#aaa', fontWeight: 'bold', marginBottom: 5 },
+  statValue: { fontSize: 16, fontWeight: 'bold' },
+  tabBar: { flexDirection: 'row', backgroundColor: '#f5f5f5', margin: 20, borderRadius: 18, padding: 5 },
+  tabBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: 14 },
+  tabText: { fontSize: 12, fontWeight: '900', color: '#666' },
+  listContainer: { paddingHorizontal: 20 },
+  itemCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 24, marginBottom: 12, elevation: 2 },
+  indicator: { width: 4, height: 40, borderRadius: 2, marginRight: 15 },
+  itemTitle: { fontSize: 17, fontWeight: '700' },
+  itemSub: { fontSize: 13, color: '#94a3b8', marginTop: 3 },
+  itemVal: { fontSize: 18, fontWeight: '800' },
+  emptyText: { textAlign: 'center', color: '#cbd5e1', marginTop: 40, fontStyle: 'italic' },
+  fab: { position: 'absolute', bottom: 30, right: 30, width: 65, height: 65, borderRadius: 32.5, justifyContent: 'center', alignItems: 'center', elevation: 10 },
+  overlayCenter: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  pickerBox: { width: '85%', borderRadius: 30, padding: 30, alignItems: 'center' },
+  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: 25 },
+  pickerYear: { fontSize: 26, fontWeight: '800' },
+  mesesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
+  mesBtn: { width: '30%', paddingVertical: 15, backgroundColor: '#f8fafc', borderRadius: 15, alignItems: 'center' },
+  overlayBottom: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', alignItems: 'center' },
+  modalSaaS: { borderTopLeftRadius: 40, borderTopRightRadius: 40, padding: 30, maxHeight: '92%' },
+  modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
+  modalSaaSTitle: { fontSize: 22, fontWeight: '800' },
+  label: { fontSize: 11, fontWeight: '800', color: '#94a3b8', marginTop: 15, marginBottom: 8 },
+  inputSaaS: { padding: 16, borderRadius: 18, fontSize: 16, marginBottom: 15, borderWidth: 1, borderColor: '#f1f5f9' },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 5 },
+  chipItem: { paddingHorizontal: 15, paddingVertical: 10, borderRadius: 12, backgroundColor: '#f1f5f9' },
+  chipText: { fontSize: 12, fontWeight: '700', color: '#64748b' },
+  cardActions: { flexDirection: 'row', gap: 15, marginTop: 8, justifyContent: 'flex-end' },
+  actionButtonsContainer: { flexDirection: 'row', gap: 12, marginTop: 25, alignItems: 'center' },
+  btnDelete: { backgroundColor: '#fee2e2', padding: 18, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fecaca', width: 60 },
+  btnConfirm: { flex: 1, padding: 18, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  tagPendente: { fontSize: 10, color: '#f59e0b', fontWeight: 'bold', backgroundColor: '#fffbeb', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 2 },
+  inlinePickerContainer: { flexDirection: 'row', height: 130, gap: 8, marginBottom: 15, padding: 8, borderRadius: 16 },
+  pickerCol: { flex: 1, backgroundColor: '#fff', borderRadius: 12 },
+  pickerCell: { paddingVertical: 12, alignItems: 'center', borderBottomWidth: 1, borderColor: '#f1f5f9' },
+  pickerText: { fontSize: 14, color: '#64748b', fontWeight: '600' },
+  modalCatContent: { borderRadius: 25, padding: 25, width: 320 },
+  modalCatTitle: { fontSize: 18, fontWeight: '900', marginBottom: 15 },
+  colorGrid: { flexDirection: 'row', gap: 10, marginBottom: 15, flexWrap: 'wrap' },
+  colorCircle: { width: 30, height: 30, borderRadius: 15 },
+  colorSelected: { borderWidth: 3, borderColor: '#000' },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, marginBottom: 5 },
+  btnDeleteCat: { padding: 10 },
+  btnCancelCat: { padding: 10, marginRight: 10 },
+  btnSaveCat: { paddingHorizontal: 15, paddingVertical: 10, borderRadius: 10 },
+  linkAction: { fontWeight: 'bold', fontSize: 12 },
+  hintText: { fontSize: 10, color: '#ccc', fontStyle: 'italic', marginBottom: 15 },
+  
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
+  },
+});
+</file>
+
+<file path="src/screens/NotificacoesScreen.js">
+import React, { useState, useCallback } from "react";
+import {
+  View, Text, TouchableOpacity, FlatList, Alert, StyleSheet,
+  ActivityIndicator, Platform, RefreshControl
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { useFocusEffect } from "@react-navigation/native";
+import api from "../services/api";
+import { useTheme } from "../context/ThemeContext"; // <--- Importar Contexto
+
+function exibirAlerta(t, m) { if (Platform.OS === 'web') window.alert(`${t}\n\n${m}`); else Alert.alert(t, m); }
+
+export default function NotificacoesScreen() {
+  const { theme, isDark } = useTheme(); // <--- Usar Tema
+  const colors = theme.colors;
+
+  const [loading, setLoading] = useState(false);
+  const [notificacoes, setNotificacoes] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  const carregarNotificacoes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get("/notificacoes"); 
+      setNotificacoes(res.data);
+      setSelectedIds([]);
+    } catch (err) { console.log("Erro load notif"); } 
+    finally { setLoading(false); }
+  }, []);
+
+  useFocusEffect(useCallback(() => { carregarNotificacoes(); }, [carregarNotificacoes]));
+
+  async function handleCardPress(item) {
+      if (selectedIds.length > 0) {
+          toggleSelection(item.id);
+          return;
+      }
+
+      if (!item.lida) {
+          const novaLista = notificacoes.map(n => n.id === item.id ? { ...n, lida: true } : n);
+          setNotificacoes(novaLista);
+          try { await api.patch(`/notificacoes/${item.id}/lida`); } catch(e){}
+      }
+  }
+
+  function toggleSelection(id) {
+    if (selectedIds.includes(id)) setSelectedIds(selectedIds.filter(i => i !== id));
+    else setSelectedIds([...selectedIds, id]);
+  }
+  function handleLongPress(item) { toggleSelection(item.id); }
+  
+  async function excluirSelecionados() {
+      const confirmar = async () => {
+        try {
+            await api.post("/notificacoes/excluir-massa", { ids: selectedIds });
+            carregarNotificacoes();
+        } catch (e) { exibirAlerta("Erro", "Falha ao excluir"); }
+      }
+
+      if (Platform.OS === 'web') {
+        if(window.confirm("Excluir selecionados?")) confirmar();
+      } else {
+        Alert.alert("Excluir", "Excluir selecionados?", [{text:"Cancelar"}, {text:"Sim", onPress: confirmar}]);
+      }
+  }
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+      {/* Header */}
+      {selectedIds.length > 0 ? (
+          <View style={[styles.headerSelection, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+              <TouchableOpacity onPress={() => setSelectedIds([])}><Ionicons name="close" size={24} color={colors.text} /></TouchableOpacity>
+              <Text style={[styles.textSelection, { color: colors.text }]}>{selectedIds.length}</Text>
+              <TouchableOpacity onPress={excluirSelecionados}><Ionicons name="trash" size={24} color={colors.danger} /></TouchableOpacity>
+          </View>
+      ) : (
+          <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>Notificações</Text>
+              <TouchableOpacity onPress={carregarNotificacoes}>
+                  <Ionicons name="reload" size={20} color={colors.primary} />
+              </TouchableOpacity>
+          </View>
+      )}
+
+      {loading && !notificacoes.length ? (
+          <ActivityIndicator size="large" color={colors.primary} style={{marginTop: 20}} />
+      ) : (
+          <FlatList
+            data={notificacoes}
+            keyExtractor={(item) => String(item.id)}
+            contentContainerStyle={{ padding: 16 }}
+            refreshControl={<RefreshControl refreshing={loading} onRefresh={carregarNotificacoes} tintColor={colors.primary} />}
+            ListEmptyComponent={
+                <View style={{alignItems:'center', marginTop: 50}}>
+                    <Text style={{color: colors.textSecondary}}>Nenhuma notificação.</Text>
+                </View>
+            }
+            renderItem={({ item }) => {
+                const selecionado = selectedIds.includes(item.id);
+                const iconName = item.tipo === 'DESPESA' ? "wallet-outline" : "calendar-outline";
+                let dataF = "";
+                try { dataF = format(parseISO(item.disparoEm), "dd/MM HH:mm", { locale: ptBR }); } catch(e){}
+
+                return (
+                    <TouchableOpacity
+                        style={[
+                            styles.card,
+                            // Card Base (Surface)
+                            { backgroundColor: colors.surface },
+                            
+                            // LIDA: Cinza ou Escuro (Sem borda)
+                            item.lida && { backgroundColor: isDark ? '#1f1f1f' : '#EEEEEE', borderLeftWidth: 0, opacity: 0.7 },
+                            
+                            // NÃO LIDA: Branco ou Escuro Claro (Borda Azul)
+                            !item.lida && { backgroundColor: colors.surface, borderLeftWidth: 4, borderLeftColor: colors.primary },
+                            
+                            // SELECIONADO: Azulzinho
+                            selecionado && { backgroundColor: isDark ? '#1A3B5C' : '#D6EAF8', borderColor: colors.primary, borderWidth: 1, borderLeftWidth: 1 }
+                        ]}
+                        onPress={() => handleCardPress(item)}
+                        onLongPress={() => handleLongPress(item)}
+                        activeOpacity={0.8}
+                    >
+                        {selecionado ? (
+                            <Ionicons name="checkmark-circle" size={28} color={colors.primary} style={{ marginRight: 12 }} />
+                        ) : (
+                            <View style={[styles.iconBox, { backgroundColor: item.lida ? (isDark ? '#333' : '#e0e0e0') : (isDark ? '#1A3B5C' : '#E3F2FD') }]}>
+                                <Ionicons name={iconName} size={24} color={item.lida ? colors.textSecondary : colors.primary} />
+                            </View>
+                        )}
+
+                        <View style={{ flex: 1 }}>
+                            <View style={{flexDirection:'row', justifyContent:'space-between'}}>
+                                <Text style={[styles.titulo, { color: colors.text }, item.lida && { color: colors.textSecondary }]}>{item.titulo}</Text>
+                                {!item.lida && !selecionado && <View style={[styles.dot, { backgroundColor: colors.primary }]} />}
+                            </View>
+                            <Text style={[styles.mensagem, { color: colors.textSecondary }, item.lida && { color: isDark ? '#666' : '#888' }]} numberOfLines={2}>
+                                {item.mensagem}
+                            </Text>
+                            <Text style={[styles.data, { color: colors.textSecondary }]}>{dataF}</Text>
+                        </View>
+                    </TouchableOpacity>
+                );
+            }}
+          />
+      )}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
+  headerTitle: { fontSize: 22, fontWeight: 'bold' },
+  headerSelection: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
+  textSelection: { fontSize: 18, fontWeight: 'bold' },
+
+  card: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 12, marginBottom: 10, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+  
+  iconBox: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  titulo: { fontSize: 15, fontWeight: 'bold', marginBottom: 2 },
+  mensagem: { fontSize: 13, marginBottom: 6 },
+  data: { fontSize: 11, textAlign: 'right' },
+  dot: { width: 8, height: 8, borderRadius: 4, marginTop: 4 }
+});
+</file>
+
+<file path="src/screens/PerfilScreen.js">
+import React, { useState, useEffect } from "react";
+import { 
+  View, Text, StyleSheet, TouchableOpacity, Alert, 
+  Image, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, ScrollView 
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from 'expo-image-picker';
+import { useNavigation } from "@react-navigation/native";
+
+import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+import api, { API_URL } from "../services/api";
+
+export default function PerfilScreen() {
+  const { user, logout, updateUser } = useAuth();
+  const { theme } = useTheme();
+  const colors = theme.colors;
+  
+  const navigation = useNavigation();
+  const [uploading, setUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  
+  const [modalVisible, setModalVisible] = useState(false);
+  const [senhaAtual, setSenhaAtual] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [loadingSenha, setLoadingSenha] = useState(false);
+
+  // Estado local para a foto (Optimistic UI - muda antes mesmo de salvar no banco)
+  const [localAvatar, setLocalAvatar] = useState(user?.foto || null);
+
+  useEffect(() => {
+    setLocalAvatar(user?.foto || null);
+  }, [user?.foto]);
+
+  const getIniciais = (nome) => {
+    if (!nome) return "U";
+    const partes = nome.trim().split(/\s+/);
+    if (partes.length === 1) return partes[0].charAt(0).toUpperCase();
+    return (partes[0].charAt(0) + partes[partes.length - 1].charAt(0)).toUpperCase();
+  };
+
+  // --- LÓGICA DE FOTO DE PERFIL ---
+  async function handlePickImage() {
+    setErrorMessage("");
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permissionResult.granted === false) {
+      setErrorMessage("Precisamos acessar sua galeria para mudar a foto.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5, 
+    });
+
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      setLocalAvatar(asset.uri); 
+      handleUploadPhoto(asset.uri, asset.mimeType); // 🚀 Correção: Passando o MimeType real
+    }
+  }
+
+// 🚀 Correção: Recebendo o mimeType
+async function handleUploadPhoto(localUri, mimeType) {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      
+      // Extrai o nome do arquivo, mas previne falha se o split falhar
+      let filename = localUri.split('/').pop();
+      if (!filename || !filename.includes('.')) {
+        // Se o Android ocultou a extensão, criamos um nome genérico com base no mimeType
+        const ext = mimeType ? mimeType.split('/')[1] : 'jpg';
+        filename = `avatar_${Date.now()}.${ext}`;
+      }
+      
+      formData.append('foto', {
+        uri: localUri, 
+        name: filename,
+        type: mimeType || 'image/jpeg', // 🚀 Usa o dado do OS, ou falha suavemente para jpeg
+      });
+
+      const response = await api.patch("/usuarios/foto", formData, {
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data) {
+        updateUser(response.data);
+        Alert.alert("Sucesso", "Foto de perfil atualizada!");
+      }
+
+    } catch (error) {
+      console.error("Erro no Upload:", error.response?.data || error.message);
+      setErrorMessage("Não conseguimos salvar sua foto. Verifique a conexão.");
+      setLocalAvatar(user?.foto || null);
+    } finally {
+      setUploading(false);
+    }
+  }
+  
+  // --- LÓGICA DE SENHA ---
+  function validarSenha(senha) {
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+    return regex.test(senha);
+  }
+
+  async function handleChangePassword() {
+    setErrorMessage("");
+
+    if (!senhaAtual || !novaSenha) return setErrorMessage("Preencha todos os campos de senha.");
+    if (!validarSenha(novaSenha)) return setErrorMessage("A nova senha deve ter letras (maiúsc./minúsc.), números e símbolos.");
+
+    setLoadingSenha(true);
+    try {
+      await api.patch("/usuarios/senha", { senhaAtual, novaSenha });
+      Alert.alert("Sucesso", "Sua senha foi alterada com segurança!");
+      setModalVisible(false);
+      setSenhaAtual("");
+      setNovaSenha("");
+    } catch (error) {
+      setErrorMessage(error.response?.data?.error || "Senha atual incorreta.");
+    } finally {
+      setLoadingSenha(false);
+    }
+  }
+
+  // --- LOGOUT ---
+  function handleLogout() {
+    if (Platform.OS === 'web') {
+       if (window.confirm("Deseja realmente sair?")) logout();
+       return;
+    }
+
+    Alert.alert("Sair", "Deseja realmente sair do YourFlow?", [
+      { text: "Ficar", style: "cancel" },
+      { text: "Sair", style: "destructive", onPress: () => logout() }
+    ]);
+  }
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        
+        {/* ERRO VISUAL GLOBAL (Fora dos modais) */}
+        {errorMessage !== "" && !modalVisible && (
+          <View style={[styles.errorContainer, { marginTop: 15 }]}>
+            <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        )}
+
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handlePickImage} disabled={uploading} style={styles.avatarWrapper} activeOpacity={0.7}>
+            {uploading ? (
+               <View style={[styles.avatarContainer, styles.loadingAvatar]}><ActivityIndicator color="#fff" size="large" /></View>
+            ) : localAvatar ? (
+               <Image source={{ uri: localAvatar }} style={styles.avatarImage} />
+            ) : (
+               <View style={styles.avatarContainer}><Text style={styles.avatarText}>{getIniciais(user?.nome)}</Text></View>
+            )}
+            
+            <View style={[styles.editIconBadge, { borderColor: colors.background }]}>
+              <Ionicons name="camera" size={16} color="#fff" />
+            </View>
+          </TouchableOpacity>
+          <Text style={[styles.nome, { color: colors.text }]}>{user?.nome || "Usuário"}</Text>
+          <Text style={[styles.email, { color: colors.textSecondary }]}>{user?.email}</Text>
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => {setErrorMessage(""); setModalVisible(true);}}>
+            <View style={styles.iconCircle}><Ionicons name="lock-closed-outline" size={20} color={colors.primary} /></View>
+            <Text style={[styles.actionText, { color: colors.text }]}>Alterar Senha</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+          <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate("Configuracoes")}>
+            <View style={styles.iconCircle}><Ionicons name="settings-outline" size={20} color={colors.primary} /></View>
+            <Text style={[styles.actionText, { color: colors.text }]}>Configurações</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={20} color="#E74C3C" />
+          <Text style={styles.logoutText}>Sair do Aplicativo</Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.version, { color: colors.textSecondary }]}>YourFlow v3.0.1</Text>
+      </ScrollView>
+
+      {/* MODAL SENHA */}
+      <Modal animationType="fade" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ width: '100%' }}>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Segurança</Text>
+              
+              {/* ERRO VISUAL NO MODAL */}
+              {errorMessage !== "" && (
+                <View style={[styles.errorContainer, { marginBottom: 15 }]}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#ef4444" />
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+              )}
+
+              <Text style={[styles.labelInput, { color: colors.textSecondary }]}>Senha Atual</Text>
+              <TextInput 
+                style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.inputBackground }]} 
+                secureTextEntry 
+                value={senhaAtual} 
+                onChangeText={setSenhaAtual} 
+                placeholder="Sua senha atual"
+                placeholderTextColor="#999"
+              />
+
+              <Text style={[styles.labelInput, { color: colors.textSecondary, marginTop: 10 }]}>Nova Senha</Text>
+              <TextInput 
+                style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.inputBackground }]} 
+                secureTextEntry 
+                value={novaSenha} 
+                onChangeText={setNovaSenha} 
+                placeholder="Mínimo 6 caracteres"
+                placeholderTextColor="#999"
+              />
+              <Text style={styles.hint}>* Use letras maiúsculas, minúsculas, números e símbolos (@$!%*?&).</Text>
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: colors.border }]} onPress={() => setModalVisible(false)}>
+                  <Text style={{ color: colors.text, fontWeight: 'bold' }}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.modalBtn, { backgroundColor: colors.primary }]} 
+                  onPress={handleChangePassword} 
+                  disabled={loadingSenha}
+                >
+                  {loadingSenha ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Salvar</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, paddingHorizontal: 20 },
+  header: { alignItems: "center", marginBottom: 30, marginTop: 20 },
+  avatarWrapper: { position: 'relative', marginBottom: 16 },
+  avatarContainer: { 
+    width: 110, 
+    height: 110, 
+    borderRadius: 55, 
+    backgroundColor: "#008080", 
+    justifyContent: "center", 
+    alignItems: "center", 
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+  },
+  avatarImage: { width: 110, height: 110, borderRadius: 55 },
+  loadingAvatar: { backgroundColor: '#ccc' },
+  avatarText: { fontSize: 40, color: "#fff", fontWeight: "bold" },
+  editIconBadge: { 
+    position: 'absolute', 
+    bottom: 0, 
+    right: 5, 
+    backgroundColor: '#3b82f6', 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    borderWidth: 3,
+    borderColor: '#fff',
+    elevation: 4
+  },
+  nome: { fontSize: 24, fontWeight: "bold", letterSpacing: -0.5 },
+  email: { fontSize: 14, marginTop: 2, opacity: 0.7 },
+  section: { borderRadius: 20, padding: 20, marginBottom: 25, elevation: 3, shadowColor: "#000", shadowOpacity: 0.1 },
+  actionButton: { flexDirection: "row", alignItems: "center", paddingVertical: 10 },
+  iconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(59, 130, 246, 0.1)', justifyContent: 'center', alignItems: 'center' },
+  actionText: { flex: 1, marginLeft: 15, fontSize: 16, fontWeight: '500' },
+  divider: { height: 1, marginVertical: 15, opacity: 0.3 },
+  logoutButton: { flexDirection: "row", backgroundColor: "#fee2e2", padding: 18, borderRadius: 15, justifyContent: "center", alignItems: "center", gap: 10 },
+  logoutText: { color: "#E74C3C", fontWeight: "bold", fontSize: 16 },
+  version: { textAlign: "center", marginTop: 25, fontSize: 12, opacity: 0.5 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 25 },
+  modalContent: { borderRadius: 24, padding: 25, elevation: 10 },
+  modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 25, textAlign: 'center' },
+  labelInput: { fontSize: 14, marginBottom: 8, fontWeight: '600' },
+  input: { borderWidth: 1, borderRadius: 12, padding: 15, fontSize: 16, marginBottom: 5 },
+  hint: { fontSize: 11, color: '#999', marginTop: 8, fontStyle: 'italic', textAlign: 'center' },
+  modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30 },
+  modalBtn: { flex: 1, padding: 16, borderRadius: 14, alignItems: 'center', marginHorizontal: 6 },
+  
+  // ⚠️ ESTILOS DO ERRO VISUAL
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
+  },
+});
+</file>
+
+<file path="src/services/api.js">
+// Módulo de configuração de cliente HTTP -> Central de comunicação entre o frontend e o servidor.
+// Garçom do app, responsável por levar pedidos (requisições) do frontend para o backend e trazer as respostas de volta com setAuth token (carregando dados do usuário, eventos, etc).
+
+import axios from "axios"; // < -- Traz a biblioteca axios para facilitar as requisições HTTP.
+
+const api = axios.create({ // < -- Cria uma instância personalizada. A baseURL é o end principal do servidor. Assim o resto do código
+  // não é preciso digitar toda URL, apenas o final (ex: /login, /bootstrap, etc).
+  baseURL:'https://agenda-app-i8nj.onrender.com', 
+});
+
+export function setAuthToken(token) { // < -- Função para configurar o token de autenticação. Será chamada no Login e Logout para manter o token atualizado. 
+  if (token) {
+    api.defaults.headers.common["Authorization"] = `Bearer ${token}`; // Usuário para o servidor (Bearer - token ). 
+  } else {
+    delete api.defaults.headers.common["Authorization"]; // Limpa essa configuração se não houver token (ex: Logout).
+  }
+}
+
+export default api; // < -- Exporta a instância personalizada para ser usada em todo o app. Assim, todas as requisições passam por aqui, mantendo a organização e centralização de comunicação com o backend.
+</file>
+
+<file path="src/services/NotificationService.js">
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import { Platform, Alert } from 'react-native';
+import { addWeeks, addMonths } from 'date-fns';
+
+// 1. Configuração Global
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+// 2. Pedir Permissão
+export async function registerForPushNotificationsAsync() {
+  // Se for Web, não faz nada (ou apenas loga)
+  if (Platform.OS === 'web') {
+    console.log("⚠️ Notificações Push não são suportadas nativamente na Web neste modo.");
+    return;
+  }
+
+  let token;
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      Alert.alert('Falha', 'Sem permissão para notificações!');
+      return;
+    }
+  } else {
+    console.log('Use um dispositivo físico para notificações Push.');
+  }
+  return token;
+}
+
+// 3. Agendar por DATA (Blindada para Web)
+export async function agendarLembreteData(titulo, dataDisparo) {
+  const trigger = new Date(dataDisparo);
+  const agora = new Date();
+
+  console.log("--- TENTANDO AGENDAR ---");
+  console.log("Agora:", agora.toLocaleTimeString());
+  console.log("Para:", trigger.toLocaleTimeString());
+
+  if (trigger <= agora) {
+    console.log("❌ Data já passou.");
+    return;
+  }
+
+  // --- TRAVA DE SEGURANÇA PARA WEB ---
+  if (Platform.OS === 'web') {
+    console.log(`💻 [MODO WEB] Notificação simulada: "${titulo}" agendada para ${trigger.toLocaleTimeString()}`);
+    alert(`[Simulação Web] Lembrete agendado: ${titulo}`);
+    return; // Para aqui e não tenta chamar o código nativo
+  }
+
+  // Código Nativo (Android/iOS)
+  try {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "📅 Lembrete ClubFlow",
+          body: titulo,
+          sound: true,
+        },
+        trigger: { date: trigger },
+      });
+      console.log("✅ Agendado no celular! ID:", id);
+  } catch (e) {
+      console.log("❌ Erro ao agendar:", e);
+  }
+}
+</file>
+
+</files>
