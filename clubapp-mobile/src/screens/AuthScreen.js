@@ -53,7 +53,7 @@ const Logo = ({ width = 120, height = 120 }) => {
   );
 };
 
-// --- COMPONENTE INPUT ANIMADO (MANTIDO INTACTO) ---
+// COMPONENTE INPUT ANIMADO
 const AnimatedInput = ({ icon, placeholder, value, onChangeText, type, secure, onToggleSecure, fieldName, setFocusedField, focusedField, themeColor }) => {
   const focusAnim = useRef(new Animated.Value(0)).current;
 
@@ -115,17 +115,17 @@ export default function AuthScreen() {
 
 const [isLogin, setIsLogin] = useState(true);
 
-  // 🚀 VARIÁVEIS DE LOGIN
+  // VARIÁVEIS DE LOGIN
   const [emailLogin, setEmailLogin] = useState("");
   const [senhaLogin, setSenhaLogin] = useState("");
 
-  // 🚀 VARIÁVEIS DE CADASTRO
+  // VARIÁVEIS DE CADASTRO
   const [nome, setNome] = useState("");
   const [emailCad, setEmailCad] = useState("");
   const [senhaCad, setSenhaCad] = useState("");
   const [confirmaSenha, setConfirmaSenha] = useState("");
   
-  // 🚀 CONTROLES DE TELA (Estes eram os que estavam faltando!)
+  // CONTROLES DE TELA (Estes eram os que estavam faltando!)
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
@@ -184,7 +184,7 @@ async function handleSubmit() {
     setSuccessMessage("");
     
     if (isLogin) {
-      // 🚀 FLUXO DE LOGIN
+      // FLUXO DE LOGIN
       if (!emailLogin.trim() || !senhaLogin.trim()) {
         return setErrorMessage("Preencha e-mail e senha.");
       }
@@ -197,7 +197,7 @@ async function handleSubmit() {
         setLoading(false); 
       }
     } else {
-      // 🚀 FLUXO DE CADASTRO
+      // FLUXO DE CADASTRO
       if (!nome.trim()) return setErrorMessage("Digite seu nome.");
       if (!emailCad.trim()) return setErrorMessage("Digite seu e-mail.");
       if (!senhaCad.trim()) return setErrorMessage("Crie uma senha.");
@@ -208,16 +208,16 @@ async function handleSubmit() {
       try {
         await register(nome, emailCad, senhaCad);
         
-        // 1. Limpa os dados preenchidos
+        // Limpa os dados preenchidos
         setNome(""); setEmailCad(""); setSenhaCad(""); setConfirmaSenha("");
         
-        // 2. 🚀 A CORREÇÃO: Viramos o cartão e setamos os estados manualmente (Sem usar o flipCard)
+        // Viramos o cartão e setamos os estados manualmente (Sem usar o flipCard)
         Animated.spring(flipAnim, { toValue: 0, friction: 8, tension: 10, useNativeDriver: true }).start();
         setIsLogin(true);
         setSuccessMessage("Que bom ter você aqui! Faça seu login."); 
         
       } catch (e) { 
-        console.log("🔥 MOTIVO REAL DO ERRO NO CADASTRO:", e.response?.status, e.response?.data || e.message);
+        console.log("MOTIVO REAL DO ERRO NO CADASTRO:", e.response?.status, e.response?.data || e.message);
         tratarErro(e);
       } finally { 
         setLoading(false); 
@@ -249,7 +249,7 @@ async function handleSubmit() {
 
           <View style={{ minHeight: 620 }}> 
             
-            {/* --- LOGIN --- */}
+            {/* LOGIN  */}
             <Animated.View 
               style={[
                 styles.cardFace, 
@@ -321,7 +321,7 @@ async function handleSubmit() {
               </View>
             </Animated.View>
 
-            {/* --- CADASTRO --- */}
+            {/*  CADASTRO  */}
             <Animated.View 
               style={[
                 styles.cardFace, styles.cardBack, 
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
 
   formBody: { padding: 24, paddingTop: 5 },
   
-  // ⚠️ ESTILO DO ERRO VISUAL ⚠️
+  // ESTILO DO ERRO VISUAL 
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',

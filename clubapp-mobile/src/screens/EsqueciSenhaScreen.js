@@ -16,7 +16,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Logo } from "../components/logo";
 import AnimatedInput from "../components/AnimatedInput";
 
-// 🎨 Paleta
+// Paleta
 const THEME_COLOR = "#0ea5e9";
 const THEME_LIGHT = "#e0f2fe";
 const TEXT_DARK = "#0f172a";
@@ -145,7 +145,7 @@ export default function EsqueciSenhaScreen() {
   );
 }
 
-/* ===================== STYLES ===================== */
+/* STYLES */
 
 const styles = StyleSheet.create({
   container: {

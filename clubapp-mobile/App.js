@@ -71,7 +71,7 @@ function AppTabs() {
   );
 }
 
-// --- ROTEAMENTO PRINCIPAL ---
+// ROTEAMENTO PRINCIPAL (DECIDE ENTRE LOGADO E DESLOGADO)
 function AppRoutes() {
   const { user, loading } = useAuth();
   const { theme } = useTheme();

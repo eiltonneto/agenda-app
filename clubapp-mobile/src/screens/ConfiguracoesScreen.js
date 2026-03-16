@@ -77,7 +77,7 @@ export default function ConfiguracoesScreen({ navigation }) {
 
       </ScrollView>
 
-      {/* --- MODAL TERMOS DE USO --- */}
+      {/* MODAL TERMOS DE USO  */}
       <Modal animationType="slide" transparent={true} visible={modalTermosVisible} onRequestClose={() => setModalTermosVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
@@ -99,7 +99,7 @@ export default function ConfiguracoesScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* --- MODAL POLÍTICA DE PRIVACIDADE --- */}
+      {/* MODAL POLÍTICA DE PRIVACIDADE  */}
       <Modal animationType="slide" transparent={true} visible={modalPrivacidadeVisible} onRequestClose={() => setModalPrivacidadeVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>

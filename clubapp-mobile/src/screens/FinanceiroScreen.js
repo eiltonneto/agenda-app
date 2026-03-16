@@ -276,11 +276,11 @@ const excluirItemRapido = async (item) => {
        try {
          await api.delete(`${route}/${item.id}`);
        } catch (e) { 
-         // 🚀 A BLINDAGEM DO FANTASMA: Se o erro for 404, não faça nada! O card já sumiu da tela com sucesso.
+         // BLINDAGEM: Se o erro for 404, não faça nada! O card já sumiu da tela com sucesso. Outros status code são tratados normamelmente e o card é devolvido para o usuário.
          if (e.response && e.response.status === 404) {
             console.log("Card fantasma resolvido: já estava deletado no banco.");
          } else {
-            // Se for outro erro (ex: sem internet), devolve o card pra tela
+            // Se for outro erro, devolve o card pra tela
             setter(prev => [...prev, backupItem]); 
             tratarErro(e); 
          }
@@ -328,7 +328,7 @@ const excluirItemRapido = async (item) => {
     }
   };
 
-  // --- MODAIS ---
+  // MODAIS DE EDIÇÃO
   const abrirModalNovo = () => {
     setErrorMessage("");
     setTransacaoEditando(null);
@@ -370,7 +370,7 @@ const excluirItemRapido = async (item) => {
     setModalVisivel(true);
   };
 
-  // --- 🚀 OTIMISTA: SALVAR TRANSACAO ---
+  // OTIMISTA: SALVAR TRANSACAO
   const salvarTransacao = async () => {
     setErrorMessage("");
 
@@ -579,9 +579,9 @@ const excluirItemRapido = async (item) => {
           styles.itemCard, 
           { backgroundColor: colors.surface }, 
           selecionado && { borderColor: colors.primary, borderWidth: 2 }
-          // FALHA 1 CORRIGIDA: Opacidade removida. O card nasce 100% sólido.
         ]}
-        // FALHA 3 CORRIGIDA: Se for temporário, o clique de marcar PAGO e o longPress são ignorados silenciosamente.
+
+        // Se for temporário, o clique de marcar PAGO e o longPress são ignorados silenciosamente.
         onPress={() => item.temp ? null : (selectedIds.length > 0 ? ( selecionado ? setSelectedIds(selectedIds.filter(i => i !== item.id)) : setSelectedIds([...selectedIds, item.id]) ) : toggleStatus(item))}
         onLongPress={() => item.temp ? null : setSelectedIds([...selectedIds, item.id])}
         activeOpacity={item.temp ? 1 : 0.7} 
@@ -596,7 +596,7 @@ const excluirItemRapido = async (item) => {
               <Text style={{ fontWeight: 'bold' }}>{nomeExibir}</Text> • 
               Agendado: {safeFormatDate(item.eventDate)}
           
-              {/* 🚀 AQUI ESTÁ A MÁGICA DO HORÁRIO: Só renderiza se a string existir */}
+              {/* Só renderiza se a string existir */}
               {horario ? ` às ${horario}` : ""}
 
               {item.paidAt && (
@@ -612,7 +612,7 @@ const excluirItemRapido = async (item) => {
           {!isDone && <Text style={styles.tagPendente}>Pendente</Text>}
           
           <View style={styles.cardActions}>
-              {/* FALHA 2 CORRIGIDA: O clique no lápis é neutralizado se o ID for temporário */}
+              {/*O clique no lápis é neutralizado se o ID for temporário */}
               <TouchableOpacity 
                 onPress={() => item.temp ? null : abrirModalEditar(item)} 
                 hitSlop={{top:10,bottom:10,left:10,right:10}}
@@ -644,7 +644,7 @@ const excluirItemRapido = async (item) => {
         </TouchableOpacity>
       )}
 
-      {/* --- MODAL PICKER MÊS/ANO --- */}
+      {/* MODAL PICKER MÊS/ANO  */}
       <Modal visible={modalMesAnoVisivel} transparent animationType="fade">
         <View style={styles.overlayCenter}>
           <View style={[styles.pickerBox, { backgroundColor: colors.surface }]}>
@@ -664,7 +664,7 @@ const excluirItemRapido = async (item) => {
         </View>
       </Modal>
 
-      {/* --- MODAL FORMULÁRIO (ADD/EDIT) --- */}
+      {/* MODAL FORMULÁRIO (ADD/EDIT) */}
       <Modal visible={modalVisivel} transparent animationType="slide">
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.overlayBottom}>
           <View style={[styles.modalSaaS, { backgroundColor: colors.surface, width: isDesktop ? 600 : '100%' }]}>
@@ -794,7 +794,7 @@ const excluirItemRapido = async (item) => {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* --- MODAL GERENCIAR CATEGORIA --- */}
+      {/* MODAL GERENCIAR CATEGORIA */}
       <Modal visible={modalCatVisivel} transparent animationType="fade" onRequestClose={() => setModalCatVisivel(false)}>
         <View style={styles.overlayCenter}>
           <View style={[styles.modalCatContent, {backgroundColor: colors.surface}]}>

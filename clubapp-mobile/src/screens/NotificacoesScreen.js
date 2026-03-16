@@ -9,12 +9,12 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../services/api";
-import { useTheme } from "../context/ThemeContext"; // <--- Importar Contexto
+import { useTheme } from "../context/ThemeContext"; // Importar Contexto
 
 function exibirAlerta(t, m) { if (Platform.OS === 'web') window.alert(`${t}\n\n${m}`); else Alert.alert(t, m); }
 
 export default function NotificacoesScreen() {
-  const { theme, isDark } = useTheme(); // <--- Usar Tema
+  const { theme, isDark } = useTheme(); // Usar Tema
   const colors = theme.colors;
 
   const [loading, setLoading] = useState(false);

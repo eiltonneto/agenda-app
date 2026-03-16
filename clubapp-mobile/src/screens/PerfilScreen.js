@@ -40,7 +40,7 @@ export default function PerfilScreen() {
     return (partes[0].charAt(0) + partes[partes.length - 1].charAt(0)).toUpperCase();
   };
 
-  // --- LÓGICA DE FOTO DE PERFIL ---
+  // LÓGICA DE FOTO DE PERFIL
   async function handlePickImage() {
     setErrorMessage("");
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -59,11 +59,11 @@ export default function PerfilScreen() {
     if (!result.canceled) {
       const asset = result.assets[0];
       setLocalAvatar(asset.uri); 
-      handleUploadPhoto(asset.uri, asset.mimeType); // 🚀 Correção: Passando o MimeType real
+      handleUploadPhoto(asset.uri, asset.mimeType); // Passando o MimeType real
     }
   }
 
-// 🚀 Correção: Recebendo o mimeType
+// Recebendo o mimeType
 async function handleUploadPhoto(localUri, mimeType) {
     setUploading(true);
     try {
@@ -80,7 +80,7 @@ async function handleUploadPhoto(localUri, mimeType) {
       formData.append('foto', {
         uri: localUri, 
         name: filename,
-        type: mimeType || 'image/jpeg', // 🚀 Usa o dado do OS, ou falha suavemente para jpeg
+        type: mimeType || 'image/jpeg', // Usa o dado do OS, ou falha suavemente para jpeg
       });
 
       const response = await api.patch("/usuarios/foto", formData, {
@@ -103,7 +103,7 @@ async function handleUploadPhoto(localUri, mimeType) {
     }
   }
   
-  // --- LÓGICA DE SENHA ---
+  // LÓGICA DE SENHA
   function validarSenha(senha) {
     const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
     return regex.test(senha);
@@ -129,7 +129,7 @@ async function handleUploadPhoto(localUri, mimeType) {
     }
   }
 
-  // --- LOGOUT ---
+  // LOGOUT
   function handleLogout() {
     if (Platform.OS === 'web') {
        if (window.confirm("Deseja realmente sair?")) logout();
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30 },
   modalBtn: { flex: 1, padding: 16, borderRadius: 14, alignItems: 'center', marginHorizontal: 6 },
   
-  // ⚠️ ESTILOS DO ERRO VISUAL
+  // ESTILOS DO ERRO VISUAL
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',

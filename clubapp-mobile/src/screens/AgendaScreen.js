@@ -367,14 +367,14 @@ const handleExcluirEvento = (id) => {
       }
 
     } catch (e) {
-      // ✅ ROLLBACK COMPLETO: Restaura agenda e financeiro ao estado anterior
+      // ROLLBACK COMPLETO: Restaura agenda e financeiro ao estado anterior
       setEventosGlobais(backupEventos);
       setReceitasGlobais(backupReceitas);
 
-      // ✅ REABRE O MODAL com os dados intactos para o usuário não perder o que digitou
+      // REABRE O MODAL com os dados intactos para o usuário não perder o que digitou
       setModalVisivel(true);
 
-      // ✅ MENSAGEM CONTEXTUAL: Conflito de horário vs. erro genérico
+      // MENSAGEM CONTEXTUAL: Conflito de horário vs. erro genérico
       if (e.response?.status === 409) {
         setErrorMessage("⚠️ Conflito de horário: este local já está reservado neste período.");
       } else if (e.message?.includes("Network Error")) {
@@ -395,17 +395,17 @@ const toggleComparecido = async (evento) => {
     const backupEventos = [...eventosGlobais];
     const backupReceitas = [...receitasGlobais];
 
-    // 1. OTIMISMO NA AGENDA: Muda o ícone na mesma hora
+    // OTIMISMO NA AGENDA: Muda o ícone na mesma hora
     setEventosGlobais(prev => prev.map(e => e.id === evento.id ? { ...e, comparecido: novoStatus } : e));
 
-    // 2. OTIMISMO NO FINANCEIRO: A mágica da integração!
+    // OTIMISMO NO FINANCEIRO: A mágica da integração!
     
     const agora = new Date().toISOString();
     const dataIso = evento.inicio.split('T')[0]; 
 
     setReceitasGlobais(prev => prev.map(r => {
 
-  // 🚀 Busca pelo eventDate e pela descrição para dar a baixa otimista
+  // Busca pelo eventDate e pela descrição para dar a baixa otimista
   if (r.eventDate === dataIso && r.descricao.includes(evento.titulo)) {
     return { 
       ...r, 
@@ -417,7 +417,7 @@ const toggleComparecido = async (evento) => {
 }));
     // Procura a receita correspondente e dá a baixa automática
     setReceitasGlobais(prev => prev.map(r => {
-      // 🚀 Busca pelo eventDate e pela descrição para dar a baixa otimista
+      // Busca pelo eventDate e pela descrição para dar a baixa otimista
       if (r.eventDate === dataIso && r.descricao.includes(evento.titulo)) {
         return { 
           ...r, 
@@ -429,10 +429,10 @@ const toggleComparecido = async (evento) => {
     }));
 
     try {
-      // 3. REQUISIÇÃO SIMPLES E DIRETA (Apenas avisa o banco da mudança do status)
+      // REQUISIÇÃO SIMPLES E DIRETA (Apenas avisa o banco da mudança do status)
       await api.put(`/eventos/${evento.id}`, { comparecido: novoStatus });
       
-      // 4. ATUALIZAÇÃO SILENCIOSA DO FINANCEIRO (Usando o 'new Date' que corrigimos)
+      // ATUALIZAÇÃO SILENCIOSA DO FINANCEIRO (Usando o 'new Date' que corrigimos)
       const dataEventoObj = new Date(evento.inicio); 
       const mes = dataEventoObj.getMonth() + 1;
       const ano = dataEventoObj.getFullYear();
@@ -454,7 +454,7 @@ const toggleComparecido = async (evento) => {
     }
   };
 
-  // --- GESTÃO DE CATEGORIAS ---
+  // GESTÃO DE CATEGORIAS (OTIMISTIC UI + PERSISTÊNCIA LOCAL -> SWR DE CATEGORIAS)
   const handleNovaCategoria = () => {
     setErrorMessage("");
     setCatEditing({ id: Date.now().toString(), name: "", color: PRESET_COLORS[0], isNew: true });
@@ -563,7 +563,7 @@ const toggleComparecido = async (evento) => {
             const isSelected = isSameDay(day, selectedDate);
             const isToday = isSameDay(day, new Date());
             
-            // 🚀 Lendo diretamente do estado global
+            // endo diretamente do estado global
             const dayEvents = eventosGlobais.filter(e => { 
                 try { return isSameDay(getLocalDate(e.inicio), day); } 
                 catch { return false; } 
@@ -653,7 +653,7 @@ const toggleComparecido = async (evento) => {
         </View>
       </ScrollView>
 
-      {/* --- MODAL DE EVENTO --- */}
+      {/* MODAL DE EVENTO */}
       <Modal visible={modalVisivel} transparent animationType="slide" onRequestClose={() => setModalVisivel(false)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModalVisivel(false)}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalKeyboard}>
@@ -749,7 +749,7 @@ const toggleComparecido = async (evento) => {
                 <Text style={styles.label}>OBSERVAÇÕES</Text>
                 <TextInput style={[styles.input, { height: 60, marginBottom: 20, color: colors.text, backgroundColor: colors.inputBackground }]} multiline value={observacao} onChangeText={setObservacao} placeholderTextColor={colors.textSecondary} />
 
-                {/* 🚀 O botão agora salva instantaneamente e não fica preso em 'loading' */}
+                {/* O botão salva instantaneamente e não fica preso em 'loading' */}
                 <TouchableOpacity style={[styles.btnSave, {backgroundColor: colors.primary}]} onPress={salvarEvento}>
                   <Text style={styles.btnSaveText}>SALVAR EVENTO</Text>
                 </TouchableOpacity>
@@ -760,7 +760,7 @@ const toggleComparecido = async (evento) => {
         </TouchableOpacity>
       </Modal>
 
-      {/* --- MODAL CATEGORIA --- */}
+      {/*  MODAL CATEGORIA  */}
       <Modal visible={modalCatVisivel} transparent animationType="fade" onRequestClose={() => setModalCatVisivel(false)}>
         <View style={styles.overlayCenter}>
           <View style={[styles.modalCatContent, {backgroundColor: colors.surface}]}>
@@ -789,7 +789,7 @@ const toggleComparecido = async (evento) => {
         </View>
       </Modal>
 
-      {/* --- MODAL ANO --- */}
+      {/* MODAL ANO */}
       <Modal visible={modalPickerVisivel} transparent animationType="fade" onRequestClose={() => setModalPickerVisivel(false)}>
          <TouchableOpacity style={styles.overlayCenter} activeOpacity={1} onPress={() => setModalPickerVisivel(false)}>
             <View style={[styles.pickerBox, {backgroundColor: colors.surface}]}>

@@ -4,7 +4,6 @@ import Svg, { Defs, LinearGradient, Stop, Path, Polygon } from 'react-native-svg
 
 export const Logo = ({ width = 120, height = 120 }) => {
   return (
-    // Removi qualquer style extra aqui para garantir pureza
     <Svg width={width} height={height} viewBox="0 0 32 32" fill="none">
       <Defs>
         <LinearGradient id="a" x1="-67.907" y1="-308.551" x2="-67.857" y2="-308.564" gradientTransform="matrix(87.822 0 0 -88.533 5984.532 -27290.617)" gradientUnits="userSpaceOnUse">

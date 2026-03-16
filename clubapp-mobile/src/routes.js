@@ -9,7 +9,7 @@ import { useAuth } from './context/AuthContext';
 import { useTheme } from './context/ThemeContext';
 import { API_URL } from "./services/api";
 
-// --- TELAS ---
+// TELA
 // Autenticação
 import AuthScreen from "./screens/AuthScreen";
 import EsqueciSenhaScreen from "./screens/EsqueciSenhaScreen";
@@ -24,7 +24,7 @@ import ConfiguracoesScreen from "./screens/ConfiguracoesScreen";
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// --- 1. CONFIGURAÇÃO DAS ABAS (MANTIDA DO SEU CÓDIGO) ---
+// CONFIGURAÇÃO DAS ABAS (MANTIDA DO SEU CÓDIGO) 
 function AppTabs() {
   const { user } = useAuth();
   const { theme } = useTheme();
@@ -71,7 +71,7 @@ function AppTabs() {
   );
 }
 
-// --- 2. O GUARDA DE TRÂNSITO (LÓGICA PRINCIPAL) ---
+//  LÓGICA PRINCIPAL DE ROTAS (LOGADO X NÃO LOGADO)
 export default function Routes() {
   const { signed, loading } = useAuth(); // Pega o estado do AuthContext
   const { theme } = useTheme();
@@ -89,7 +89,7 @@ export default function Routes() {
     <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background } }}>
       
       {signed ? (
-        // === ROTAS DE USUÁRIO LOGADO ===
+        // ROTAS DE USUÁRIO LOGADO 
         <Stack.Group>
           {/* A tela principal agora são as Abas */}
           <Stack.Screen name="AppTabs" component={AppTabs} />
