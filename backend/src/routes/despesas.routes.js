@@ -141,15 +141,15 @@ router.post("/excluir-massa", async (req, res) => {
   try {
     const { ids } = req.body;
 
-    // 1. Valida se é um array preenchido
+    // Valida se é um array preenchido
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ error: "Nenhum ID fornecido." });
     }
 
-    // 2. Transforma tudo em número e filtra (remove NaNs, zeros e IDs fantasmas)
+    // Transforma tudo em número e filtra (remove NaNs, zeros e IDs fantasmas)
     const idsValidos = ids.map(Number).filter(id => !isNaN(id) && id > 0);
 
-    // 3. Se após o filtro não sobrar nenhum ID válido, recusa a operação
+    // Se após o filtro não sobrar nenhum ID válido, recusa a operação
     if (idsValidos.length === 0) {
       return res.status(400).json({ error: "Nenhum ID válido para exclusão." });
     }

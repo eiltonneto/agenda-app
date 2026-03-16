@@ -109,25 +109,25 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// --- 🗑️ ROTA: Excluir Receitas em Massa ---
+// ROTA: Excluir Receitas em Massa 
 router.post("/excluir-massa", async (req, res) => {
   try {
     const { ids } = req.body; 
 
-    // 1. Validação Estrutural: É um array válido e não está vazio?
+    // Validação Estrutural: É um array válido e não está vazio?
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ error: "Nenhum ID fornecido para exclusão." });
     }
 
-    // 2. Saneamento de Dados (Sanitization): Garante que só passem números reais e positivos
+    // Tratamento de Dados: Garante que só passem números reais e positivos
     const idsValidos = ids.map(Number).filter(id => !isNaN(id) && id > 0);
 
-    // 3. Validação Lógica Posterior: Sobrou algum ID real?
+    // Validação Lógica Posterior: Sobrou algum ID real?
     if (idsValidos.length === 0) {
       return res.status(400).json({ error: "IDs inválidos. Atualize a tela e tente novamente." });
     }
 
-    // 4. Execução Otimizada: 1 única query no banco de dados
+    // Execução Otimizada: 1 única query no banco de dados
     await prisma.receita.deleteMany({
       where: {
         id: { in: idsValidos },
@@ -142,7 +142,7 @@ router.post("/excluir-massa", async (req, res) => {
   }
 });
 
-// --- 🗑️ ROTA: Excluir Receitas em Massa ---
+// ROTA: Excluir Receitas em Massa (SEM OTIMIZAÇÃO, APENAS PARA COMPARAÇÃO DE PERFORMANCE)
 router.post("/excluir-massa", async (req, res) => {
   try {
     const { ids } = req.body; 

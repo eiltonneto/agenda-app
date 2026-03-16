@@ -5,9 +5,8 @@ import { authMiddleware } from "../middlewares/auth.js";
 const router = Router();
 router.use(authMiddleware);
 
-//
-// --- DASHBOARD / RESUMO ---
-//
+
+// DASHBOARD / RESUMO
 router.get("/resumo", async (req, res) => {
   try {
     const { mes, ano } = req.query;
@@ -57,9 +56,8 @@ router.get("/resumo", async (req, res) => {
   }
 });
 
-//
-// --- LISTAR MOVIMENTAÇÕES ---
-//
+
+// LISTAR MOVIMENTAÇÕES 
 router.get("/", async (req, res) => {
   try {
     const { mes, ano, tipo } = req.query;
@@ -91,9 +89,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-//
-// --- CRIAR MOVIMENTAÇÃO ---
-//
+// CRIAR MOVIMENTAÇÃO
 router.post("/", async (req, res) => {
   try {
     const { descricao, valor, tipo, categoria, data, status } = req.body;
@@ -125,9 +121,8 @@ router.post("/", async (req, res) => {
   }
 });
 
-//
-// --- ATUALIZAR MOVIMENTAÇÃO ---
-//
+// ATUALIZAR MOVIMENTAÇÃO (garantindo que o usuário só possa atualizar suas próprias movimentações e que os dados sejam válidos)
+
 router.put("/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -170,9 +165,8 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-//
-// --- ALTERAR STATUS ---
-//
+
+// ALTERAR STATUS 
 router.patch("/:id/status", async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -192,9 +186,8 @@ router.patch("/:id/status", async (req, res) => {
   }
 });
 
-//
-// --- EXCLUSÃO INDIVIDUAL ---
-//
+
+// EXCLUSÃO INDIVIDUAL 
 router.delete("/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -219,9 +212,8 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-//
-// --- EXCLUSÃO EM MASSA ---
-//
+
+// EXCLUSÃO EM MASSA 
 router.post("/excluir-massa", async (req, res) => {
   try {
     const { ids } = req.body;

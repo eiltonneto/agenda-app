@@ -7,7 +7,7 @@ router.get("/", async (req, res) => {
   try {
     const userId = req.userId;
 
-    // 🚀 O AJUSTE: Pegamos o início deste mês e o início do próximo
+    // início do mês e o início do próximo
     const dataAtual = new Date();
     const inicioDoMes = new Date(dataAtual.getFullYear(), dataAtual.getMonth(), 1);
     const inicioProximoMes = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 1);
@@ -33,7 +33,7 @@ router.get("/", async (req, res) => {
           OR: [
             { status: "PENDENTE" },
             { 
-              // 🚀 O PRISMA AMA ISSO: Data entre o dia 1 deste mês e o dia 1 do próximo
+              // Data entre o dia 1 deste mês e o dia 1 do próximo
               eventDate: { gte: inicioDoMes, lt: inicioProximoMes } 
             }
           ]

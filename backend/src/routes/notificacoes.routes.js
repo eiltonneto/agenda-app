@@ -1,3 +1,6 @@
+// ARQUIVO DE NOTIFICAÇÕES PARA SER USADO EM VERSÃO FUTURA, COM FUNCIONALIDADES BÁSIDCAS DE CRUD E MARCAR COMO LIDA
+
+
 import { Router } from "express";
 import prisma from "../database/prisma.js";
 import { authMiddleware } from "../middlewares/auth.js";
@@ -19,7 +22,7 @@ router.get("/", async (req, res) => {
 
     const notificacoes = await prisma.notificacao.findMany({
       where,
-      orderBy: { disparoEm: "desc" }, // <--- Mudado para DESC (novas primeiro)
+      orderBy: { disparoEm: "desc" }, // Mudado para DESC para mostrar as mais recentes primeiro
     });
 
     return res.json(notificacoes);
@@ -42,7 +45,7 @@ router.patch("/:id/lida", async (req, res) => {
   }
 });
 
-// MARCAR TODAS COMO LIDAS (NOVO)
+// MARCAR TODAS COMO LIDAS 
 router.patch("/ler-todas", async (req, res) => {
     try {
         await prisma.notificacao.updateMany({
@@ -55,7 +58,7 @@ router.patch("/ler-todas", async (req, res) => {
     }
 });
 
-// EXCLUSÃO EM MASSA (NOVO - Consistência com o resto do app)
+// EXCLUSÃO EM MASSA (Consistência com o resto do app)
 router.post("/excluir-massa", async (req, res) => {
     try {
         const { ids } = req.body;

@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🚀 Iniciando migração de dados (Modo ESM)...");
+  console.log("Iniciando migração de dados (Modo ESM)");
 
   try {
     // 1. Migrar Receitas
@@ -19,7 +19,7 @@ async function main() {
         }
       });
     }
-    console.log(`✅ Receitas migradas com sucesso.`);
+    console.log(`Receitas migradas com sucesso.`);
 
     // 2. Migrar Despesas
     const despesas = await prisma.despesa.findMany();
@@ -37,7 +37,7 @@ async function main() {
     console.log(`✅ Despesas migradas com sucesso.`);
 
   } catch (error) {
-    console.error("❌ Erro durante a migração:", error);
+    console.error("Erro durante a migração:", error);
   }
 }
 

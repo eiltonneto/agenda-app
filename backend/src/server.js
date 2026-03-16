@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import path from "path"; 
 import { fileURLToPath } from "url"; // 👈 IMPORTANTE: Ferramenta do Node moderno
 
-// --- IMPORTAÇÕES ---
+// IMPORTAÇÕES DE ROTAS
 import usuariosRoutes from "./routes/usuarios.routes.js"; 
 import authRoutes from "./routes/auth.routes.js";
 import eventosRoutes from "./routes/eventos.routes.js";
@@ -27,13 +27,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- MÁGICA DO NODE MODERNO: Recriando o __dirname ---
+// Recriando o __dirname para trabalhar com ED Modules (import/export) - Isso é necessário para servir arquivos estáticos e lidar com uploads de forma correta. Sem isso, o caminho para a pasta 'uploads' ficaria quebrado e causaria erros ao tentar acessar ou salvar arquivos.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 
 
-// --- 1. ROTAS PÚBLICAS (Abertas) ---
+// ROTAS PÚBLICAS (Abertas) 
+
+// Robô de ping para manter o servidor da Render acordado (Hospedagem gratuíta) 
 app.get("/ping", (req, res) => {
   return res.status(200).send("pong");
 });
@@ -46,12 +48,10 @@ app.use("/usuarios", usuariosRoutes);
 app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
 
 
-// --- 2. PROTEÇÃO GLOBAL ---
+// PROTEÇÃO GLOBAL
 app.use(authMiddleware); 
 
-// --- 3. ROTAS PROTEGIDAS ---
-// robô de ping para manter o servidor acordado 
-
+// ROTAS PROTEGIDAS (REQUEREM AUTENTICAÇÃO JWT)
 app.use("/bootstrap", bootstrapRoutes);
 app.use("/eventos", eventosRoutes);
 app.use("/financeiro", financeiroRoutes);

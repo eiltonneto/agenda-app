@@ -8,7 +8,7 @@ import { authMiddleware } from "../middlewares/auth.js";
 
 const router = Router();
 
-// ☁️ 1. CONFIGURAÇÃO DO CLOUDINARY
+// CONFIGURAÇÃO DO CLOUDINARY - Será consertado na próxima versão para receber fotos reais
 // Utiliza as variáveis de ambiente que você configurou no painel do Render
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -16,7 +16,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// ☁️ 2. STORAGE DE NUVEM
+// STORAGE DE NUVEM
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
@@ -28,7 +28,7 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
-// --- ROTA PÚBLICA: Cadastro de Usuário ---
+// Cadastro de Usuário 
 router.post("/", async (req, res) => {
   try {
     const { nome, email, senha } = req.body;
@@ -50,10 +50,10 @@ router.post("/", async (req, res) => {
   }
 });
 
-// --- PROTEÇÃO: Exige Token JWT ---
+// --- PROTEÇÃO: Exige Token JWT
 router.use(authMiddleware);
 
-// --- 🚀 ROTA: Atualizar Foto (COM ENCAPSULAMENTO DE ERRO I/O) ---
+// Atualizar Foto (COM ENCAPSULAMENTO DE ERRO DE MULTER/CLOUDINARY)
 router.patch("/foto", (req, res, next) => {
   // O invólucro lógico: captura falhas do Cloudinary/Rede antes do Express travar
   upload.single("foto")(req, res, function (err) {
@@ -61,7 +61,7 @@ router.patch("/foto", (req, res, next) => {
       console.error("Erro crítico no middleware do Multer/Cloudinary:", err);
       return res.status(502).json({ error: "Falha na comunicação com a nuvem de arquivos. Tente novamente." });
     }
-    // Se não houver erro de I/O, avança para a função principal
+    // Se não houver erro, avança para a função principal
     next();
   });
 }, async (req, res) => {
@@ -73,7 +73,7 @@ router.patch("/foto", (req, res, next) => {
 
     const usuario = await prisma.usuario.update({
       where: { id: req.userId },
-      data: { foto: linkDaFotoNuvem }, // Salva o URL (http...) em vez do nome do arquivo
+      data: { foto: linkDaFotoNuvem }, // Salva o URL em vez do nome do arquivo
     });
 
     const { senhaHash, ...userSemSenha } = usuario;
@@ -84,7 +84,7 @@ router.patch("/foto", (req, res, next) => {
   }
 });
 
-// --- ROTA: Alterar Senha ---
+// ROTA: Alterar Senha (com verificação de senha atual para segurança)
 router.patch("/senha", async (req, res) => {
   try {
     const { senhaAtual, novaSenha } = req.body;

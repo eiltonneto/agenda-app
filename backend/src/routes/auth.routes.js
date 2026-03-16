@@ -5,12 +5,10 @@ import jwt from "jsonwebtoken";
 
 const router = Router();
 
-// --- AQUI ESTAVA O ERRO: Faltava essa configuração ---
 const authConfig = {
   secret: process.env.JWT_SECRET || "f4930353163359556133965586686733", 
   expiresIn: "7d",
 };
-// -----------------------------------------------------
 
 router.post("/", async (req, res) => {
   try {
@@ -21,14 +19,14 @@ router.post("/", async (req, res) => {
         return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
     }
 
-    // 1. Busca o usuário no banco
+    // Busca o usuário no banco
     const user = await prisma.usuario.findUnique({ where: { email } });
 
     if (!user) {
       return res.status(400).json({ error: "E-mail não encontrado." });
     }
 
-    // 2. Verifica a senha
+    // Verifica a senha
     const senhaHashBanco = user.senha || user.password || user.senhaHash;
     if (!senhaHashBanco) {
         return res.status(500).json({ error: "Erro de cadastro: Senha não encontrada no banco." });
@@ -40,15 +38,15 @@ router.post("/", async (req, res) => {
       return res.status(401).json({ error: "Senha incorreta." });
     }
 
-    // 3. Gera o Token
+    // Gera o Token
     const token = jwt.sign({ id: user.id }, authConfig.secret, {
       expiresIn: authConfig.expiresIn,
     });
 
-    // --- 🚀 V4: VELOCIDADE MÁXIMA E REGIME DE CAIXA ---
+    // V4: VELOCIDADE MÁXIMA E REGIME DE CAIXA ---
     
-    // 1. Definimos o horizonte de tempo (Mês Atual)
-// --- 🚀 REFINAMENTO REGIME DE CAIXA (V4) ---
+    // horizonte de tempo (Mês Atual)
+    //REGIME DE CAIXA (V4) - o que está PENDENTE + o que entrou/foi pago no CAIXA no mês vigente
     const agora = new Date();
     const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
     const fimMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0, 23, 59, 59);
@@ -63,21 +61,21 @@ router.post("/", async (req, res) => {
         orderBy: { inicio: 'asc' } 
       }),
 
-      // Receitas: Segue ESTREITAMENTE o Regime de Caixa (Regra 2)
+      // Receitas: Segue o Regime de Caixa
       prisma.receita.findMany({ 
         where: { 
           usuarioId: user.id,
           OR: [
-            { status: "PENDENTE" }, // 1. Tudo que está atrasado ou a receber (Inadimplência)
+            { status: "PENDENTE" }, // Tudo que está atrasado ou a receber 
             { 
               status: "RECEBIDA", 
-              paidAt: { gte: inicioMes, lte: fimMes } // 2. O que entrou no CAIXA este mês
+              paidAt: { gte: inicioMes, lte: fimMes } // O que entrou no CAIXA este mês
             }
           ]
         }
       }),
 
-      // Despesas: Segue ESTREITAMENTE o Regime de Caixa
+      // Despesas
       prisma.despesa.findMany({ 
         where: { 
           usuarioId: user.id,

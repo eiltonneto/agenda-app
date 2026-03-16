@@ -1,0 +1,2181 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.gitignore
+migrateData.js
+package.json
+prisma.config.ts
+prisma/migrations/20251205224310_init_clubapp/migration.sql
+prisma/migrations/20251226210215_fix_event_datetime/migration.sql
+prisma/migrations/20260105151637_sync_schema/migration.sql
+prisma/migrations/20260209212754_converte_tipo_evento_para_string/migration.sql
+prisma/migrations/20260209213007_yourflowv2/migration.sql
+prisma/migrations/20260212174459_add_categoria_id/migration.sql
+prisma/migrations/20260212175233_add_financeiro/migration.sql
+prisma/migrations/20260212180002_add_comparecido/migration.sql
+prisma/migrations/20260212184636_add_tipo_evento/migration.sql
+prisma/migrations/20260212192740_add_movimentacao/migration.sql
+prisma/migrations/20260212203953_add_lembrete_minutos/migration.sql
+prisma/migrations/20260213012559_corrigindo_usuario_e_evento/migration.sql
+prisma/migrations/20260214034705_comparecido/migration.sql
+prisma/migrations/20260217022458_add_new_cash_basis_fields/migration.sql
+prisma/migrations/20260217023138_final_cleanup_cash_basis/migration.sql
+prisma/migrations/migration_lock.toml
+prisma/schema.prisma
+prisma/scripts/migrarFinanceiro.js
+prisma/seed.js
+src/config/multer.js
+src/database/prisma.js
+src/middlewares/auth.js
+src/routes/auth.routes.js
+src/routes/bootstrap.routes.js
+src/routes/despesas.routes.js
+src/routes/eventos.routes.js
+src/routes/financeiro.routes.js
+src/routes/notificacoes.routes.js
+src/routes/receitas.routes.js
+src/routes/usuarios.routes.js
+src/server.js
+uploads/.gitkeep
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".gitignore">
+node_modules
+# Keep environment variables out of version control
+.env
+
+/generated/prisma
+</file>
+
+<file path="migrateData.js">
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log("🚀 Iniciando migração de dados (Modo ESM)...");
+
+  try {
+    // 1. Migrar Receitas
+    const receitas = await prisma.receita.findMany();
+    console.log(`Buscando ${receitas.length} receitas...`);
+    
+    for (const rec of receitas) {
+      await prisma.receita.update({
+        where: { id: rec.id },
+        data: {
+          eventDate: rec.dataPrevista,
+          paidAt: rec.dataRecebida,
+        }
+      });
+    }
+    console.log(`✅ Receitas migradas com sucesso.`);
+
+    // 2. Migrar Despesas
+    const despesas = await prisma.despesa.findMany();
+    console.log(`Buscando ${despesas.length} despesas...`);
+
+    for (const desp of despesas) {
+      await prisma.despesa.update({
+        where: { id: desp.id },
+        data: {
+          eventDate: desp.dataVencimento,
+          paidAt: desp.dataPagamento,
+        }
+      });
+    }
+    console.log(`✅ Despesas migradas com sucesso.`);
+
+  } catch (error) {
+    console.error("❌ Erro durante a migração:", error);
+  }
+}
+
+main()
+  .catch(e => console.error(e))
+  .finally(async () => {
+    await prisma.$disconnect();
+    console.log("👋 Desconectado do banco.");
+  });
+</file>
+
+<file path="package.json">
+{
+  "name": "clubapp-backend",
+  "version": "1.0.0",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0",
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^1.41.3",
+    "cors": "^2.8.6",
+    "dotenv": "^16.0.0",
+    "express": "^4.19.0",
+    "jsonwebtoken": "^9.0.0",
+    "multer": "^2.0.2",
+    "multer-storage-cloudinary": "^4.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0",
+    "prisma": "^6.0.0"
+  }
+}
+</file>
+
+<file path="prisma.config.ts">
+// This file was generated by Prisma and assumes you have installed the following:
+// npm install --save-dev prisma dotenv
+import "dotenv/config";
+import { defineConfig, env } from "prisma/config";
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: {
+    path: "prisma/migrations",
+  },
+  engine: "classic",
+  datasource: {
+    url: env("DATABASE_URL"),
+  },
+});
+</file>
+
+<file path="prisma/migrations/20251205224310_init_clubapp/migration.sql">
+-- CreateEnum
+CREATE TYPE "TipoReceita" AS ENUM ('VENDA', 'SERVICO', 'ALUGUEL', 'OUTRO');
+
+-- CreateEnum
+CREATE TYPE "StatusReceita" AS ENUM ('PENDENTE', 'RECEBIDA', 'CANCELADA');
+
+-- CreateEnum
+CREATE TYPE "CategoriaDespesa" AS ENUM ('FIXA', 'VARIAVEL', 'COMPRA_PRODUTO', 'MANUTENCAO', 'OUTRO');
+
+-- CreateEnum
+CREATE TYPE "StatusDespesa" AS ENUM ('PENDENTE', 'PAGA', 'ATRASADA');
+
+-- CreateEnum
+CREATE TYPE "TipoEvento" AS ENUM ('RACHA', 'EVENTO_CLUBE', 'FESTA', 'REUNIAO', 'MANUTENCAO', 'OUTRO');
+
+-- CreateEnum
+CREATE TYPE "TipoNotificacao" AS ENUM ('EVENTO', 'DESPESA');
+
+-- CreateTable
+CREATE TABLE "Usuario" (
+    "id" SERIAL NOT NULL,
+    "nome" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "senhaHash" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Usuario_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Receita" (
+    "id" SERIAL NOT NULL,
+    "tipo" "TipoReceita" NOT NULL,
+    "descricao" TEXT NOT NULL,
+    "valor" DECIMAL(10,2) NOT NULL,
+    "dataPrevista" TIMESTAMP(3),
+    "dataRecebida" TIMESTAMP(3),
+    "status" "StatusReceita" NOT NULL DEFAULT 'PENDENTE',
+    "usuarioId" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Receita_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Despesa" (
+    "id" SERIAL NOT NULL,
+    "categoria" "CategoriaDespesa" NOT NULL,
+    "descricao" TEXT NOT NULL,
+    "valor" DECIMAL(10,2) NOT NULL,
+    "dataVencimento" TIMESTAMP(3) NOT NULL,
+    "dataPagamento" TIMESTAMP(3),
+    "status" "StatusDespesa" NOT NULL DEFAULT 'PENDENTE',
+    "usuarioId" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Despesa_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Evento" (
+    "id" SERIAL NOT NULL,
+    "titulo" TEXT NOT NULL,
+    "tipo" "TipoEvento" NOT NULL,
+    "inicio" TIMESTAMP(3) NOT NULL,
+    "fim" TIMESTAMP(3) NOT NULL,
+    "cor" TEXT NOT NULL,
+    "observacao" TEXT,
+    "lembreteMinutosAntes1" INTEGER,
+    "lembreteMinutosAntes2" INTEGER,
+    "usuarioId" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Evento_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Notificacao" (
+    "id" SERIAL NOT NULL,
+    "tipo" "TipoNotificacao" NOT NULL,
+    "titulo" TEXT NOT NULL,
+    "mensagem" TEXT NOT NULL,
+    "disparoEm" TIMESTAMP(3) NOT NULL,
+    "lida" BOOLEAN NOT NULL DEFAULT false,
+    "referenciaTipo" TEXT,
+    "referenciaId" INTEGER,
+    "usuarioId" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Notificacao_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Usuario_email_key" ON "Usuario"("email");
+
+-- AddForeignKey
+ALTER TABLE "Receita" ADD CONSTRAINT "Receita_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Despesa" ADD CONSTRAINT "Despesa_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Evento" ADD CONSTRAINT "Evento_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Notificacao" ADD CONSTRAINT "Notificacao_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+</file>
+
+<file path="prisma/migrations/20251226210215_fix_event_datetime/migration.sql">
+-- AlterTable
+ALTER TABLE "Evento" ALTER COLUMN "inicio" SET DATA TYPE TEXT,
+ALTER COLUMN "fim" SET DATA TYPE TEXT;
+</file>
+
+<file path="prisma/migrations/20260105151637_sync_schema/migration.sql">
+/*
+  Warnings:
+
+  - Changed the type of `inicio` on the `Evento` table. No cast exists, the column would be dropped and recreated, which cannot be done if there is data, since the column is required.
+  - Changed the type of `fim` on the `Evento` table. No cast exists, the column would be dropped and recreated, which cannot be done if there is data, since the column is required.
+
+*/
+-- AlterEnum
+-- This migration adds more than one value to an enum.
+-- With PostgreSQL versions 11 and earlier, this is not possible
+-- in a single migration. This can be worked around by creating
+-- multiple migrations, each migration adding only one value to
+-- the enum.
+
+
+ALTER TYPE "TipoNotificacao" ADD VALUE 'RECEITA';
+ALTER TYPE "TipoNotificacao" ADD VALUE 'OUTRO';
+
+-- AlterTable
+ALTER TABLE "Evento" DROP COLUMN "inicio",
+ADD COLUMN     "inicio" TIMESTAMP(3) NOT NULL,
+DROP COLUMN "fim",
+ADD COLUMN     "fim" TIMESTAMP(3) NOT NULL;
+
+-- AlterTable
+ALTER TABLE "Usuario" ADD COLUMN     "foto" TEXT;
+</file>
+
+<file path="prisma/migrations/20260209212754_converte_tipo_evento_para_string/migration.sql">
+-- 1. A MÁGICA: Converte a coluna 'tipo' de Enum para Texto
+-- O comando 'USING "tipo"::text' pega o valor antigo (ex: LAZER) e transforma em texto
+ALTER TABLE "Evento" ALTER COLUMN "tipo" TYPE TEXT USING "tipo"::text;
+
+-- 2. Cria a coluna senha na tabela Usuario (se ela ainda não existir)
+-- Isso garante que o login novo funcione sem quebrar o usuário do seu tio
+ALTER TABLE "Usuario" ADD COLUMN IF NOT EXISTS "senha" TEXT;
+
+-- 3. (Opcional) Remove o tipo "Enum" antigo do banco para limpar a sujeira
+DROP TYPE IF EXISTS "TipoEvento";
+</file>
+
+<file path="prisma/migrations/20260209213007_yourflowv2/migration.sql">
+/*
+  Warnings:
+
+  - You are about to drop the column `cor` on the `Evento` table. All the data in the column will be lost.
+  - You are about to drop the column `createdAt` on the `Evento` table. All the data in the column will be lost.
+  - You are about to drop the column `lembreteMinutosAntes1` on the `Evento` table. All the data in the column will be lost.
+  - You are about to drop the column `lembreteMinutosAntes2` on the `Evento` table. All the data in the column will be lost.
+  - You are about to drop the column `observacao` on the `Evento` table. All the data in the column will be lost.
+  - You are about to drop the column `updatedAt` on the `Usuario` table. All the data in the column will be lost.
+
+*/
+-- CreateEnum
+CREATE TYPE "TipoEvento" AS ENUM ('RACHA', 'EVENTO_CLUBE', 'FESTA', 'REUNIAO', 'MANUTENCAO', 'OUTRO');
+
+-- AlterTable
+ALTER TABLE "Evento" DROP COLUMN "cor",
+DROP COLUMN "createdAt",
+DROP COLUMN "lembreteMinutosAntes1",
+DROP COLUMN "lembreteMinutosAntes2",
+DROP COLUMN "observacao",
+ADD COLUMN     "cor_categoria" TEXT,
+ADD COLUMN     "descricao" TEXT,
+ADD COLUMN     "lembrete_minutos" INTEGER;
+
+-- AlterTable
+ALTER TABLE "Usuario" DROP COLUMN "updatedAt",
+ALTER COLUMN "senhaHash" DROP NOT NULL;
+</file>
+
+<file path="prisma/migrations/20260212174459_add_categoria_id/migration.sql">
+-- AlterTable
+ALTER TABLE "Evento" ADD COLUMN     "categoria_id" TEXT;
+</file>
+
+<file path="prisma/migrations/20260212175233_add_financeiro/migration.sql">
+-- CreateTable
+CREATE TABLE "Financeiro" (
+    "id" SERIAL NOT NULL,
+    "descricao" TEXT NOT NULL,
+    "valor" DECIMAL(10,2) NOT NULL,
+    "data" TIMESTAMP(3) NOT NULL,
+    "status" TEXT NOT NULL,
+    "categoria" TEXT,
+    "tipo" TEXT NOT NULL,
+    "usuarioId" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Financeiro_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "Financeiro_usuarioId_idx" ON "Financeiro"("usuarioId");
+
+-- AddForeignKey
+ALTER TABLE "Financeiro" ADD CONSTRAINT "Financeiro_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+</file>
+
+<file path="prisma/migrations/20260212180002_add_comparecido/migration.sql">
+-- AlterTable
+ALTER TABLE "Evento" ADD COLUMN     "comparecido" BOOLEAN NOT NULL DEFAULT false;
+</file>
+
+<file path="prisma/migrations/20260212184636_add_tipo_evento/migration.sql">
+-- AlterEnum
+ALTER TYPE "TipoReceita" ADD VALUE 'EVENTO';
+</file>
+
+<file path="prisma/migrations/20260212192740_add_movimentacao/migration.sql">
+/*
+  Warnings:
+
+  - You are about to drop the `Despesa` table. If the table is not empty, all the data it contains will be lost.
+  - You are about to drop the `Financeiro` table. If the table is not empty, all the data it contains will be lost.
+  - You are about to drop the `Receita` table. If the table is not empty, all the data it contains will be lost.
+
+*/
+-- CreateEnum
+CREATE TYPE "TipoMovimentacao" AS ENUM ('RECEITA', 'DESPESA');
+
+-- CreateEnum
+CREATE TYPE "CategoriaFinanceira" AS ENUM ('FIXA', 'VARIAVEL', 'VENDA', 'SERVICO', 'ALUGUEL', 'EVENTO', 'MANUTENCAO', 'COMPRA_PRODUTO', 'OUTRO');
+
+-- CreateEnum
+CREATE TYPE "StatusFinanceiro" AS ENUM ('PENDENTE', 'PAGO', 'RECEBIDO', 'CANCELADO');
+
+-- AlterEnum
+ALTER TYPE "TipoNotificacao" ADD VALUE 'FINANCEIRO';
+
+-- DropForeignKey
+ALTER TABLE "Despesa" DROP CONSTRAINT "Despesa_usuarioId_fkey";
+
+-- DropForeignKey
+ALTER TABLE "Financeiro" DROP CONSTRAINT "Financeiro_usuarioId_fkey";
+
+-- DropForeignKey
+ALTER TABLE "Receita" DROP CONSTRAINT "Receita_usuarioId_fkey";
+
+-- DropTable
+DROP TABLE "Despesa";
+
+-- DropTable
+DROP TABLE "Financeiro";
+
+-- DropTable
+DROP TABLE "Receita";
+
+-- DropEnum
+DROP TYPE "CategoriaDespesa";
+
+-- DropEnum
+DROP TYPE "StatusDespesa";
+
+-- DropEnum
+DROP TYPE "StatusReceita";
+
+-- DropEnum
+DROP TYPE "TipoReceita";
+
+-- CreateTable
+CREATE TABLE "Movimentacao" (
+    "id" SERIAL NOT NULL,
+    "descricao" TEXT NOT NULL,
+    "valor" DECIMAL(10,2) NOT NULL,
+    "data" TIMESTAMP(3) NOT NULL,
+    "tipo" "TipoMovimentacao" NOT NULL,
+    "categoria" TEXT,
+    "status" "StatusFinanceiro" NOT NULL,
+    "usuarioId" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Movimentacao_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "Movimentacao_usuarioId_idx" ON "Movimentacao"("usuarioId");
+
+-- AddForeignKey
+ALTER TABLE "Movimentacao" ADD CONSTRAINT "Movimentacao_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+</file>
+
+<file path="prisma/migrations/20260212203953_add_lembrete_minutos/migration.sql">
+/*
+  Warnings:
+
+  - The values [FINANCEIRO] on the enum `TipoNotificacao` will be removed. If these variants are still used in the database, this will fail.
+  - The primary key for the `Evento` table will be changed. If it partially fails, the table could be left without primary key constraint.
+  - You are about to drop the column `comparecido` on the `Evento` table. All the data in the column will be lost.
+  - You are about to drop the column `senha` on the `Usuario` table. All the data in the column will be lost.
+  - You are about to drop the `Movimentacao` table. If the table is not empty, all the data it contains will be lost.
+  - Made the column `cor_categoria` on table `Evento` required. This step will fail if there are existing NULL values in that column.
+  - Added the required column `updatedAt` to the `Usuario` table without a default value. This is not possible if the table is not empty.
+  - Made the column `senhaHash` on table `Usuario` required. This step will fail if there are existing NULL values in that column.
+
+*/
+-- CreateEnum
+CREATE TYPE "CategoriaDespesa" AS ENUM ('FIXA', 'VARIAVEL', 'COMPRA_PRODUTO', 'MANUTENCAO', 'OUTRO');
+
+-- CreateEnum
+CREATE TYPE "StatusDespesa" AS ENUM ('PENDENTE', 'PAGA', 'ATRASADA');
+
+-- CreateEnum
+CREATE TYPE "StatusReceita" AS ENUM ('PENDENTE', 'RECEBIDA', 'CANCELADA');
+
+-- CreateEnum
+CREATE TYPE "TipoReceita" AS ENUM ('VENDA', 'SERVICO', 'ALUGUEL', 'OUTRO');
+
+-- AlterEnum
+BEGIN;
+CREATE TYPE "TipoNotificacao_new" AS ENUM ('EVENTO', 'DESPESA', 'RECEITA', 'OUTRO');
+ALTER TABLE "Notificacao" ALTER COLUMN "tipo" TYPE "TipoNotificacao_new" USING ("tipo"::text::"TipoNotificacao_new");
+ALTER TYPE "TipoNotificacao" RENAME TO "TipoNotificacao_old";
+ALTER TYPE "TipoNotificacao_new" RENAME TO "TipoNotificacao";
+DROP TYPE "public"."TipoNotificacao_old";
+COMMIT;
+
+-- DropForeignKey
+ALTER TABLE "Movimentacao" DROP CONSTRAINT "Movimentacao_usuarioId_fkey";
+
+-- AlterTable
+ALTER TABLE "Evento" DROP CONSTRAINT "Evento_pkey",
+DROP COLUMN "comparecido",
+ALTER COLUMN "id" DROP DEFAULT,
+ALTER COLUMN "id" SET DATA TYPE TEXT,
+ALTER COLUMN "cor_categoria" SET NOT NULL,
+ADD CONSTRAINT "Evento_pkey" PRIMARY KEY ("id");
+DROP SEQUENCE "Evento_id_seq";
+
+-- AlterTable
+ALTER TABLE "Usuario" DROP COLUMN "senha",
+ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL,
+ALTER COLUMN "senhaHash" SET NOT NULL;
+
+-- DropTable
+DROP TABLE "Movimentacao";
+
+-- DropEnum
+DROP TYPE "CategoriaFinanceira";
+
+-- DropEnum
+DROP TYPE "StatusFinanceiro";
+
+-- DropEnum
+DROP TYPE "TipoMovimentacao";
+
+-- CreateTable
+CREATE TABLE "Despesa" (
+    "id" SERIAL NOT NULL,
+    "categoria" "CategoriaDespesa" NOT NULL,
+    "descricao" TEXT NOT NULL,
+    "valor" DECIMAL(10,2) NOT NULL,
+    "dataVencimento" TIMESTAMP(3) NOT NULL,
+    "dataPagamento" TIMESTAMP(3),
+    "status" "StatusDespesa" NOT NULL DEFAULT 'PENDENTE',
+    "usuarioId" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Despesa_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Receita" (
+    "id" SERIAL NOT NULL,
+    "tipo" "TipoReceita" NOT NULL,
+    "descricao" TEXT NOT NULL,
+    "valor" DECIMAL(10,2) NOT NULL,
+    "dataPrevista" TIMESTAMP(3),
+    "dataRecebida" TIMESTAMP(3),
+    "status" "StatusReceita" NOT NULL DEFAULT 'PENDENTE',
+    "usuarioId" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Receita_pkey" PRIMARY KEY ("id")
+);
+
+-- AddForeignKey
+ALTER TABLE "Despesa" ADD CONSTRAINT "Despesa_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Receita" ADD CONSTRAINT "Receita_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+</file>
+
+<file path="prisma/migrations/20260213012559_corrigindo_usuario_e_evento/migration.sql">
+-- CreateIndex
+CREATE INDEX "Evento_categoria_id_idx" ON "Evento"("categoria_id");
+</file>
+
+<file path="prisma/migrations/20260214034705_comparecido/migration.sql">
+-- AlterTable
+ALTER TABLE "Evento" ADD COLUMN     "comparecido" BOOLEAN NOT NULL DEFAULT false;
+</file>
+
+<file path="prisma/migrations/20260217022458_add_new_cash_basis_fields/migration.sql">
+-- AlterTable
+ALTER TABLE "Despesa" ADD COLUMN     "eventDate" TIMESTAMP(3),
+ADD COLUMN     "eventId" TEXT,
+ADD COLUMN     "paidAt" TIMESTAMP(3);
+
+-- AlterTable
+ALTER TABLE "Receita" ADD COLUMN     "eventDate" TIMESTAMP(3),
+ADD COLUMN     "eventId" TEXT,
+ADD COLUMN     "paidAt" TIMESTAMP(3);
+</file>
+
+<file path="prisma/migrations/20260217023138_final_cleanup_cash_basis/migration.sql">
+/*
+  Warnings:
+
+  - You are about to drop the column `dataPagamento` on the `Despesa` table. All the data in the column will be lost.
+  - You are about to drop the column `dataVencimento` on the `Despesa` table. All the data in the column will be lost.
+  - You are about to drop the column `dataPrevista` on the `Receita` table. All the data in the column will be lost.
+  - You are about to drop the column `dataRecebida` on the `Receita` table. All the data in the column will be lost.
+
+*/
+-- AlterTable
+ALTER TABLE "Despesa" DROP COLUMN "dataPagamento",
+DROP COLUMN "dataVencimento";
+
+-- AlterTable
+ALTER TABLE "Receita" DROP COLUMN "dataPrevista",
+DROP COLUMN "dataRecebida";
+</file>
+
+<file path="prisma/migrations/migration_lock.toml">
+# Please do not edit this file manually
+# It should be added in your version-control system (e.g., Git)
+provider = "postgresql"
+</file>
+
+<file path="prisma/schema.prisma">
+// Coração do banco de dados do projeto. Arquivo de configuração principal do Prisma ORM -> ferramenta que traduz o código JS para a
+// linguagem de banco de dados (SQL).
+
+// Serve para modelar os dados: Estrutura que será salvo. Gerar tipagem, e sincronizar com o banco de dados real.
+
+generator client { // Diz ao prisma para criar um "cliente" de código
+  provider = "prisma-client-js"
+}
+
+datasource db { // Define a conexão
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// MODELS: Cada model representa uma tabela no banco de dados (PostgreSQL)
+
+model Usuario {
+  id           Int           @id @default(autoincrement())
+  nome         String
+  email        String        @unique
+  senhaHash    String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt 
+  foto         String?
+  Despesa      Despesa[]
+  eventos      Evento[]
+  notificacoes Notificacao[]
+  Receita      Receita[]
+}
+
+model Evento {
+  id               String   @id @default(cuid())
+  titulo           String
+  inicio           DateTime
+  fim              DateTime
+  tipo             String   // Você pode mudar para TipoEvento depois
+  cor_categoria    String
+  descricao        String?
+  categoria_id     String?  // Representa o local físico (Campo 1, Campo 2, etc)
+  lembrete_minutos Int?     
+  usuarioId        Int
+  usuario          Usuario  @relation(fields: [usuarioId], references: [id])
+  comparecido      Boolean @default(false)
+
+  @@index([categoria_id])   // Melhora a performance na busca por conflito de local
+}
+
+model Notificacao {
+  id             Int             @id @default(autoincrement())
+  tipo           TipoNotificacao
+  titulo         String
+  mensagem       String
+  disparoEm      DateTime
+  lida           Boolean         @default(false)
+  referenciaTipo String?
+  referenciaId   Int?
+  usuarioId      Int
+  createdAt      DateTime        @default(now())
+  usuario        Usuario         @relation(fields: [usuarioId], references: [id])
+}
+
+model Despesa {
+  id              Int              @id @default(autoincrement())
+  categoria       CategoriaDespesa
+  descricao       String
+  valor           Decimal          @db.Decimal(10, 2)
+  status          StatusDespesa    @default(PENDENTE)
+  
+  // 🗓️ Estrutura Final Única
+  eventDate       DateTime?        // Data do compromisso
+  paidAt          DateTime?        // Data do pagamento real
+  createdAt       DateTime         @default(now())
+  
+  eventId         String?          
+  usuarioId       Int
+  Usuario         Usuario          @relation(fields: [usuarioId], references: [id])
+}
+
+model Receita {
+  id            Int           @id @default(autoincrement())
+  tipo          TipoReceita
+  descricao     String
+  valor         Decimal       @db.Decimal(10, 2)
+  status        StatusReceita @default(PENDENTE)
+  
+  // 🗓️ Estrutura Final Única
+  eventDate     DateTime?     // Data do atendimento (Agenda)
+  paidAt        DateTime?     // Data do recebimento (Caixa)
+  createdAt     DateTime      @default(now())
+
+  eventId       String?       
+  usuarioId     Int
+  Usuario       Usuario       @relation(fields: [usuarioId], references: [id])
+}
+
+enum TipoEvento {
+  RACHA
+  EVENTO_CLUBE
+  FESTA
+  REUNIAO
+  MANUTENCAO
+  OUTRO
+}
+
+enum TipoNotificacao {
+  EVENTO
+  DESPESA
+  RECEITA
+  OUTRO
+}
+
+enum CategoriaDespesa {
+  FIXA
+  VARIAVEL
+  COMPRA_PRODUTO
+  MANUTENCAO
+  OUTRO
+}
+
+enum StatusDespesa {
+  PENDENTE
+  PAGA
+  ATRASADA
+}
+
+enum StatusReceita {
+  PENDENTE
+  RECEBIDA
+  CANCELADA
+}
+
+enum TipoReceita {
+  VENDA
+  SERVICO
+  ALUGUEL
+  OUTRO
+}
+</file>
+
+<file path="prisma/scripts/migrarFinanceiro.js">
+import prisma from "../src/database/prisma.js";
+require('dotenv').config()
+
+async function migrar() {
+  console.log("Iniciando migração...");
+
+  const receitas = await prisma.receita.findMany();
+  for (const r of receitas) {
+    await prisma.movimentacao.create({
+      data: {
+        descricao: r.descricao,
+        valor: r.valor,
+        data: r.dataRecebida || r.dataPrevista,
+        tipo: "RECEITA",
+        categoria: r.tipo,
+        status: r.status === "RECEBIDA" ? "RECEBIDO" : "PENDENTE",
+        usuarioId: r.usuarioId,
+        createdAt: r.createdAt
+      }
+    });
+  }
+
+  const despesas = await prisma.despesa.findMany();
+  for (const d of despesas) {
+    await prisma.movimentacao.create({
+      data: {
+        descricao: d.descricao,
+        valor: d.valor,
+        data: d.dataPagamento || d.dataVencimento,
+        tipo: "DESPESA",
+        categoria: d.categoria,
+        status: d.status === "PAGA" ? "PAGO" : "PENDENTE",
+        usuarioId: d.usuarioId,
+        createdAt: d.createdAt
+      }
+    });
+  }
+
+  console.log("Migração concluída.");
+}
+
+migrar()
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());
+</file>
+
+<file path="prisma/seed.js">
+import { PrismaClient } from '@prisma/client'
+const prisma = new PrismaClient()
+
+async function main() {
+  await prisma.usuario.upsert({
+    where: { email: 'teste@email.com' },
+    update: {},
+    create: {
+      nome: 'Usuário Teste',
+      email: 'teste@email.com',
+      senhaHash: 'sua_senha_hash_aqui', // Use a mesma que você usa no login
+      updatedAt: new Date(),
+    },
+  })
+}
+
+main()
+  .then(async () => { await prisma.$disconnect() })
+  .catch(async (e) => { console.error(e); await prisma.$disconnect(); process.exit(1) })
+</file>
+
+<file path="src/config/multer.js">
+const multer = require("multer");
+const path = require("path");
+const crypto = require("crypto"); // Biblioteca nativa do Node para gerar nomes únicos
+
+const storage = multer.diskStorage({
+  // 1. ONDE SALVAR: Define que vai salvar na pasta "uploads" na raiz do backend
+  destination: (req, file, cb) => {
+    cb(null, path.resolve(__dirname, "..", "..", "uploads"));
+  },
+  // 2. QUAL NOME DAR: Gera um nome aleatório (ex: a1b2c3d4.jpg)
+  filename: (req, file, cb) => {
+    const hash = crypto.randomBytes(16).toString("hex");
+    const extension = path.extname(file.originalname);
+    cb(null, `${hash}${extension}`);
+  }
+});
+
+module.exports = multer({ storage });
+</file>
+
+<file path="src/database/prisma.js">
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+export default prisma;
+</file>
+
+<file path="src/middlewares/auth.js">
+import jwt from "jsonwebtoken";
+
+// Dica: O dotenv.config() geralmente fica apenas no seu server.js para evitar redundância
+export function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({ 
+      error: "Acesso negado. Token não fornecido." 
+    });
+  }
+
+  const [bearer, token] = authHeader.split(" ");
+
+  if (bearer !== "Bearer" || !token) {
+    return res.status(401).json({ 
+      error: "Formato de token inválido. Use 'Bearer [token]'" 
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    /**
+     * AJUSTE V2: Conversão explícita para Number.
+     * Como o seu Usuario.id no Prisma é Int, garantimos que req.userId 
+     * chegue nas rotas pronto para ser usado em consultas do banco.
+     */
+    req.userId = Number(decoded.id); 
+
+    return next();
+  } catch (err) {
+    // Diferenciar erro de expiração ajuda o frontend a saber quando deslogar o usuário
+    const message = err.name === "TokenExpiredError" 
+      ? "Sua sessão expirou. Faça login novamente." 
+      : "Token de autenticação inválido.";
+
+    return res.status(401).json({ error: message });
+  }
+}
+</file>
+
+<file path="src/routes/auth.routes.js">
+import { Router } from "express";
+import prisma from "../database/prisma.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+const router = Router();
+
+// --- AQUI ESTAVA O ERRO: Faltava essa configuração ---
+const authConfig = {
+  secret: process.env.JWT_SECRET || "f4930353163359556133965586686733", 
+  expiresIn: "7d",
+};
+// -----------------------------------------------------
+
+router.post("/", async (req, res) => {
+  try {
+    const { email, password, senha } = req.body;
+    const senhaLogin = password || senha; 
+
+    if (!email || !senhaLogin) {
+        return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
+    }
+
+    // 1. Busca o usuário no banco
+    const user = await prisma.usuario.findUnique({ where: { email } });
+
+    if (!user) {
+      return res.status(400).json({ error: "E-mail não encontrado." });
+    }
+
+    // 2. Verifica a senha
+    const senhaHashBanco = user.senha || user.password || user.senhaHash;
+    if (!senhaHashBanco) {
+        return res.status(500).json({ error: "Erro de cadastro: Senha não encontrada no banco." });
+    }
+
+    const checkPassword = await bcrypt.compare(senhaLogin, senhaHashBanco);
+
+    if (!checkPassword) {
+      return res.status(401).json({ error: "Senha incorreta." });
+    }
+
+    // 3. Gera o Token
+    const token = jwt.sign({ id: user.id }, authConfig.secret, {
+      expiresIn: authConfig.expiresIn,
+    });
+
+    // --- 🚀 V4: VELOCIDADE MÁXIMA E REGIME DE CAIXA ---
+    
+    // 1. Definimos o horizonte de tempo (Mês Atual)
+// --- 🚀 REFINAMENTO REGIME DE CAIXA (V4) ---
+    const agora = new Date();
+    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+    const fimMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0, 23, 59, 59);
+
+    const [eventos, receitas, despesas] = await Promise.all([
+      // Agenda: Traz eventos do mês atual em diante
+      prisma.evento.findMany({ 
+        where: { 
+          usuarioId: user.id,
+          inicio: { gte: inicioMes } 
+        },
+        orderBy: { inicio: 'asc' } 
+      }),
+
+      // Receitas: Segue ESTREITAMENTE o Regime de Caixa (Regra 2)
+      prisma.receita.findMany({ 
+        where: { 
+          usuarioId: user.id,
+          OR: [
+            { status: "PENDENTE" }, // 1. Tudo que está atrasado ou a receber (Inadimplência)
+            { 
+              status: "RECEBIDA", 
+              paidAt: { gte: inicioMes, lte: fimMes } // 2. O que entrou no CAIXA este mês
+            }
+          ]
+        }
+      }),
+
+      // Despesas: Segue ESTREITAMENTE o Regime de Caixa
+      prisma.despesa.findMany({ 
+        where: { 
+          usuarioId: user.id,
+          OR: [
+            { status: "PENDENTE" },
+            { 
+              status: "PAGA", 
+              paidAt: { gte: inicioMes, lte: fimMes } 
+            }
+          ]
+        }
+      })
+    ]);
+
+    return res.json({
+      user: { id: user.id, nome: user.nome, email: user.email, foto: user.foto },
+      token,
+      eventos, 
+      receitas, 
+      despesas 
+    });
+
+  } catch (error) {
+    console.log("Erro Login:", error);
+    return res.status(500).json({ error: "Erro interno no servidor." });
+  }
+});
+
+export default router;
+</file>
+
+<file path="src/routes/bootstrap.routes.js">
+import { Router } from "express";
+import prisma from "../database/prisma.js";
+
+const router = Router();
+
+router.get("/", async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    // 🚀 O AJUSTE: Pegamos o início deste mês e o início do próximo
+    const dataAtual = new Date();
+    const inicioDoMes = new Date(dataAtual.getFullYear(), dataAtual.getMonth(), 1);
+    const inicioProximoMes = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 1);
+
+    const [usuario, eventos, receitas, despesas] = await Promise.all([
+      
+      prisma.usuario.findUnique({
+        where: { id: userId },
+        select: { id: true, nome: true, email: true, foto: true }
+      }),
+
+      prisma.evento.findMany({
+        where: { 
+          usuarioId: userId,
+          inicio: { gte: inicioDoMes } 
+        },
+        orderBy: { inicio: 'asc' }
+      }),
+
+      prisma.receita.findMany({
+        where: { 
+          usuarioId: userId,
+          OR: [
+            { status: "PENDENTE" },
+            { 
+              // 🚀 O PRISMA AMA ISSO: Data entre o dia 1 deste mês e o dia 1 do próximo
+              eventDate: { gte: inicioDoMes, lt: inicioProximoMes } 
+            }
+          ]
+        },
+        orderBy: { eventDate: 'asc' }
+      }),
+
+      prisma.despesa.findMany({
+        where: { 
+          usuarioId: userId,
+          OR: [
+            { status: "PENDENTE" },
+            { 
+              eventDate: { gte: inicioDoMes, lt: inicioProximoMes } 
+            }
+          ]
+        },
+        orderBy: { eventDate: 'asc' }
+      })
+    ]);
+
+    return res.json({ usuario, eventos, receitas, despesas, statusTrial: "ATIVO" });
+
+  } catch (error) {
+    console.error("ERRO NO BOOTSTRAP:", error);
+    return res.status(500).json({ error: "Erro ao carregar os dados iniciais." });
+  }
+});
+
+export default router;
+</file>
+
+<file path="src/routes/despesas.routes.js">
+import { Router } from "express";
+import prisma from "../database/prisma.js";
+import { authMiddleware } from "../middlewares/auth.js";
+
+const router = Router();
+router.use(authMiddleware);
+
+// 📌 LISTAR DESPESAS (Regime de Caixa - Regra 2)
+router.get("/", async (req, res) => {
+  try {
+    const { mes, ano } = req.query;
+    const userId = req.userId;
+
+    let whereCondition = { usuarioId: userId };
+
+    if (mes && ano) {
+      const inicio = new Date(ano, mes - 1, 1);
+      const fim = new Date(ano, mes, 0, 23, 59, 59);
+      
+      whereCondition.OR = [
+        // 1. Mostra tudo o que está pendente (Inadimplência/Controle)
+        { status: "PENDENTE" },
+        // 2. Mostra o que foi PAGO estritamente neste mês (Regime de Caixa)
+        {
+          status: "PAGA",
+          paidAt: { gte: inicio, lte: fim }
+        }
+      ];
+    }
+
+    const despesas = await prisma.despesa.findMany({
+      where: whereCondition,
+      orderBy: { eventDate: "asc" },
+    });
+
+    return res.json(despesas);
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao buscar despesas" });
+  }
+});
+
+// 📌 CRIAR NOVA DESPESA
+router.post("/", async (req, res) => {
+  try {
+    const { descricao, valor, eventDate, categoria, status, paidAt } = req.body;
+
+    if (!descricao || !valor || !eventDate || !categoria) {
+      return res.status(400).json({ error: "Dados obrigatórios faltando." });
+    }
+
+    const novaDespesa = await prisma.despesa.create({
+      data: {
+        usuarioId: req.userId,
+        descricao,
+        valor: parseFloat(String(valor).replace(',', '.')),
+        eventDate: new Date(eventDate),
+        categoria,
+        status: status || "PENDENTE",
+        // Se já nascer paga, carimba o paidAt
+        paidAt: status === "PAGA" ? (paidAt ? new Date(paidAt) : new Date()) : null,
+      },
+    });
+
+    return res.status(201).json(novaDespesa);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Erro ao criar despesa" });
+  }
+});
+
+// 📌 MARCAR COMO PAGA (Regra 3: Carimba paidAt)
+router.patch("/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, paidAt } = req.body;
+
+    const despesa = await prisma.despesa.update({
+      where: { id: Number(id), usuarioId: req.userId },
+      data: { 
+        status,
+        paidAt: status === 'PAGA' ? (paidAt ? new Date(paidAt) : new Date()) : null
+      },
+    });
+
+    return res.json(despesa);
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao atualizar status" });
+  }
+});
+
+// 📌 EDITAR DESPESA
+router.put("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { descricao, valor, eventDate, categoria, status, paidAt } = req.body;
+
+    const despesa = await prisma.despesa.update({
+      where: { id: Number(id), usuarioId: req.userId },
+      data: {
+        descricao,
+        valor: valor ? parseFloat(String(valor).replace(',', '.')) : undefined,
+        eventDate: eventDate ? new Date(eventDate) : undefined,
+        categoria,
+        status,
+        paidAt: status === 'PAGA' && !paidAt ? new Date() : (paidAt ? new Date(paidAt) : null)
+      },
+    });
+
+    return res.json(despesa);
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao atualizar despesa" });
+  }
+});
+
+// --- 🗑️ ROTA: Excluir Despesa (Individual) ---
+router.delete("/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+        if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ error: "ID inválido. Atualize a tela e tente novamente." });
+    }
+
+
+    await prisma.despesa.delete({
+      where: { 
+        id: id,
+        usuarioId: req.userId 
+      }
+    });
+
+    return res.status(200).json({ message: "Despesa excluída com sucesso." });
+  } catch (error) {
+    console.error("Erro ao excluir despesa:", error);
+    return res.status(500).json({ error: "Erro interno ao excluir o lançamento." });
+  }
+});
+
+// ROTA: Excluir Despesas em Massa 
+router.post("/excluir-massa", async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    // 1. Valida se é um array preenchido
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "Nenhum ID fornecido." });
+    }
+
+    // 2. Transforma tudo em número e filtra (remove NaNs, zeros e IDs fantasmas)
+    const idsValidos = ids.map(Number).filter(id => !isNaN(id) && id > 0);
+
+    // 3. Se após o filtro não sobrar nenhum ID válido, recusa a operação
+    if (idsValidos.length === 0) {
+      return res.status(400).json({ error: "Nenhum ID válido para exclusão." });
+    }
+
+    // 4. Executa a exclusão com segurança apenas nos IDs reais
+    await prisma.despesa.deleteMany({
+      where: {
+        id: { in: idsValidos }, 
+        usuarioId: req.userId
+      }
+    });
+
+    return res.status(200).json({ message: "Despesas excluídas com sucesso." });
+  } catch (error) {
+    console.error("Erro ao excluir em massa:", error);
+    return res.status(500).json({ error: "Erro ao excluir vários lançamentos." });
+  }
+});
+
+export default router;
+</file>
+
+<file path="src/routes/eventos.routes.js">
+import { Router } from "express";
+import prisma from "../database/prisma.js";
+import { authMiddleware } from "../middlewares/auth.js";
+
+const router = Router();
+
+router.use(authMiddleware);
+
+// --- LISTAR ---
+router.get("/", async (req, res) => {
+  try {
+    const eventos = await prisma.evento.findMany({
+      where: { usuarioId: req.userId },
+      orderBy: { inicio: "asc" },
+    });
+    return res.json(eventos);
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao listar eventos" });
+  }
+});
+
+// --- CRIAR (Com Geração Automática) ---
+router.post("/", async (req, res) => {
+  const userId = req.userId;
+
+  try {
+    const {
+      titulo, inicio, fim, categoria_id, tipo, 
+      cor_categoria, descricao, lembreteValor, gerarFinanceiro, valor
+    } = req.body;
+
+    if (!titulo || !categoria_id || !inicio || !fim) {
+      return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
+    }
+
+    const dataInicio = new Date(inicio);
+    const dataFim = new Date(fim);
+
+    if (dataFim <= dataInicio) {
+      return res.status(400).json({ error: "O horário de término deve ser maior que o de início." });
+    }
+
+    // LÓGICA DE CONFLITO (Mantida)
+    const conflitoLocal = await prisma.evento.findFirst({
+      where: {
+        categoria_id: String(categoria_id),
+        AND: [
+          { inicio: { lt: dataFim } },
+          { fim: { gt: dataInicio } }
+        ]
+      }
+    });
+
+    if (conflitoLocal) {
+      return res.status(409).json({ 
+        error: "Este campo/local já está reservado neste horário por outro agendamento." 
+      });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const novoEvento = await tx.evento.create({
+        data: {
+          titulo,
+          inicio: dataInicio,
+          fim: dataFim,
+          categoria_id: String(categoria_id),
+          tipo,
+          cor_categoria,
+          descricao,
+          lembrete_minutos: lembreteValor ? Number(lembreteValor) : 0,
+          usuario: { connect: { id: userId } }
+        }
+      });
+
+      // 🚀 REGIME DE CAIXA: Geração Automática Blindada
+      if (gerarFinanceiro === true && valor) {
+        const valorNumerico = parseFloat(String(valor).replace(',', '.'));
+        
+        await tx.receita.create({
+          data: {
+            descricao: `${tipo}: ${titulo}`,
+            valor: valorNumerico,
+            tipo: "OUTRO", 
+            
+            // O Trio de Datas:
+            eventDate: dataInicio, // Data da agenda
+            paidAt: null,          // Regra: começa sempre null (inadimplência)
+            createdAt: new Date(), 
+            
+            status: "PENDENTE",
+            usuarioId: userId,
+            eventId: String(novoEvento.id) // 🔗 Vínculo direto e inquebrável
+          }
+        });
+      }
+
+      return novoEvento;
+    });
+
+    return res.status(201).json(result);
+
+  } catch (error) {
+    console.error("ERRO BACKEND:", error);
+    return res.status(500).json({ error: "Erro ao processar agendamento." });
+  }
+});
+
+// --- ATUALIZAR (Com Vínculo Inteligente) ---
+router.put("/:id", async (req, res) => {
+  const { id } = req.params;
+  const userId = req.userId;
+  const { titulo, inicio, fim, categoria_id, cor_categoria, descricao, comparecido } = req.body;
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const eventoExistente = await tx.evento.findFirst({
+        where: { id: String(id), usuarioId: userId }
+      });
+
+      if (!eventoExistente) throw new Error("Evento não encontrado.");
+
+      const dataInicio = inicio ? new Date(inicio) : eventoExistente.inicio;
+      const dataFim = fim ? new Date(fim) : eventoExistente.fim;
+      const localId = categoria_id ? String(categoria_id) : eventoExistente.categoria_id;
+
+      // Atualiza o Evento
+      const atualizado = await tx.evento.update({
+        where: { id: String(id) },
+        data: {
+          titulo: titulo || undefined,
+          inicio: dataInicio,
+          fim: dataFim,
+          categoria_id: localId,
+          cor_categoria: cor_categoria || undefined,
+          descricao: descricao !== undefined ? descricao : undefined,
+          comparecido: comparecido !== undefined ? comparecido : undefined 
+        }
+      });
+
+      // 🚀 REGIME DE CAIXA: Atualização do Financeiro pelo Vínculo 'eventId'
+      if (comparecido !== undefined) {
+        const novoStatusFinanceiro = comparecido ? "RECEBIDA" : "PENDENTE";
+        const novoPaidAt = comparecido ? new Date() : null; // Se pagou agora, carimba 'hoje'
+        
+        // Buscamos a receita vinculada a ESTE evento específico
+        // Isso é muito mais rápido e seguro que buscar por título e data
+        await tx.receita.updateMany({
+          where: {
+            usuarioId: userId,
+            eventId: String(id) 
+          },
+          data: {
+            status: novoStatusFinanceiro,
+            paidAt: novoPaidAt, // Atualiza o caixa conforme o comparecimento
+            eventDate: dataInicio // Se mudou a data do racha, atualiza a referência financeira
+          },
+        });
+      }
+
+      return atualizado;
+    });
+
+    return res.json(result);
+  } catch (error) {
+    console.error("Erro ao atualizar evento:", error.message);
+    return res.status(error.message === "Evento não encontrado." ? 404 : 500).json({ error: error.message });
+  }
+});
+
+// --- EXCLUIR (Limpeza total) ---
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Usamos transação para não deixar "receita órfã" no banco
+    await prisma.$transaction(async (tx) => {
+      // 1. Apaga a receita vinculada (se houver)
+      await tx.receita.deleteMany({ where: { eventId: String(id) } });
+      
+      // 2. Apaga o evento
+      await tx.evento.delete({ where: { id: String(id), usuarioId: req.userId } });
+    });
+
+    return res.status(204).send();
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao excluir." });
+  }
+});
+
+export default router;
+</file>
+
+<file path="src/routes/financeiro.routes.js">
+import { Router } from "express";
+import prisma from "../database/prisma.js";
+import { authMiddleware } from "../middlewares/auth.js";
+
+const router = Router();
+router.use(authMiddleware);
+
+//
+// --- DASHBOARD / RESUMO ---
+//
+router.get("/resumo", async (req, res) => {
+  try {
+    const { mes, ano } = req.query;
+
+    if (!mes || !ano || isNaN(Number(mes)) || isNaN(Number(ano))) {
+      return res.status(400).json({
+        error: "Mês e Ano são obrigatórios."
+      });
+    }
+
+    const inicio = new Date(ano, mes - 1, 1);
+    const fim = new Date(ano, mes, 0, 23, 59, 59);
+
+    const receitas = await prisma.movimentacao.aggregate({
+      _sum: { valor: true },
+      where: {
+        usuarioId: req.userId,
+        tipo: "RECEITA",
+        data: { gte: inicio, lte: fim },
+        status: "RECEBIDO"
+      }
+    });
+
+    const despesas = await prisma.movimentacao.aggregate({
+      _sum: { valor: true },
+      where: {
+        usuarioId: req.userId,
+        tipo: "DESPESA",
+        data: { gte: inicio, lte: fim },
+        status: "PAGO"
+      }
+    });
+
+    const totalReceitas = Number(receitas._sum.valor) || 0;
+    const totalDespesas = Number(despesas._sum.valor) || 0;
+
+    return res.json({
+      receitas: totalReceitas,
+      despesas: totalDespesas,
+      saldo: totalReceitas - totalDespesas
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      error: "Erro no resumo."
+    });
+  }
+});
+
+//
+// --- LISTAR MOVIMENTAÇÕES ---
+//
+router.get("/", async (req, res) => {
+  try {
+    const { mes, ano, tipo } = req.query;
+
+    if (!mes || !ano) {
+      return res.status(400).json({
+        error: "Mês e Ano são obrigatórios."
+      });
+    }
+
+    const inicio = new Date(ano, mes - 1, 1);
+    const fim = new Date(ano, mes, 0, 23, 59, 59);
+
+    const movimentacoes = await prisma.movimentacao.findMany({
+      where: {
+        usuarioId: req.userId,
+        data: { gte: inicio, lte: fim },
+        ...(tipo ? { tipo } : {})
+      },
+      orderBy: { data: "asc" }
+    });
+
+    return res.json(movimentacoes);
+
+  } catch (e) {
+    return res.status(500).json({
+      error: "Erro ao buscar movimentações."
+    });
+  }
+});
+
+//
+// --- CRIAR MOVIMENTAÇÃO ---
+//
+router.post("/", async (req, res) => {
+  try {
+    const { descricao, valor, tipo, categoria, data, status } = req.body;
+
+    if (!descricao || !valor || parseFloat(valor) <= 0 || !tipo) {
+      return res.status(400).json({
+        error: "Dados inválidos."
+      });
+    }
+
+    const mov = await prisma.movimentacao.create({
+      data: {
+        descricao,
+        valor: parseFloat(valor),
+        tipo,
+        categoria,
+        data,
+        status,
+        usuarioId: req.userId
+      }
+    });
+
+    return res.json(mov);
+
+  } catch (e) {
+    return res.status(500).json({
+      error: "Erro ao criar movimentação."
+    });
+  }
+});
+
+//
+// --- ATUALIZAR MOVIMENTAÇÃO ---
+//
+router.put("/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { descricao, valor, tipo, categoria, data, status } = req.body;
+
+    if (!descricao || !valor || parseFloat(valor) <= 0) {
+      return res.status(400).json({
+        error: "Descrição e valor válido são obrigatórios."
+      });
+    }
+
+    const existente = await prisma.movimentacao.findFirst({
+      where: { id, usuarioId: req.userId }
+    });
+
+    if (!existente) {
+      return res.status(404).json({
+        error: "Movimentação não encontrada."
+      });
+    }
+
+    await prisma.movimentacao.update({
+      where: { id },
+      data: {
+        descricao,
+        valor: parseFloat(valor),
+        tipo,
+        categoria,
+        data,
+        status
+      }
+    });
+
+    return res.json({ ok: true });
+
+  } catch (e) {
+    return res.status(500).json({
+      error: "Erro ao atualizar."
+    });
+  }
+});
+
+//
+// --- ALTERAR STATUS ---
+//
+router.patch("/:id/status", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { status } = req.body;
+
+    await prisma.movimentacao.update({
+      where: { id },
+      data: { status }
+    });
+
+    return res.json({ ok: true });
+
+  } catch (e) {
+    return res.status(500).json({
+      error: "Erro ao atualizar status."
+    });
+  }
+});
+
+//
+// --- EXCLUSÃO INDIVIDUAL ---
+//
+router.delete("/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    await prisma.notificacao.deleteMany({
+      where: {
+        referenciaId: id,
+        usuarioId: req.userId
+      }
+    });
+
+    await prisma.movimentacao.delete({
+      where: { id }
+    });
+
+    return res.json({ ok: true });
+
+  } catch (e) {
+    return res.status(500).json({
+      error: "Erro ao excluir."
+    });
+  }
+});
+
+//
+// --- EXCLUSÃO EM MASSA ---
+//
+router.post("/excluir-massa", async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        error: "IDs inválidos."
+      });
+    }
+
+    await prisma.notificacao.deleteMany({
+      where: {
+        referenciaId: { in: ids },
+        usuarioId: req.userId
+      }
+    });
+
+    await prisma.movimentacao.deleteMany({
+      where: {
+        id: { in: ids },
+        usuarioId: req.userId
+      }
+    });
+
+    return res.json({ ok: true });
+
+  } catch (e) {
+    return res.status(500).json({
+      error: "Erro ao excluir em massa."
+    });
+  }
+});
+
+export default router;
+</file>
+
+<file path="src/routes/notificacoes.routes.js">
+import { Router } from "express";
+import prisma from "../database/prisma.js";
+import { authMiddleware } from "../middlewares/auth.js";
+
+const router = Router();
+router.use(authMiddleware);
+
+// LISTAR (Mais recentes primeiro)
+router.get("/", async (req, res) => {
+  try {
+    const { apenasNaoLidas } = req.query;
+    const agora = new Date();
+
+    const where = {
+      usuarioId: req.userId,
+      disparoEm: { lte: agora }, // Só mostra o que já disparou
+      ...(apenasNaoLidas === "true" ? { lida: false } : {}),
+    };
+
+    const notificacoes = await prisma.notificacao.findMany({
+      where,
+      orderBy: { disparoEm: "desc" }, // <--- Mudado para DESC (novas primeiro)
+    });
+
+    return res.json(notificacoes);
+  } catch (err) {
+    return res.status(500).json({ error: "Erro ao listar notificações" });
+  }
+});
+
+// MARCAR UMA COMO LIDA
+router.patch("/:id/lida", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.notificacao.update({
+      where: { id: Number(id), usuarioId: req.userId },
+      data: { lida: true },
+    });
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ error: "Erro ao atualizar" });
+  }
+});
+
+// MARCAR TODAS COMO LIDAS (NOVO)
+router.patch("/ler-todas", async (req, res) => {
+    try {
+        await prisma.notificacao.updateMany({
+            where: { usuarioId: req.userId, lida: false },
+            data: { lida: true }
+        });
+        return res.json({ ok: true });
+    } catch (err) {
+        return res.status(500).json({ error: "Erro ao atualizar todas." });
+    }
+});
+
+// EXCLUSÃO EM MASSA (NOVO - Consistência com o resto do app)
+router.post("/excluir-massa", async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids)) return res.status(400).json({ error: "IDs inválidos" });
+
+        await prisma.notificacao.deleteMany({
+            where: { id: { in: ids }, usuarioId: req.userId }
+        });
+        return res.json({ ok: true });
+    } catch (e) {
+        return res.status(500).json({ error: "Erro ao excluir." });
+    }
+});
+
+// CRIAR NOTIFICAÇÃO MANUAL (Útil para testes agora)
+router.post("/", async (req, res) => {
+    try {
+        const { titulo, mensagem, tipo } = req.body;
+        const notif = await prisma.notificacao.create({
+            data: {
+                titulo, 
+                mensagem, 
+                tipo: tipo || 'EVENTO',
+                disparoEm: new Date(),
+                usuarioId: req.userId
+            }
+        });
+        return res.json(notif);
+    } catch (e) { return res.status(500).json({ error: "Erro ao criar." }); }
+});
+
+export default router;
+</file>
+
+<file path="src/routes/receitas.routes.js">
+import { Router } from "express";
+import prisma from "../database/prisma.js";
+import { authMiddleware } from "../middlewares/auth.js";
+
+const router = Router();
+router.use(authMiddleware);
+
+// 📌 LISTAR RECEITAS (Regime de Caixa - Regra 2)
+router.get("/", async (req, res) => {
+  try {
+    const { mes, ano } = req.query;
+    const userId = req.userId;
+
+    let whereCondition = { usuarioId: userId };
+
+    if (mes && ano) {
+      const inicio = new Date(ano, mes - 1, 1);
+      const fim = new Date(ano, mes, 0, 23, 59, 59);
+      
+      whereCondition.OR = [
+        { status: "PENDENTE" },
+        {
+          status: "RECEBIDA",
+          paidAt: { gte: inicio, lte: fim }
+        }
+      ];
+    }
+
+    const receitas = await prisma.receita.findMany({
+      where: whereCondition,
+      orderBy: { eventDate: "asc" },
+    });
+
+    return res.json(receitas);
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao buscar receitas" });
+  }
+});
+
+// 📌 CRIAR NOVA RECEITA
+router.post("/", async (req, res) => {
+  try {
+    const { descricao, valor, eventDate, tipo, status, paidAt } = req.body;
+
+    if (!descricao || !valor || !eventDate || !tipo) {
+      return res.status(400).json({ error: "Dados obrigatórios faltando." });
+    }
+
+    const novaReceita = await prisma.receita.create({
+      data: {
+        usuarioId: req.userId,
+        descricao,
+        valor: parseFloat(String(valor).replace(',', '.')),
+        eventDate: new Date(eventDate),
+        tipo,
+        status: status || "PENDENTE",
+        paidAt: status === "RECEBIDA" ? (paidAt ? new Date(paidAt) : new Date()) : null,
+      },
+    });
+
+    return res.status(201).json(novaReceita);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Erro ao criar receita" });
+  }
+});
+
+// 📌 MARCAR COMO RECEBIDA
+router.patch("/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, paidAt } = req.body;
+
+    const receita = await prisma.receita.update({
+      where: { id: Number(id), usuarioId: req.userId },
+      data: { 
+        status,
+        paidAt: status === 'RECEBIDA' ? (paidAt ? new Date(paidAt) : new Date()) : null
+      },
+    });
+
+    return res.json(receita);
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao atualizar status" });
+  }
+});
+
+// 📌 EDITAR RECEITA
+router.put("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { descricao, valor, eventDate, tipo, status, paidAt } = req.body;
+
+    const receita = await prisma.receita.update({
+      where: { id: Number(id), usuarioId: req.userId },
+      data: {
+        descricao,
+        valor: valor ? parseFloat(String(valor).replace(',', '.')) : undefined,
+        eventDate: eventDate ? new Date(eventDate) : undefined,
+        tipo,
+        status,
+        paidAt: status === 'RECEBIDA' && !paidAt ? new Date() : (paidAt ? new Date(paidAt) : null)
+      },
+    });
+
+    return res.json(receita);
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao atualizar receita" });
+  }
+});
+
+// --- 🗑️ ROTA: Excluir Receitas em Massa ---
+router.post("/excluir-massa", async (req, res) => {
+  try {
+    const { ids } = req.body; 
+
+    // 1. Validação Estrutural: É um array válido e não está vazio?
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "Nenhum ID fornecido para exclusão." });
+    }
+
+    // 2. Saneamento de Dados (Sanitization): Garante que só passem números reais e positivos
+    const idsValidos = ids.map(Number).filter(id => !isNaN(id) && id > 0);
+
+    // 3. Validação Lógica Posterior: Sobrou algum ID real?
+    if (idsValidos.length === 0) {
+      return res.status(400).json({ error: "IDs inválidos. Atualize a tela e tente novamente." });
+    }
+
+    // 4. Execução Otimizada: 1 única query no banco de dados
+    await prisma.receita.deleteMany({
+      where: {
+        id: { in: idsValidos },
+        usuarioId: req.userId
+      }
+    });
+
+    return res.status(200).json({ message: "Lançamentos excluídos com sucesso." });
+  } catch (error) {
+    console.error("Erro ao excluir em massa:", error);
+    return res.status(500).json({ error: "Erro interno ao excluir vários lançamentos." });
+  }
+});
+
+// --- 🗑️ ROTA: Excluir Receitas em Massa ---
+router.post("/excluir-massa", async (req, res) => {
+  try {
+    const { ids } = req.body; 
+
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ error: "ID inválido. Atualize a tela e tente novamente." });
+    }
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "Nenhum ID fornecido." });
+    }
+
+    await prisma.receita.deleteMany({
+      where: {
+        id: { in: ids.map(Number) }, // Converte todos os IDs do array para Número
+        usuarioId: req.userId
+      }
+    });
+
+    return res.status(200).json({ message: "Receitas excluídas com sucesso." });
+  } catch (error) {
+    console.error("Erro ao excluir em massa:", error);
+    return res.status(500).json({ error: "Erro ao excluir vários lançamentos." });
+  }
+});
+
+export default router;
+</file>
+
+<file path="src/routes/usuarios.routes.js">
+import { Router } from "express";
+import multer from "multer";
+import bcrypt from "bcryptjs";
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+import prisma from "../database/prisma.js";
+import { authMiddleware } from "../middlewares/auth.js"; 
+
+const router = Router();
+
+// ☁️ 1. CONFIGURAÇÃO DO CLOUDINARY
+// Utiliza as variáveis de ambiente que você configurou no painel do Render
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// ☁️ 2. STORAGE DE NUVEM
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "clubapp_perfil",
+    allowedFormats: ["jpg", "png", "jpeg"],
+    transformation: [{ width: 500, height: 500, crop: "fill" }],
+  },
+});
+
+const upload = multer({ storage });
+
+// --- ROTA PÚBLICA: Cadastro de Usuário ---
+router.post("/", async (req, res) => {
+  try {
+    const { nome, email, senha } = req.body;
+
+    const userExists = await prisma.usuario.findUnique({ where: { email } });
+    if (userExists) return res.status(400).json({ error: "E-mail já cadastrado." });
+
+    const senhaHash = await bcrypt.hash(senha, 8);
+
+    const usuario = await prisma.usuario.create({
+      data: { nome, email, senhaHash }, 
+    });
+
+    const { senhaHash: _, ...userSemSenha } = usuario;
+    return res.status(201).json(userSemSenha);
+  } catch (error) {
+    console.error(error);
+    return res.status(400).json({ error: "Erro ao criar conta. Verifique os dados." });
+  }
+});
+
+// --- PROTEÇÃO: Exige Token JWT ---
+router.use(authMiddleware);
+
+// --- 🚀 ROTA: Atualizar Foto (COM ENCAPSULAMENTO DE ERRO I/O) ---
+router.patch("/foto", (req, res, next) => {
+  // O invólucro lógico: captura falhas do Cloudinary/Rede antes do Express travar
+  upload.single("foto")(req, res, function (err) {
+    if (err) {
+      console.error("Erro crítico no middleware do Multer/Cloudinary:", err);
+      return res.status(502).json({ error: "Falha na comunicação com a nuvem de arquivos. Tente novamente." });
+    }
+    // Se não houver erro de I/O, avança para a função principal
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "Nenhuma foto foi recebida pelo servidor." });
+
+    // No CloudinaryStorage, a URL pronta e segura fica no req.file.path
+    const linkDaFotoNuvem = req.file.path;
+
+    const usuario = await prisma.usuario.update({
+      where: { id: req.userId },
+      data: { foto: linkDaFotoNuvem }, // Salva o URL (http...) em vez do nome do arquivo
+    });
+
+    const { senhaHash, ...userSemSenha } = usuario;
+    return res.json(userSemSenha);
+  } catch (error) {
+    console.error("Erro no banco de dados na rota de foto:", error);
+    return res.status(500).json({ error: "Erro interno ao atualizar perfil." });
+  }
+});
+
+// --- ROTA: Alterar Senha ---
+router.patch("/senha", async (req, res) => {
+  try {
+    const { senhaAtual, novaSenha } = req.body;
+    const usuario = await prisma.usuario.findUnique({ where: { id: req.userId } });
+
+    const checkSenha = await bcrypt.compare(senhaAtual, usuario.senhaHash);
+    if (!checkSenha) return res.status(401).json({ error: "A senha atual está incorreta." });
+
+    const novaHash = await bcrypt.hash(novaSenha, 8);
+    await prisma.usuario.update({
+      where: { id: req.userId },
+      data: { senhaHash: novaHash },
+    });
+
+    return res.json({ message: "Senha alterada com sucesso!" });
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao alterar senha." });
+  }
+});
+
+export default router;
+</file>
+
+<file path="src/server.js">
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import path from "path"; 
+import { fileURLToPath } from "url"; // 👈 IMPORTANTE: Ferramenta do Node moderno
+
+// --- IMPORTAÇÕES ---
+import usuariosRoutes from "./routes/usuarios.routes.js"; 
+import authRoutes from "./routes/auth.routes.js";
+import eventosRoutes from "./routes/eventos.routes.js";
+import financeiroRoutes from "./routes/financeiro.routes.js";
+import notificacoesRoutes from "./routes/notificacoes.routes.js";
+import receitasRoutes from "./routes/receitas.routes.js";
+import despesasRoutes from "./routes/despesas.routes.js";
+import bootstrapRoutes from "./routes/bootstrap.routes.js";
+
+import { authMiddleware } from "./middlewares/auth.js"; 
+
+import fs from 'fs';
+if (!fs.existsSync('./uploads')) {
+  fs.mkdirSync('./uploads');
+}
+
+dotenv.config();
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// --- MÁGICA DO NODE MODERNO: Recriando o __dirname ---
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
+
+// --- 1. ROTAS PÚBLICAS (Abertas) ---
+
+// Robô de ping para manter o servidor da Render acordado (Hospedagem gratuíta) 
+app.get("/ping", (req, res) => {
+  return res.status(200).send("pong");
+});
+
+app.use("/login", authRoutes);    
+app.use("/usuarios", usuariosRoutes); 
+
+// Libera o acesso público à pasta uploads
+// O caminho '..' faz ele sair da pasta 'src' e procurar a pasta 'uploads' na raiz
+app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
+
+
+// --- 2. PROTEÇÃO GLOBAL ---
+app.use(authMiddleware); 
+
+// --- 3. ROTAS PROTEGIDAS ---
+
+
+app.use("/bootstrap", bootstrapRoutes);
+app.use("/eventos", eventosRoutes);
+app.use("/financeiro", financeiroRoutes);
+app.use("/notificacoes", notificacoesRoutes);
+app.use("/receitas", receitasRoutes);
+app.use("/despesas", despesasRoutes);
+
+const PORT = process.env.PORT || 3333;
+app.listen(PORT, () => {
+  console.log(`✅ YourFlow rodando em: http://localhost:${PORT}`);
+});
+</file>
+
+<file path="uploads/.gitkeep">
+
+</file>
+
+</files>

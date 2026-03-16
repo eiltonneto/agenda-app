@@ -66,7 +66,7 @@ model Despesa {
   valor           Decimal          @db.Decimal(10, 2)
   status          StatusDespesa    @default(PENDENTE)
   
-  // 🗓️ Estrutura Final Única
+  // Estrutura Final Única
   eventDate       DateTime?        // Data do compromisso
   paidAt          DateTime?        // Data do pagamento real
   createdAt       DateTime         @default(now())
@@ -83,7 +83,7 @@ model Receita {
   valor         Decimal       @db.Decimal(10, 2)
   status        StatusReceita @default(PENDENTE)
   
-  // 🗓️ Estrutura Final Única
+  // Estrutura Final Única
   eventDate     DateTime?     // Data do atendimento (Agenda)
   paidAt        DateTime?     // Data do recebimento (Caixa)
   createdAt     DateTime      @default(now())

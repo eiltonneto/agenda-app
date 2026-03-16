@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
 
-// Dica: O dotenv.config() geralmente fica apenas no seu server.js para evitar redundância
 export function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
 
@@ -21,11 +20,11 @@ export function authMiddleware(req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    /**
-     * AJUSTE V2: Conversão explícita para Number.
-     * Como o seu Usuario.id no Prisma é Int, garantimos que req.userId 
-     * chegue nas rotas pronto para ser usado em consultas do banco.
-     */
+  
+  //AJUSTE: Conversão explícita para Number.
+  //Como o seu Usuario.id no Prisma é Int, garantimos que req.userId 
+  //chegue nas rotas pronto para ser usado em consultas do banco.
+  
     req.userId = Number(decoded.id); 
 
     return next();
