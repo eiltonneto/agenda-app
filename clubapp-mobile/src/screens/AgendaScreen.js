@@ -16,7 +16,7 @@ import { ptBR } from "date-fns/locale";
 
 import api from "../services/api";
 import { useTheme } from "../context/ThemeContext";
-// 🚀 V3: Importamos o estado global que já vem hidratado do Bootstrap
+// V3 Importa o estado global que já vem do Bootstrap
 import { useAuth } from "../context/AuthContext";
 
 const PRESET_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#f43f5e", "#64748b", "#1e293b"];
@@ -93,15 +93,15 @@ export default function AgendaScreen({ navigation }) {
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true, easing: Easing.out(Easing.exp) }).start();
   }, [currentMonth]);
 
-  const tratarErro = (error) => {
+  const treatError = (error) => {
     let mensagem = error.response?.data?.error || "Ocorreu um erro inesperado.";
     if (error.message?.includes("Network Error")) mensagem = "Sem conexão com o servidor.";
     setErrorMessage(mensagem);
     setTimeout(() => setErrorMessage(""), 5000);
   };
 
-  // 🚀 V3: Busca silenciosa (Background Fetch) apenas ao mudar o mês manualmente
-  const mudarMesSilenciosamente = (novaData) => {
+  //  V3: Busca silenciosa (Background Fetch) apenas ao mudar o mês manualmente
+  const changeMonthSilence = (novaData) => {
     setCurrentMonth(novaData);
     // Dispara a requisição em background sem mostrar loading
     api.get('/eventos').then(res => {
@@ -110,7 +110,7 @@ export default function AgendaScreen({ navigation }) {
   };
 
   // --- LÓGICA DE EVENTOS (OPTIMISTIC UI) ---
-  const handleLongPressEvento = (id) => {
+  const handleLongPressEvent = (id) => {
     if (selectedEventIds.includes(id)) {
       setSelectedEventIds(selectedEventIds.filter(itemId => itemId !== id));
     } else {
@@ -118,15 +118,15 @@ export default function AgendaScreen({ navigation }) {
     }
   };
 
-  const handlePressEvento = (ev) => {
+  const handlePressEvent = (ev) => {
     if (selectedEventIds.length > 0) {
-      handleLongPressEvento(ev.id);
+      handleLongPressEvent(ev.id);
     } else {
-      abrirModalEdicao(ev);
+      OpenModalEdition(ev);
     }
   };
 
-  const excluirSelecionados = () => {
+  const deleteSelection = () => {
     const executeDelete = async () => {
       const idsToDelete = [...selectedEventIds];
       const backups = eventosGlobais.filter(e => idsToDelete.includes(e.id));
@@ -139,7 +139,7 @@ export default function AgendaScreen({ navigation }) {
         await api.post("/eventos/excluir-massa", { ids: idsToDelete });
       } catch (e) { 
         setEventosGlobais(prev => [...prev, ...backups]); // Rollback
-        tratarErro(e); 
+        treatError(e); 
       }
     };
     if (Platform.OS === 'web') {
@@ -152,18 +152,18 @@ export default function AgendaScreen({ navigation }) {
     }
   };
 
-const handleExcluirEvento = (id) => {
+const handleDeleteEvent = (id) => {
     const executeDelete = async () => {
-      const backupEvento = eventosGlobais.find(e => e.id === id);
+      const backupEvento = eventosGlobais.find(e => e.id === id); // Backup do evento e estado anterior para rollback caso o servidor falhe. 
       
-      // 1. OTIMISTA AGENDA: Remove da tela instantaneamente
+      // OTIMISTA AGENDA: Remove da tela instantaneamente
       setModalVisivel(false); 
       setEventosGlobais(prev => prev.filter(e => e.id !== id));
 
-      // 2. 🚀 OTIMISTA FINANCEIRO ABSOLUTO: O Filtro "Sniper"
+      // OTIMISTA FINANCEIRO ABSOLUTO
       let backupReceita = null;
       if (backupEvento) {
-         // Pega só o "2026-02-21" e transforma o título em minúsculas
+         // Pega só o "formato da data" e transforma o título em minúsculas
          const dataIso = backupEvento.inicio.split('T')[0]; 
          const tituloBusca = backupEvento.titulo.toLowerCase().trim();
 
@@ -171,7 +171,7 @@ const handleExcluirEvento = (id) => {
             // Guarda o backup por segurança
             backupReceita = prev.find(r => r.eventDate && r.eventDate.startsWith(dataIso) && r.descricao && r.descricao.toLowerCase().includes(tituloBusca));
             
-            // 🚀 A MÁGICA: Varre a tela e apaga instantaneamente
+            // apaga instantaneamente
             return prev.filter(r => {
                const mesmaData = r.eventDate && r.eventDate.startsWith(dataIso);
                const mesmaDescricao = r.descricao && r.descricao.toLowerCase().includes(tituloBusca);
@@ -184,9 +184,9 @@ const handleExcluirEvento = (id) => {
 
       // 3. Executa a exclusão real no servidor
       try {
-        await api.delete(`/eventos/${id}`);
+        await api.delete(`/eventos/${id}`); // Espera a resposta da request delete para continuar o processo, garantindo que só atualizamos o financeiro se a exclusão do evento for bem sucedida.
         
-        // 4. ATUALIZAÇÃO FORÇADA: Busca os dados limpos no banco para garantir a integridade
+        // ATUALIZAÇÃO FORÇADA: Busca os dados limpos no banco para garantir a integridade
         if (backupEvento) {
            const partesData = backupEvento.inicio.split('T')[0].split('-'); // ["2026", "02", "21"]
            const ano = parseInt(partesData[0], 10);
@@ -200,10 +200,10 @@ const handleExcluirEvento = (id) => {
         }
 
       } catch (error) { 
-        // 5. ROLLBACK
-        setEventosGlobais(prev => [...prev, backupEvento]); 
-        if (backupReceita) setReceitasGlobais(prev => [...prev, backupReceita]);
-        tratarErro(error); 
+        // ROLLBACK
+        setEventosGlobais(prev => [...prev, backupEvento]); // Estado anterior + evento apagado
+        if (backupReceita) setReceitasGlobais(prev => [...prev, backupReceita]); // Devolve o estado anterior e a receita apagada com a const backupReceita, garantindo que o usuário não perca dados mesmo em caso de falha de rede ou erro do servidor.
+        treatError(error); 
       }
     };
     
@@ -230,7 +230,7 @@ const handleExcluirEvento = (id) => {
     setValorFinanceiro(value);
   };
 
-  const abrirModalCriacao = () => {
+  const OpenModalCreated = () => {
     setErrorMessage("");
     setEventoEditando(null); 
     setTitulo(""); 
@@ -244,7 +244,7 @@ const handleExcluirEvento = (id) => {
     setModalVisivel(true); 
   };
 
-  const abrirModalEdicao = (ev) => {
+  const OpenModalEdition = (ev) => {
     setErrorMessage("");
     setEventoEditando(ev); 
     setTitulo(ev.titulo);
@@ -269,26 +269,28 @@ const handleExcluirEvento = (id) => {
     setModalVisivel(true); 
   };
 
-  const salvarEvento = async () => {
+  const createEvent = async () => {
     setErrorMessage("");
 
     // --- VALIDAÇÕES ---
-    if (!titulo.trim()) return setErrorMessage("O nome do evento é obrigatório.");
-    if (horaInicio.length !== 5 || horaFim.length !== 5) return setErrorMessage("Preencha o horário completo (HH:mm).");
-    if (horaInicio === horaFim) return setErrorMessage("A hora de início e término não podem ser iguais.");
+    // Antes de qualquer coisa, verifica se o formulário foi preenchido corretamente, se qualquer validação falhar, mostra o erro e para tudo com return.
+    if (!titulo.trim()) return setErrorMessage("O nome do evento é obrigatório."); // Se não existir o nome do evento
+    if (horaInicio.length !== 5 || horaFim.length !== 5) return setErrorMessage("Preencha o horário completo (HH:mm)."); // Se o horário for insuficiente em caracteres (5 caracteres)
+    if (horaInicio === horaFim) return setErrorMessage("A hora de início e término não podem ser iguais.");// Horário de início não pode ser igual ao de término. 
 
-    let valorFinal = 0.0;
-    if (gerarFinanceiro) {
-      if (!valorFinanceiro) return setErrorMessage("Informe o valor financeiro.");
-      const valorLimpo = valorFinanceiro.replace(/\./g, '').replace(',', '.');
-      valorFinal = parseFloat(valorLimpo);
-      if (isNaN(valorFinal) || valorFinal <= 0) return setErrorMessage("Valor financeiro inválido.");
+    let valorFinal = 0.0; // Variável que recebe o valor da integração financeira caso marcada o switch "lançar no financeiro" e passa para o payload. Se o switch não for marcado, o valor fica 0 e o backend ignora, garantindo que o evento seja criado mesmo sem valor financeiro, mantendo a flexibilidade para o usuário.
+    if (gerarFinanceiro) { // Se financeiro for verdadeiro (ou seja, o switch "Lançar no Financeiro" estiver ativado), aí sim a validação do valor financeiro é obrigatória. Se o switch não estiver ativado, o valor financeiro é irrelevante e não bloqueia a criação do evento.
+      if (!valorFinanceiro) return setErrorMessage("Informe o valor financeiro."); // Caso o usuário não digite o valor da receita do evento.
+      // Formatação para o banco de dados - o usuário digita o valor (brasileiro) com pontos e vírgula, mas o backend espera um número decimal com ponto. Então aqui a gente faz a conversão, tirando os pontos de milhar e substituindo a vírgula decimal por ponto. Ex: "1.234,56" vira "1234.56" e depois é convertido para número 1234.56.
+      const valorLimpo = valorFinanceiro.replace(/\./g, '').replace(',', '.'); // formatação é a inicialização da variável "valorLimpo". Ela recebe o valor do input "valorFinanceiro" e aplica duas substituições usando expressões regulares: a primeira remove todos os pontos (usados como separadores de milhar no formato brasileiro) e a segunda substitui a vírgula (usada como separador decimal)
+      valorFinal = parseFloat(valorLimpo); // Conversão de entrada para o tipo do banco de dados (parseamento para float).
+      if (isNaN(valorFinal) || valorFinal <= 0) return setErrorMessage("Valor financeiro inválido."); // Validação para garantir que o valor financeiro seja um número válido e positivo. Se a conversão resultar em NaN (Not a Number) ou se o valor for zero ou negativo, a função exibe uma mensagem de erro e interrompe a execução com return, evitando que o evento seja criado com um valor financeiro inválido.
     }
 
     // --- CONSTRUÇÃO DAS DATAS ---
-    const dataIso = format(selectedDate, "yyyy-MM-dd");
+    const dataIso = format(selectedDate, "yyyy-MM-dd"); // Variável que recebe a data selecionada formatada em ISO (yyyy-MM-dd), que é o formato esperado pelo backend. O formato ISO é um padrão internacional para representação de datas, garantindo consistência e evitando problemas de fuso horário ou formatação regional. O backend espera as datas nesse formato para processar corretamente os eventos e suas integrações financeiras.
     let dataFimIso = dataIso;
-    if (horaFim < horaInicio) {
+    if (horaFim < horaInicio) { // No caso de um evento começar em um dia e terminar em outro (ex: inicio: 23:00 | fim: 01:00), o backend precisa receber a data de término correta, que é do dia seguinte. Então aqui a gente verifica se a hora de término é menor que a hora de início, e se for, significa que o evento passa da meia noite, aí a gente calcula a data de término como sendo o dia seguinte usando a função addDays do date-fns, garantindo que o backend crie o evento com a duração correta mesmo que o usuário só tenha preenchido as horas.
       const diaSeguinte = addDays(selectedDate, 1);
       dataFimIso = format(diaSeguinte, "yyyy-MM-dd");
     }
@@ -296,8 +298,8 @@ const handleExcluirEvento = (id) => {
     const inicioFormatado = `${dataIso}T${horaInicio}:00`;
     const fimFormatado = `${dataFimIso}T${horaFim}:00`;
 
-    const payload = {
-      titulo: titulo.trim(),
+    const payload = { // Carga útil, dados essenciais reais que será enviada para o servidor. O payload é construído com base nos dados do formulário, mas também inclui campos calculados e formatados corretamente para o backend, como as datas em formato ISO, o valor financeiro convertido para número, e a categoria selecionada.
+      titulo: titulo.trim(),// A logica da hora também vai junto ,se o evento for até meia noite, o dataFimIso é o mesmo dia, se passar de meia noite, o dataFimIso é do dia seguinte. Assim, o backend recebe as datas já corretas para criar o evento com a duração certa, mesmo que o usuário só tenha preenchido as horas.
       inicio: inicioFormatado,
       fim: fimFormatado,
       categoria_id: selectedCategory.id,
@@ -319,7 +321,7 @@ const handleExcluirEvento = (id) => {
     const tempId = eventoEditando ? eventoEditando.id : `temp-${Date.now()}`;
     const eventoOtimista = { id: tempId, ...payload, temp: !eventoEditando };
 
-    // ✅ NOVO: Guardamos backups ANTES de qualquer mudança otimista.
+    // Guardamos backups ANTES de qualquer mudança otimista.
     // São os "pontos de restauração" para o caso de erro da API.
     const backupEventos = [...eventosGlobais];
     const backupReceitas = [...receitasGlobais];
@@ -385,7 +387,7 @@ const handleExcluirEvento = (id) => {
     }
   };
 
-const toggleComparecido = async (evento) => {
+const toggleAttended = async (evento) => { // Comparecido ?
     // Bloqueia o clique se o evento ainda for temporário (salvando no Render)
     if (evento.temp) return;
 
@@ -450,24 +452,24 @@ const toggleComparecido = async (evento) => {
       // ROLLBACK: Se a API falhar, desfaz a animação na Agenda e no Financeiro
       setEventosGlobais(backupEventos);
       setReceitasGlobais(backupReceitas);
-      tratarErro(e);
+      treatError(e);
     }
   };
 
   // GESTÃO DE CATEGORIAS (OTIMISTIC UI + PERSISTÊNCIA LOCAL -> SWR DE CATEGORIAS)
-  const handleNovaCategoria = () => {
+  const handleNewCategory = () => {
     setErrorMessage("");
     setCatEditing({ id: Date.now().toString(), name: "", color: PRESET_COLORS[0], isNew: true });
     setModalCatVisivel(true);
   };
 
-  const handleEditarCategoria = (cat) => {
+  const handleEditCategory = (cat) => {
     setErrorMessage("");
     setCatEditing({ ...cat, isNew: false });
     setModalCatVisivel(true);
   };
 
-  const salvarCategoriaPersistente = async () => {
+  const saveCategoryPersistent = async () => {
     if (!catEditing.name?.trim()) return setErrorMessage("O nome da categoria é obrigatório.");
     let novaLista;
     if (catEditing.isNew) {
@@ -483,7 +485,7 @@ const toggleComparecido = async (evento) => {
     setModalCatVisivel(false);
   };
 
-  const excluirCategoriaPersistente = async () => {
+  const deleteCategoryPersistent = async () => {
     if (categories.length <= 1) return setErrorMessage("Mantenha ao menos uma categoria.");
     const novaLista = categories.filter(c => c.id !== catEditing.id);
     setCategories(novaLista);
@@ -598,7 +600,7 @@ const toggleComparecido = async (evento) => {
         <View style={[styles.detailsSection, isDesktop && { paddingHorizontal: 60 }]}>
           <View style={styles.sectionHeader}>
             <Text style={styles.dateTitle}>{format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR }).toUpperCase()}</Text>
-            <TouchableOpacity style={[styles.btnAddMini, {backgroundColor: colors.primary}]} onPress={abrirModalCriacao}>
+            <TouchableOpacity style={[styles.btnAddMini, {backgroundColor: colors.primary}]} onPress={OpenModalCreated}>
               <Ionicons name="add" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -615,14 +617,14 @@ const toggleComparecido = async (evento) => {
                   ev.temp && { opacity: 0.6 } // Efeito visual para itens que ainda estão salvando no background
                 ]}
               >
-                <TouchableOpacity onPress={() => toggleComparecido(ev)} style={{padding: 10, paddingLeft: 0}}>
+                <TouchableOpacity onPress={() => toggleAttended(ev)} style={{padding: 10, paddingLeft: 0}}>
                    <Ionicons name={ev.comparecido ? "checkbox" : "square-outline"} size={28} color={ev.comparecido ? colors.success : colors.textSecondary} />
                 </TouchableOpacity>
 
                 <TouchableOpacity 
                   style={{flex: 1}}
-                  onPress={() => handlePressEvento(ev)}
-                  onLongPress={() => handleLongPressEvento(ev.id)}
+                  onPress={() => handlePressEvent(ev)}
+                  onLongPress={() => handleLongPressEvent(ev.id)}
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.cardTitle, {color: colors.text}, ev.comparecido && { textDecorationLine: 'line-through', opacity: 0.5 }]}>
@@ -640,7 +642,7 @@ const toggleComparecido = async (evento) => {
                   </View>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => handleExcluirEvento(ev.id)} style={{padding: 10}}>
+                <TouchableOpacity onPress={() => handleDeleteEvent(ev.id)} style={{padding: 10}}>
                   <Ionicons name="trash-outline" size={24} color={colors.danger} />
                 </TouchableOpacity>
               </View>
@@ -677,7 +679,7 @@ const toggleComparecido = async (evento) => {
 
                 <View style={styles.rowBetween}>
                   <Text style={styles.label}>LOCAL / CATEGORIA</Text>
-                  <TouchableOpacity onPress={handleNovaCategoria}><Text style={[styles.linkAction, {color: colors.primary}]}>+ Novo Local</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={handleNewCategory}><Text style={[styles.linkAction, {color: colors.primary}]}>+ Novo Local</Text></TouchableOpacity>
                 </View>
 
                 <View style={styles.catGrid}>
@@ -685,7 +687,7 @@ const toggleComparecido = async (evento) => {
                     <TouchableOpacity 
                       key={cat.id} 
                       onPress={() => setSelectedCategory(cat)}
-                      onLongPress={() => handleEditarCategoria(cat)} 
+                      onLongPress={() => handleEditCategory(cat)} 
                       delayLongPress={400}
                       style={[styles.catChip, selectedCategory.id === cat.id && { backgroundColor: cat.color, borderColor: cat.color }]}
                     >
@@ -750,7 +752,7 @@ const toggleComparecido = async (evento) => {
                 <TextInput style={[styles.input, { height: 60, marginBottom: 20, color: colors.text, backgroundColor: colors.inputBackground }]} multiline value={observacao} onChangeText={setObservacao} placeholderTextColor={colors.textSecondary} />
 
                 {/* O botão salva instantaneamente e não fica preso em 'loading' */}
-                <TouchableOpacity style={[styles.btnSave, {backgroundColor: colors.primary}]} onPress={salvarEvento}>
+                <TouchableOpacity style={[styles.btnSave, {backgroundColor: colors.primary}]} onPress={createEvent}>
                   <Text style={styles.btnSaveText}>SALVAR EVENTO</Text>
                 </TouchableOpacity>
 
@@ -779,10 +781,10 @@ const toggleComparecido = async (evento) => {
               {PRESET_COLORS.map(c => <TouchableOpacity key={c} onPress={() => setCatEditing({...catEditing, color: c})} style={[styles.colorCircle, { backgroundColor: c }, catEditing.color === c && styles.colorSelected]} />)}
             </View>
             <View style={{flexDirection:'row', justifyContent:'space-between', marginTop: 15, width: '100%'}}>
-                {!catEditing.isNew && <TouchableOpacity onPress={excluirCategoriaPersistente}><Text style={{color: colors.danger, fontWeight:'bold', padding: 10}}>Excluir</Text></TouchableOpacity>}
+                {!catEditing.isNew && <TouchableOpacity onPress={deleteCategoryPersistent}><Text style={{color: colors.danger, fontWeight:'bold', padding: 10}}>Excluir</Text></TouchableOpacity>}
                 <View style={{flexDirection:'row', gap: 10, flex: 1, justifyContent: 'flex-end'}}>
                    <TouchableOpacity onPress={() => { setModalCatVisivel(false); setErrorMessage(""); }}><Text style={{fontWeight:'bold', padding: 10, color: colors.textSecondary}}>Cancelar</Text></TouchableOpacity>
-                   <TouchableOpacity onPress={salvarCategoriaPersistente} style={{backgroundColor: colors.primary, padding: 10, borderRadius: 8}}><Text style={{color:'#fff', fontWeight:'bold'}}>Salvar</Text></TouchableOpacity>
+                   <TouchableOpacity onPress={saveCategoryPersistent} style={{backgroundColor: colors.primary, padding: 10, borderRadius: 8}}><Text style={{color:'#fff', fontWeight:'bold'}}>Salvar</Text></TouchableOpacity>
                 </View>
             </View>
           </View>

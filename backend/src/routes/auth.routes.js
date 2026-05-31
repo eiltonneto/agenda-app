@@ -19,34 +19,35 @@ router.post("/", async (req, res) => {
         return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
     }
 
-    // Busca o usuário no banco
+    // Busca o usuário no banco pelo email
     const user = await prisma.usuario.findUnique({ where: { email } });
 
     if (!user) {
       return res.status(400).json({ error: "E-mail não encontrado." });
     }
 
-    // Verifica a senha
+    // Verifica se a senha existe no banco
     const senhaHashBanco = user.senha || user.password || user.senhaHash;
     if (!senhaHashBanco) {
         return res.status(500).json({ error: "Erro de cadastro: Senha não encontrada no banco." });
     }
 
+    // Comapara a senha com o hash salvo no banco 
     const checkPassword = await bcrypt.compare(senhaLogin, senhaHashBanco);
 
     if (!checkPassword) {
       return res.status(401).json({ error: "Senha incorreta." });
     }
 
-    // Gera o Token
-    const token = jwt.sign({ id: user.id }, authConfig.secret, {
-      expiresIn: authConfig.expiresIn,
+    // Gera o Token com o ID do usuário e as configurações de expiração
+    const token = jwt.sign(
+      { id: user.id }, // payload do toke, aqui estamos colocando o ID do usuário para identificar quem é o usuário autenticado (somente o ID para não expor informnações secretas no token)
+       authConfig.secret, {// JWT_SECRET do .env
+      expiresIn: authConfig.expiresIn, // Tempo de expiração do token, aqui estamos usando 7 dias, mas pode ser ajustado conforme a necessidade
     });
-
-    // V4: VELOCIDADE MÁXIMA E REGIME DE CAIXA ---
     
-    // horizonte de tempo (Mês Atual)
-    //REGIME DE CAIXA (V4) - o que está PENDENTE + o que entrou/foi pago no CAIXA no mês vigente
+    // Horizonte de tempo (Mês Atual)
+    //O que está PENDENTE + o que entrou/foi pago no CAIXA no mês vigente (Regfime de Caixa)
     const agora = new Date();
     const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
     const fimMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0, 23, 59, 59);
@@ -58,7 +59,7 @@ router.post("/", async (req, res) => {
           usuarioId: user.id,
           inicio: { gte: inicioMes } 
         },
-        orderBy: { inicio: 'asc' } 
+        orderBy: { inicio: 'asc' } // 
       }),
 
       // Receitas: Segue o Regime de Caixa

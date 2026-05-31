@@ -125,7 +125,7 @@ const [isLogin, setIsLogin] = useState(true);
   const [senhaCad, setSenhaCad] = useState("");
   const [confirmaSenha, setConfirmaSenha] = useState("");
   
-  // CONTROLES DE TELA (Estes eram os que estavam faltando!)
+  // CONTROLES DE TELA 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState(null);

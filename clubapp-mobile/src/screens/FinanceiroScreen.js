@@ -268,15 +268,15 @@ const excluirItemRapido = async (item) => {
        // Remove da tela primeiro
        setter(prev => prev.filter(t => t.id !== item.id));
 
-       if (item.temp) {
-         excluidosTemporarios.current.add(item.id);
-         return; 
+       if (item.temp) { // Se o item ainda for temporário
+         excluidosTemporarios.current.add(item.id); // anota que esse ID temporário foi excluído para o caso de a criaçao ainda não ter sido confirmada pelo servidor. Assim, quando a resposta do servidor chegar, o sistema saberá que deve apagar o item real correspondente silenciosamente, evitando que o card "fantasma" apareça na tela.
+         return; // Não manda delete ainda porque nessa condição, o id ainda não existe no banco
        }
 
        try {
          await api.delete(`${route}/${item.id}`);
        } catch (e) { 
-         // BLINDAGEM: Se o erro for 404, não faça nada! O card já sumiu da tela com sucesso. Outros status code são tratados normamelmente e o card é devolvido para o usuário.
+         // Tra: Se o erro for 404, não faz nada. O card já sumiu da tela. Outros status code são tratados normamelmente e o card é devolvido para o usuário.
          if (e.response && e.response.status === 404) {
             console.log("Card fantasma resolvido: já estava deletado no banco.");
          } else {

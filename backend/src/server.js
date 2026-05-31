@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path"; 
-import { fileURLToPath } from "url"; // 👈 IMPORTANTE: Ferramenta do Node moderno
+import { fileURLToPath } from "url"; // IMPORTANTE: Ferramenta do Node moderno
 
 // IMPORTAÇÕES DE ROTAS
 import usuariosRoutes from "./routes/usuarios.routes.js"; 

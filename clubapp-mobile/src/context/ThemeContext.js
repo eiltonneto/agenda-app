@@ -41,10 +41,10 @@ const ThemeContext = createContext({});
 
 export function ThemeProvider({ children }) {
   // Começa com o tema claro (light)
-  const [theme, setTheme] = useState(themes.light);
+  const [theme, setTheme] = useState(themes.light);// inicia o estado do tema com o tema claro (light) como padrão. O useState é um hook do React que permite adicionar estado a componentes funcionais. Aqui, theme é o estado atual do tema, e setTheme é a função que permite atualizar esse estado.
 
   function toggleTheme() {
-    setTheme(theme.isDark ? themes.light : themes.dark);
+    setTheme(theme.isDark ? themes.light : themes.dark); // if/else moderno que alterna entre os temas claro e escuro. Se o tema atual for escuro (theme.isDark for true), ele muda para o tema claro (themes.light). Caso contrário, ele muda para o tema escuro (themes.dark). Isso permite que o usuário alterne facilmente entre os dois temas.
   }
 
   return (
