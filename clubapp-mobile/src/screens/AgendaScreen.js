@@ -100,8 +100,8 @@ export default function AgendaScreen({ navigation }) {
     setTimeout(() => setErrorMessage(""), 5000);
   };
 
-  //  V3: Busca silenciosa (Background Fetch) apenas ao mudar o mês manualmente
-  const changeMonthSilence = (novaData) => {
+  // V3: Busca silenciosa (Background Fetch) apenas ao mudar o mês manualmente
+  const mudarMesSilenciosamente = (novaData) => {
     setCurrentMonth(novaData);
     // Dispara a requisição em background sem mostrar loading
     api.get('/eventos').then(res => {
