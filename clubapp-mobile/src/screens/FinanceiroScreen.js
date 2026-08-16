@@ -523,7 +523,7 @@ const excluirItemRapido = async (item) => {
         </View>
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView showsVerticalScrollIndicator={Platform.OS === "web"} contentContainerStyle={{ paddingBottom: 100 }}>
         
         {/* RESUMO */}
         <View style={[styles.resumoWrapper, isDesktop && styles.resumoDesktop]}>
@@ -680,7 +680,7 @@ const excluirItemRapido = async (item) => {
               </View>
             )}
             
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={Platform.OS === "web"}>
               
               <Text style={styles.label}>TÍTULO</Text>
               <TextInput style={[styles.inputSaaS, {color: colors.text, backgroundColor: colors.inputBackground}]} value={descricao} onChangeText={setDescricao} placeholder="Ex: Mensalidade Academia" placeholderTextColor="#999" />
@@ -722,7 +722,7 @@ const excluirItemRapido = async (item) => {
 
                 {showInlineDatePicker && (
                   <View style={[styles.inlinePickerContainer, {backgroundColor: colors.surface}]}>
-                    <ScrollView style={styles.pickerCol} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                    <ScrollView style={styles.pickerCol} nestedScrollEnabled showsVerticalScrollIndicator={Platform.OS === "web"}>
                        {Array.from({length: 31}, (_, i) => i + 1).map(d => (
                          <TouchableOpacity key={d} onPress={() => setDataSelecionadaForm(new Date(getYear(dataSelecionadaForm), getMonth(dataSelecionadaForm), d))} 
                            style={[styles.pickerCell, getDate(dataSelecionadaForm) === d && {backgroundColor: colors.primary + '20'}]}>
@@ -730,7 +730,7 @@ const excluirItemRapido = async (item) => {
                          </TouchableOpacity>
                        ))}
                     </ScrollView>
-                    <ScrollView style={styles.pickerCol} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                    <ScrollView style={styles.pickerCol} nestedScrollEnabled showsVerticalScrollIndicator={Platform.OS === "web"}>
                        {MESES_CURTOS.map((m, i) => (
                          <TouchableOpacity key={m} onPress={() => setDataSelecionadaForm(setMonth(dataSelecionadaForm, i))} 
                            style={[styles.pickerCell, getMonth(dataSelecionadaForm) === i && {backgroundColor: colors.primary + '20'}]}>
@@ -738,7 +738,7 @@ const excluirItemRapido = async (item) => {
                          </TouchableOpacity>
                        ))}
                     </ScrollView>
-                    <ScrollView style={styles.pickerCol} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                    <ScrollView style={styles.pickerCol} nestedScrollEnabled showsVerticalScrollIndicator={Platform.OS === "web"}>
                        {Array.from({length: 10}, (_, i) => getYear(new Date()) - 5 + i).map(y => (
                          <TouchableOpacity key={y} onPress={() => setDataSelecionadaForm(setYear(dataSelecionadaForm, y))} 
                            style={[styles.pickerCell, getYear(dataSelecionadaForm) === y && {backgroundColor: colors.primary + '20'}]}>

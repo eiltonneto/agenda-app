@@ -3,7 +3,8 @@ import { View, Text, ActivityIndicator, StatusBar } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
+import { useFonts } from "expo-font";
 
 // CONTEXTOS 
 import AuthProvider, { useAuth } from "./src/context/AuthContext";
@@ -105,6 +106,22 @@ function AppRoutes() {
 }
 
 export default function App() {
+  // Carrega as fontes de ícone antes de renderizar a UI: sem isso, o navegador
+  // desenha os ícones com a fonte de fallback (quadrados/tofu) até o .ttf chegar.
+  const [fontsLoaded] = useFonts({
+    ...Ionicons.font,
+    ...MaterialCommunityIcons.font,
+    ...MaterialIcons.font,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
   return (
     <AuthProvider>
       <ThemeProvider>

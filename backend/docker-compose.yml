@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: yourflow_db
+    environment:
+      POSTGRES_DB: yourflow_dev
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: dev123
+    ports:
+      - "5432:5432"
+    volumes:
+      - yourflow_pgdata:/var/lib/postgresql/data
+
+volumes:
+  yourflow_pgdata:

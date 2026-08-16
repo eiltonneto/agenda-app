@@ -5,6 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/server.js",
+    "dev:local": "cross-env DATABASE_URL=postgresql://dev:dev123@localhost:5432/yourflow_dev nodemon src/server.js",
+    "dev:prod": "nodemon src/server.js",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose stop",
+    "db:reset": "docker compose down -v && docker compose up -d && npx prisma migrate deploy",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
     "start": "node src/server.js"
   },
   "dependencies": {
@@ -19,6 +27,7 @@
     "multer-storage-cloudinary": "^4.0.0"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "nodemon": "^3.0.0",
     "prisma": "^6.0.0"
   }

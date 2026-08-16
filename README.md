@@ -3,9 +3,6 @@
 <img width="654" height="933" alt="image" src="https://github.com/user-attachments/assets/0d935ce5-f2a4-454d-adf0-afc4d515ff71" />
 <img width="654" height="933" alt="image" src="https://github.com/user-attachments/assets/8b93490a-51ef-42b5-9941-b35c9662c142" />
 
-
-
-
 O **YourFlow** é uma aplicação para **gestão de clubes e associações**, combinando uma **agenda de eventos** com um **controle financeiro** simples e eficiente.
 
 O projeto foi desenvolvido como **monorepo**, contendo:
@@ -22,6 +19,8 @@ A API está disponível em:
 https://agenda-app-wheat.vercel.app/
 
 Deploy realizado utilizando **Vercel**.
+
+Para saber como funciona o fluxo `feature → develop (dev) → main (produção)`, veja o [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -45,112 +44,195 @@ Deploy realizado utilizando **Vercel**.
 
 # 📂 Estrutura do Projeto
 
-
+```text
 yourflow
-│
 ├── backend
-│ ├── prisma
-│ ├── src
-│ └── package.json
-│
-└── clubapp-mobile
-├── src
-└── package.json
-
+│   ├── prisma
+│   ├── src
+│   ├── Dockerfile
+│   └── package.json
+├── clubapp-mobile
+│   ├── src
+│   ├── .env.example
+│   └── package.json
+├── docker-compose.yml
+├── backend/.env.example
+└── README.md
+```
 
 ---
 
-# ⚙️ Rodando o Projeto Localmente
+# ⚙️ Guia de execução diária
 
-## 1️⃣ Backend
+## 1️⃣ Subir o backend e o banco
 
-Clone o repositório:
+Abra um terminal na raiz do projeto:
 
 ```bash
-git clone https://github.com/eiltonneto/yourflow
-cd yourflow/backend
+cd C:\Users\JoseNeto\Projetos\agenda-app
+docker compose up --build
+```
 
-Instale as dependências:
+Se o ambiente já foi criado antes e você só quer ligar novamente:
 
-npm install
+```bash
+docker compose up
+```
 
-Execute as migrations do banco:
+Isso vai subir:
+- PostgreSQL
+- backend Node.js
+- migrações do Prisma
 
-npx prisma migrate dev
+A API fica disponível em:
 
-Inicie o servidor:
-
-npm run dev
-
-O servidor rodará em:
-
+```text
 http://localhost:3333
-2️⃣ Mobile
+```
 
-Abra outro terminal e execute:
+## 2️⃣ Ver logs do backend
 
-cd clubapp-mobile
+```bash
+docker compose logs -f backend
+```
+
+## 3️⃣ Parar o ambiente
+
+```bash
+docker compose down
+```
+
+Se quiser limpar também o banco local:
+
+```bash
+docker compose down -v
+```
+
+## 4️⃣ Rodar o app mobile
+
+Abra outro terminal:
+
+```bash
+cd C:\Users\JoseNeto\Projetos\agenda-app\clubapp-mobile
 npm install
 npx expo start
+```
 
-Um QR Code aparecerá no terminal.
+Depois:
+- escaneie o QR Code com o Expo Go
+- ou rode em um emulador Android/iOS
 
-Abra o aplicativo Expo Go no celular e escaneie o código.
+## 5️⃣ Arquivo de ambiente do backend
 
-📡 Configuração de IP (Para rodar no celular)
+Crie o arquivo `.env` a partir do exemplo:
 
-Celular e computador precisam estar na mesma rede Wi-Fi.
+```bash
+cd backend
+copy .env.example .env
+```
 
-Descubra o IP da sua máquina:
+Conteúdo esperado:
 
-ipconfig
+```env
+DATABASE_URL="postgresql://postgres:postgres@db:5432/agendaapp?schema=public"
+JWT_SECRET="f4930353163359556133965586686733"
+PORT=3333
+CLOUDINARY_CLOUD_NAME=""
+CLOUDINARY_API_KEY=""
+CLOUDINARY_API_SECRET=""
+```
 
-Exemplo:
+## 6️⃣ Arquivo de ambiente do mobile (opcional)
 
-192.168.0.10
+Por padrão o app **já escolhe o host certo sozinho**, de acordo com onde está rodando (veja [`src/services/api.js`](clubapp-mobile/src/services/api.js)):
 
-Abra o arquivo:
+| Onde você está testando | Host usado automaticamente |
+|---|---|
+| Emulador Android (AVD) | `http://10.0.2.2:3333` |
+| Navegador (`expo start` + tecla `w`) | `http://localhost:3333` |
+| iOS Simulator | `http://localhost:3333` |
+| Celular físico (Expo Go / USB) | precisa do IP da sua máquina — veja abaixo |
 
-clubapp-mobile/src/services/api.js
+Você só precisa criar um `.env` se estiver testando em um **celular físico** na mesma rede Wi-Fi, ou se quiser forçar um host diferente do padrão:
 
-E altere a baseURL:
+```bash
+cd clubapp-mobile
+copy .env.example .env
+```
 
-const api = axios.create({
-  baseURL: "http://192.168.0.10:3333"
-});
-📱 Funcionalidades
-🗓️ Agenda de Eventos
+Edite o valor com o IP da sua máquina na rede local (verifique com `ipconfig`):
 
-Visualização de calendário mensal
+```env
+EXPO_PUBLIC_API_URL=http://192.168.0.10:3333
+```
 
-Indicadores visuais nos dias com eventos
+> ⚠️ Se você definir `EXPO_PUBLIC_API_URL`, ele **sempre** tem prioridade sobre a escolha automática — inclusive no navegador. Não deixe um `.env` com `10.0.2.2` esquecido se for testar via `w` (navegador), senão a conexão trava com `ERR_CONNECTION_TIMED_OUT`.
 
-Criação, edição e exclusão de eventos
+## 7️⃣ Fluxo diário recomendado
 
-Prevenção de conflitos de horário
+### Iniciar o dia
+```bash
+cd C:\Users\JoseNeto\Projetos\agenda-app
+docker compose up --build
+```
 
-💰 Controle Financeiro
+### Rodar o app
+```bash
+cd C:\Users\JoseNeto\Projetos\agenda-app\clubapp-mobile
+npx expo start
+```
 
-Dashboard com saldo atual
+### Encerrar o dia
+```bash
+docker compose down
+```
 
-Registro de receitas e despesas
+---
 
-Filtro de transações por mês
+# ⚠️ Solução rápida de problemas
 
-Categorização de entradas e saídas
+## Backend não sobe
+```bash
+docker compose down -v
+docker compose up --build
+```
 
-Previsão de saldo futuro
+## App não conecta com o backend (Network Error / ERR_CONNECTION_TIMED_OUT)
+1. Confirme que o backend está de pé: `docker compose ps` e `curl http://localhost:3333/ping` deve responder `pong`.
+2. Se o erro aparece **testando pelo navegador** (`expo start` + tecla `w`): confira se não existe um `clubapp-mobile/.env` forçando `EXPO_PUBLIC_API_URL=http://10.0.2.2:3333` — esse endereço só existe dentro do emulador Android e trava no navegador. Apague a variável ou o arquivo `.env` para voltar ao host automático (`localhost`).
+3. Se o erro aparece **num celular físico**: crie/ajuste o `clubapp-mobile/.env` com o IP da sua máquina na rede (`EXPO_PUBLIC_API_URL=http://SEU_IP:3333`), não `localhost` nem `10.0.2.2`.
+4. Cadastro/login retornando erro mesmo com o backend online? Confira se `backend/.env` existe e se o `docker-compose.yml` está carregando-o via `env_file` — sem isso o container sobe sem `JWT_SECRET`.
 
-🔐 Autenticação
+## Porta ocupada
+```bash
+docker compose ps
+```
 
-O sistema utiliza JWT para autenticação segura entre o aplicativo mobile e a API.
+---
 
-👨‍💻 Autor
+# 📱 Funcionalidades
+
+## 🗓️ Agenda de Eventos
+- Visualização de calendário mensal
+- Indicadores visuais nos dias com eventos
+- Criação, edição e exclusão de eventos
+- Prevenção de conflitos de horário
+
+## 💰 Controle Financeiro
+- Dashboard com saldo atual
+- Registro de receitas e despesas
+- Filtro de transações por mês
+- Categorização de entradas e saídas
+- Previsão de saldo futuro
+
+## 🔐 Autenticação
+- Sistema com JWT para autenticação segura entre o aplicativo e a API.
+
+---
+
+# 👨‍💻 Autor
 
 Desenvolvido por Eilton Neto
 
-GitHub
-https://github.com/eiltonneto
-
-LinkedIn
-https://linkedin.com/in/eilton-neto
+GitHub: https://github.com/eiltonneto
+LinkedIn: https://linkedin.com/in/eilton-neto

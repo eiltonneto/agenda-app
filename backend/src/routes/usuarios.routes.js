@@ -33,20 +33,30 @@ router.post("/", async (req, res) => {
   try {
     const { nome, email, senha } = req.body;
 
-    const userExists = await prisma.usuario.findUnique({ where: { email } });
-    if (userExists) return res.status(400).json({ error: "E-mail já cadastrado." });
+    // Validação de campos obrigatórios
+    if (!nome || !email || !senha) {
+      return res.status(400).json({ error: "Preencha nome, e-mail e senha para realizar o cadastro." });
+    }
+
+    const userExists = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
+    if (userExists) return res.status(400).json({ error: "E-mail já cadastrado, faça login ou digite um e-mail novo para criar conta" });
 
     const senhaHash = await bcrypt.hash(senha, 8);
 
     const usuario = await prisma.usuario.create({
-      data: { nome, email, senhaHash }, 
+      data: { nome, email: email.toLowerCase(), senhaHash }, 
     });
 
     const { senhaHash: _, ...userSemSenha } = usuario;
     return res.status(201).json(userSemSenha);
   } catch (error) {
-    console.error(error);
-    return res.status(400).json({ error: "Erro ao criar conta. Verifique os dados." });
+    console.error("ERRO_AO_CRIAR_CONTA:", error);
+
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: "E-mail já cadastrado, faça login ou digite um e-mail novo para criar conta" });
+    }
+
+    return res.status(500).json({ error: "Ocorreu um erro inesperado no servidor ao processar seu cadastro. Tente novamente mais tarde." });
   }
 });
 
@@ -79,8 +89,8 @@ router.patch("/foto", (req, res, next) => {
     const { senhaHash, ...userSemSenha } = usuario;
     return res.json(userSemSenha);
   } catch (error) {
-    console.error("Erro no banco de dados na rota de foto:", error);
-    return res.status(500).json({ error: "Erro interno ao atualizar perfil." });
+    console.error("ERRO_AO_ATUALIZAR_FOTO:", error);
+    return res.status(500).json({ error: "Não foi possível salvar a foto de perfil. Erro interno no servidor." });
   }
 });
 
@@ -88,10 +98,16 @@ router.patch("/foto", (req, res, next) => {
 router.patch("/senha", async (req, res) => {
   try {
     const { senhaAtual, novaSenha } = req.body;
+
+    if (!senhaAtual || !novaSenha) {
+      return res.status(400).json({ error: "Você precisa informar a senha atual e a nova senha." });
+    }
+
     const usuario = await prisma.usuario.findUnique({ where: { id: req.userId } });
+    if (!usuario) return res.status(404).json({ error: "Usuário não encontrado." });
 
     const checkSenha = await bcrypt.compare(senhaAtual, usuario.senhaHash);
-    if (!checkSenha) return res.status(401).json({ error: "A senha atual está incorreta." });
+    if (!checkSenha) return res.status(401).json({ error: "Sua senha atual está incorreta." });
 
     const novaHash = await bcrypt.hash(novaSenha, 8);
     await prisma.usuario.update({
@@ -101,7 +117,8 @@ router.patch("/senha", async (req, res) => {
 
     return res.json({ message: "Senha alterada com sucesso!" });
   } catch (error) {
-    return res.status(500).json({ error: "Erro ao alterar senha." });
+    console.error("ERRO_AO_ALTERAR_SENHA:", error);
+    return res.status(500).json({ error: "Houve um problema interno ao tentar alterar sua senha." });
   }
 });
 

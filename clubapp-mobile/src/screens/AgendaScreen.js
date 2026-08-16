@@ -559,7 +559,7 @@ const toggleAttended = async (evento) => { // Comparecido ?
         ))}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={Platform.OS === "web"}>
         <Animated.View style={[styles.grid, { opacity: fadeAnim }]}>
           {days.map(day => {
             const isSelected = isSameDay(day, selectedDate);
@@ -673,7 +673,7 @@ const toggleAttended = async (evento) => { // Comparecido ?
                 </View>
               )}
 
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={Platform.OS === "web"}>
                 <Text style={styles.label}>NOME DO EVENTO</Text>
                 <TextInput style={[styles.input, {color: colors.text, backgroundColor: colors.inputBackground}]} value={titulo} onChangeText={setTitulo} placeholder="Ex: Ocasião, Evento..." placeholderTextColor={colors.textSecondary}/>
 
