@@ -144,7 +144,7 @@ async function handleUploadPhoto(localUri, mimeType) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={Platform.OS === "web"}>
         
         {/* ERRO VISUAL GLOBAL (Fora dos modais) */}
         {errorMessage !== "" && !modalVisible && (

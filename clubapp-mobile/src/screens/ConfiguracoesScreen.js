@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { 
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  Modal, SafeAreaView, Switch 
+import {
+  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  Modal, SafeAreaView, Switch, Platform
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
@@ -25,7 +25,7 @@ export default function ConfiguracoesScreen({ navigation }) {
         <Text style={[styles.title, { color: colors.text }]}>Configurações</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={Platform.OS === "web"}>
         
         {/* SEÇÃO APARÊNCIA */}
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>APARÊNCIA</Text>
@@ -82,7 +82,7 @@ export default function ConfiguracoesScreen({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>Termos de Uso</Text>
-            <ScrollView style={{ maxHeight: '80%' }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ maxHeight: '80%' }} showsVerticalScrollIndicator={Platform.OS === "web"}>
               <Text style={[styles.modalText, { color: colors.textSecondary }]}>
                 Bem-vindo ao YourFlow!{'\n\n'}
                 1. O uso deste aplicativo é destinado ao gerenciamento pessoal e administrativo.{'\n\n'}
@@ -104,7 +104,7 @@ export default function ConfiguracoesScreen({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>Privacidade e Dados</Text>
-            <ScrollView style={{ maxHeight: '80%' }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ maxHeight: '80%' }} showsVerticalScrollIndicator={Platform.OS === "web"}>
               <Text style={[styles.modalText, { color: colors.textSecondary }]}>
                 Sua privacidade é prioridade no YourFlow:{'\n\n'}
                 1. Coletamos Nome, Email e Foto de Perfil apenas para identificação e personalização da sua experiência.{'\n\n'}
