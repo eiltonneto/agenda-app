@@ -24,8 +24,20 @@ model Usuario {
   foto         String?
   Despesa      Despesa[]
   eventos      Evento[]
+  categoriasEvento CategoriaEvento[]
   notificacoes Notificacao[]
   Receita      Receita[]
+}
+
+model CategoriaEvento {
+  id        String   @id @default(cuid())
+  nome      String
+  cor       String
+  usuarioId Int
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, nome])
+  @@index([usuarioId])
 }
 
 model Evento {

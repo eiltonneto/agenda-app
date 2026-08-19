@@ -13,6 +13,7 @@ import notificacoesRoutes from "./routes/notificacoes.routes.js";
 import receitasRoutes from "./routes/receitas.routes.js";
 import despesasRoutes from "./routes/despesas.routes.js";
 import bootstrapRoutes from "./routes/bootstrap.routes.js";
+import categoriasEventoRoutes from "./routes/categorias-evento.routes.js";
 
 import { authMiddleware } from "./middlewares/auth.js"; 
 
@@ -58,6 +59,7 @@ app.use("/financeiro", financeiroRoutes);
 app.use("/notificacoes", notificacoesRoutes);
 app.use("/receitas", receitasRoutes);
 app.use("/despesas", despesasRoutes);
+app.use("/categorias-evento", categoriasEventoRoutes);
 
 const PORT = process.env.PORT || 3333;
 app.listen(PORT, () => {
