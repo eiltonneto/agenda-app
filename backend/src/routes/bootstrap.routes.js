@@ -1,5 +1,6 @@
 import { Router } from "express";
 import prisma from "../database/prisma.js";
+import { garantirCategoriasPadrao } from "./categorias-evento.routes.js";
 
 const router = Router();
 
@@ -12,7 +13,7 @@ router.get("/", async (req, res) => {
     const inicioDoMes = new Date(dataAtual.getFullYear(), dataAtual.getMonth(), 1);
     const inicioProximoMes = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 1);
 
-    const [usuario, eventos, receitas, despesas] = await Promise.all([
+    const [usuario, eventos, receitas, despesas, categorias] = await Promise.all([
       
       prisma.usuario.findUnique({
         where: { id: userId },
@@ -21,8 +22,7 @@ router.get("/", async (req, res) => {
 
       prisma.evento.findMany({
         where: { 
-          usuarioId: userId,
-          inicio: { gte: inicioDoMes } 
+          usuarioId: userId
         },
         orderBy: { inicio: 'asc' }
       }),
@@ -52,10 +52,12 @@ router.get("/", async (req, res) => {
           ]
         },
         orderBy: { eventDate: 'asc' }
-      })
+      }),
+
+      garantirCategoriasPadrao(userId)
     ]);
 
-    return res.json({ usuario, eventos, receitas, despesas, statusTrial: "ATIVO" });
+    return res.json({ usuario, eventos, receitas, despesas, categorias, statusTrial: "ATIVO" });
 
   } catch (error) {
     console.error("ERRO NO BOOTSTRAP:", error);
