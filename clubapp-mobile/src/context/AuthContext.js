@@ -129,32 +129,25 @@ async function login(email, senha) {
       //  Coloca o crachá na porta da API para permitir as próximas requisições
       api.defaults.headers.Authorization = `Bearer ${token}`;
 
-      // BOOTSTRAP IMEDIATO: Puxa Completo do mês vigente
-      const bootResponse = await api.get('/bootstrap');
-      const { eventos, receitas, despesas, statusTrial } = bootResponse.data;
-      const categorias = await sincronizarCategoriasLegadas(bootResponse.data.categorias || []);
+      // Autentica imediatamente com a resposta do login. O bootstrap roda em
+      // segundo plano para que uma falha de sincronização não bloqueie a entrada.
+      const { eventos, receitas, despesas } = authResponse.data;
 
-      // Salva tudo no AsyncStorage primeiro.
       await AsyncStorage.multiSet([
         ["@YourFlow:token", token],
         ["@YourFlow:user", JSON.stringify(userData)],
         ["@YourFlow:eventos", JSON.stringify(eventos || [])],
         ["@YourFlow:receitas", JSON.stringify(receitas || [])],
         ["@YourFlow:despesas", JSON.stringify(despesas || [])],
-        ["@YourFlow:categorias", JSON.stringify(categorias)]
       ]);
 
-      // POPULA A MEMÓRIA RAM DO APP
       setEventosGlobais(eventos || []);
       setReceitasGlobais(receitas || []);
       setDespesasGlobais(despesas || []);
-      setCategoriasGlobais(categorias);
-      setStatusTrial(statusTrial || "ATIVO");
+      setStatusTrial("ATIVO");
+      setUser(userData);
 
-      // Muda a tela
-      // Como o 'signed' depende do 'user', ao setar isso o app navega pra Home.
-      // E como os dados já estão no estado acima, a tela nasce pronta, sem loading.
-      setUser(userData); 
+      loadBootstrapData();
 
     } catch (error) {
       console.error("Erro no fluxo de Login/Bootstrap:", error);
