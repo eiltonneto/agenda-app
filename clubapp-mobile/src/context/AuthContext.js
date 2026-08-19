@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
   const [despesasGlobais, setDespesasGlobais] = useState([]);
   const [eventosGlobais, setEventosGlobais] = useState([]);
   const [receitasGlobais, setReceitasGlobais] = useState([]);
+  const [categoriasGlobais, setCategoriasGlobais] = useState([]);
   const [statusTrial, setStatusTrial] = useState("ATIVO");
 
   useEffect(() => {
@@ -19,7 +20,7 @@ export function AuthProvider({ children }) {
         // 1. Busca tudo do celular em paralelo (MUITO mais rápido)
         const keys = [
           "@YourFlow:user", "@YourFlow:token", "@YourFlow:eventos", 
-          "@YourFlow:receitas", "@YourFlow:despesas"
+          "@YourFlow:receitas", "@YourFlow:despesas", "@YourFlow:categorias"
         ];
         const storaged = await AsyncStorage.multiGet(keys);
         const data = Object.fromEntries(storaged);
@@ -33,6 +34,7 @@ export function AuthProvider({ children }) {
           if (data["@YourFlow:eventos"]) setEventosGlobais(JSON.parse(data["@YourFlow:eventos"]));
           if (data["@YourFlow:receitas"]) setReceitasGlobais(JSON.parse(data["@YourFlow:receitas"]));
           if (data["@YourFlow:despesas"]) setDespesasGlobais(JSON.parse(data["@YourFlow:despesas"]));
+          if (data["@YourFlow:categorias"]) setCategoriasGlobais(JSON.parse(data["@YourFlow:categorias"]));
           
           // 3. ATUALIZA EM SILÊNCIO (Background Sync)
           // O app já abriu, agora ele só "refresca" os dados do Render
@@ -47,17 +49,62 @@ export function AuthProvider({ children }) {
     loadStorageData();
   }, []);
 
+  useEffect(() => {
+    if (user) AsyncStorage.setItem("@YourFlow:eventos", JSON.stringify(eventosGlobais));
+  }, [eventosGlobais, user]);
+
+  useEffect(() => {
+    if (user) AsyncStorage.setItem("@YourFlow:receitas", JSON.stringify(receitasGlobais));
+  }, [receitasGlobais, user]);
+
+  useEffect(() => {
+    if (user) AsyncStorage.setItem("@YourFlow:despesas", JSON.stringify(despesasGlobais));
+  }, [despesasGlobais, user]);
+
+  useEffect(() => {
+    if (user) AsyncStorage.setItem("@YourFlow:categorias", JSON.stringify(categoriasGlobais));
+  }, [categoriasGlobais, user]);
+
+  async function sincronizarCategoriasLegadas(categorias) {
+    const categoriasDoServidor = (categorias || []).map(categoria => ({
+      id: categoria.id,
+      name: categoria.nome,
+      color: categoria.cor
+    }));
+
+    try {
+      const legado = await AsyncStorage.getItem("@YourFlow:categories");
+      const categoriasLocais = legado ? JSON.parse(legado) : [];
+      const nomesExistentes = new Set(categoriasDoServidor.map(categoria => categoria.name.toLowerCase()));
+      const categoriasMigradas = await Promise.all(
+        categoriasLocais
+          .filter(categoria => categoria.name && !nomesExistentes.has(categoria.name.trim().toLowerCase()))
+          .map(async categoria => {
+            const response = await api.post("/categorias-evento", {
+              nome: categoria.name.trim(),
+              cor: categoria.color
+            });
+            return { id: response.data.id, name: response.data.nome, color: response.data.cor };
+          })
+      );
+      return [...categoriasDoServidor, ...categoriasMigradas];
+    } catch (error) {
+      return categoriasDoServidor;
+    }
+  }
+
   // --- BOOTSTRAP SILENCIOSO ---
   async function loadBootstrapData() {
     try {
       // Agora o bootstrap no backend também deve ser leve
       const response = await api.get('/bootstrap');
-      const { usuario, eventos, receitas, despesas, statusTrial } = response.data;
+      const { usuario, eventos, receitas, despesas, categorias, statusTrial } = response.data;
       
       setUser(usuario);
       setEventosGlobais(eventos || []);
       setReceitasGlobais(receitas || []);
       setDespesasGlobais(despesas || []);
+      setCategoriasGlobais(await sincronizarCategoriasLegadas(categorias));
       setStatusTrial(statusTrial || "ATIVO");
       
       // Atualiza o cache para a próxima abertura
@@ -66,6 +113,7 @@ export function AuthProvider({ children }) {
         ["@YourFlow:eventos", JSON.stringify(eventos || [])],
         ["@YourFlow:receitas", JSON.stringify(receitas || [])],
         ["@YourFlow:despesas", JSON.stringify(despesas || [])],
+        ["@YourFlow:categorias", JSON.stringify(categorias || [])],
       ]);
     } catch (error) {
       console.log("Bootstrap em background falhou (sem problemas):", error.message);
@@ -84,6 +132,7 @@ async function login(email, senha) {
       // BOOTSTRAP IMEDIATO: Puxa Completo do mês vigente
       const bootResponse = await api.get('/bootstrap');
       const { eventos, receitas, despesas, statusTrial } = bootResponse.data;
+      const categorias = await sincronizarCategoriasLegadas(bootResponse.data.categorias || []);
 
       // Salva tudo no AsyncStorage primeiro.
       await AsyncStorage.multiSet([
@@ -92,12 +141,14 @@ async function login(email, senha) {
         ["@YourFlow:eventos", JSON.stringify(eventos || [])],
         ["@YourFlow:receitas", JSON.stringify(receitas || [])],
         ["@YourFlow:despesas", JSON.stringify(despesas || [])],
+        ["@YourFlow:categorias", JSON.stringify(categorias)]
       ]);
 
       // POPULA A MEMÓRIA RAM DO APP
       setEventosGlobais(eventos || []);
       setReceitasGlobais(receitas || []);
       setDespesasGlobais(despesas || []);
+      setCategoriasGlobais(categorias);
       setStatusTrial(statusTrial || "ATIVO");
 
       // Muda a tela
@@ -115,12 +166,13 @@ async function login(email, senha) {
     // Limpa tudo e volta para o login
     AsyncStorage.multiRemove([
       "@YourFlow:user", "@YourFlow:token", "@YourFlow:eventos", 
-      "@YourFlow:receitas", "@YourFlow:despesas"
+      "@YourFlow:receitas", "@YourFlow:despesas", "@YourFlow:categorias"
     ]).then(() => {
       setUser(null);
       setEventosGlobais([]);
       setReceitasGlobais([]);
       setDespesasGlobais([]);
+      setCategoriasGlobais([]);
       delete api.defaults.headers.Authorization;
     });
   }
@@ -146,6 +198,7 @@ async function login(email, senha) {
         eventosGlobais, setEventosGlobais,
         receitasGlobais, setReceitasGlobais,
         despesasGlobais, setDespesasGlobais,
+        categoriasGlobais, setCategoriasGlobais,
         statusTrial,
         login, logout, loadBootstrapData, register
       }}

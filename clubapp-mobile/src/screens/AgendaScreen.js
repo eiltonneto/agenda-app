@@ -33,7 +33,7 @@ export default function AgendaScreen({ navigation }) {
   const isDesktop = windowWidth > 900;
   
   // Consumindo o estado global (sem necessidade de fetch inicial)
-  const { eventosGlobais, setEventosGlobais, receitasGlobais, setReceitasGlobais } = useAuth();
+  const { eventosGlobais, setEventosGlobais, receitasGlobais, setReceitasGlobais, categoriasGlobais, setCategoriasGlobais } = useAuth();
 
   const eventos = eventosGlobais || [];
 
@@ -75,18 +75,23 @@ export default function AgendaScreen({ navigation }) {
 
   // --- EFEITOS ---
   useEffect(() => {
-    async function loadCategories() {
-        try {
-            const saved = await AsyncStorage.getItem("@YourFlow:categories");
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                setCategories(parsed);
-                if (parsed.length > 0) setSelectedCategory(parsed[0]);
-            }
-        } catch (e) { console.log("Erro carregar categorias", e); }
+    async function loadCategoriesFallback() {
+      if (categoriasGlobais?.length > 0) {
+        setCategories(categoriasGlobais);
+        setSelectedCategory(current => categoriasGlobais.find(c => c.id === current?.id) || categoriasGlobais[0]);
+        return;
+      }
+      try {
+        const saved = await AsyncStorage.getItem("@YourFlow:categories");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setCategories(parsed);
+          if (parsed.length > 0) setSelectedCategory(parsed[0]);
+        }
+      } catch (e) { console.log("Erro carregar categorias", e); }
     }
-    loadCategories();
-  }, []);
+    loadCategoriesFallback();
+  }, [categoriasGlobais]);
 
   useEffect(() => {
     fadeAnim.setValue(0);
@@ -477,8 +482,20 @@ const toggleAttended = async (evento) => { // Comparecido ?
     } else {
       novaLista = categories.map(c => c.id === catEditing.id ? catEditing : c);
     }
-    setCategories(novaLista);
-    await AsyncStorage.setItem("@YourFlow:categories", JSON.stringify(novaLista));
+    try {
+      const response = catEditing.isNew
+        ? await api.post("/categorias-evento", { nome: catEditing.name.trim(), cor: catEditing.color })
+        : await api.put(`/categorias-evento/${catEditing.id}`, { nome: catEditing.name.trim(), cor: catEditing.color });
+      const salva = { id: response.data.id, name: response.data.nome, color: response.data.cor };
+      novaLista = catEditing.isNew
+        ? [...categories, salva]
+        : categories.map(c => c.id === salva.id ? salva : c);
+      setCategories(novaLista);
+      setCategoriasGlobais(novaLista);
+      await AsyncStorage.setItem("@YourFlow:categories", JSON.stringify(novaLista));
+    } catch (error) {
+      return treatError(error);
+    }
     if (catEditing.isNew || selectedCategory.id === catEditing.id) {
         setSelectedCategory(catEditing.isNew ? novaLista[novaLista.length - 1] : catEditing);
     }
@@ -487,8 +504,14 @@ const toggleAttended = async (evento) => { // Comparecido ?
 
   const deleteCategoryPersistent = async () => {
     if (categories.length <= 1) return setErrorMessage("Mantenha ao menos uma categoria.");
+    try {
+      await api.delete(`/categorias-evento/${catEditing.id}`);
+    } catch (error) {
+      return treatError(error);
+    }
     const novaLista = categories.filter(c => c.id !== catEditing.id);
     setCategories(novaLista);
+    setCategoriasGlobais(novaLista);
     await AsyncStorage.setItem("@YourFlow:categories", JSON.stringify(novaLista));
     setSelectedCategory(novaLista[0]);
     setModalCatVisivel(false);
