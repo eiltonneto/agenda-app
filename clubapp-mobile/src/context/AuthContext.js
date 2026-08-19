@@ -123,7 +123,7 @@ export function AuthProvider({ children }) {
 async function login(email, senha) {
     try {
       // Pega o Token no backend
-      const authResponse = await api.post("/login", { email, senha });
+      const authResponse = await api.post("/login", { email: email.trim().toLowerCase(), senha });
       const { user: userData, token } = authResponse.data;
 
       //  Coloca o crachá na porta da API para permitir as próximas requisições

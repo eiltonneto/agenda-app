@@ -14,13 +14,14 @@ router.post("/", async (req, res) => {
   try {
     const { email, password, senha } = req.body;
     const senhaLogin = password || senha; 
+    const emailNormalizado = email?.trim().toLowerCase();
 
-    if (!email || !senhaLogin) {
+    if (!emailNormalizado || !senhaLogin) {
         return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
     }
 
     // Busca o usuário no banco pelo email
-    const user = await prisma.usuario.findUnique({ where: { email } });
+    const user = await prisma.usuario.findUnique({ where: { email: emailNormalizado } });
 
     if (!user) {
       return res.status(400).json({ error: "E-mail não encontrado." });
