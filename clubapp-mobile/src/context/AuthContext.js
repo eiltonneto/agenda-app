@@ -76,18 +76,29 @@ export function AuthProvider({ children }) {
       const legado = await AsyncStorage.getItem("@YourFlow:categories");
       const categoriasLocais = legado ? JSON.parse(legado) : [];
       const nomesExistentes = new Set(categoriasDoServidor.map(categoria => categoria.name.toLowerCase()));
-      const categoriasMigradas = await Promise.all(
-        categoriasLocais
-          .filter(categoria => categoria.name && !nomesExistentes.has(categoria.name.trim().toLowerCase()))
-          .map(async categoria => {
-            const response = await api.post("/categorias-evento", {
-              nome: categoria.name.trim(),
-              cor: categoria.color
-            });
-            return { id: response.data.id, name: response.data.nome, color: response.data.cor };
-          })
-      );
-      return [...categoriasDoServidor, ...categoriasMigradas];
+      const categoriasMigradas = [];
+      for (const categoria of categoriasLocais) {
+        const nomeNormalizado = categoria.name?.trim().toLowerCase();
+        if (!nomeNormalizado || nomesExistentes.has(nomeNormalizado)) continue;
+
+        try {
+          const response = await api.post("/categorias-evento", {
+            nome: categoria.name.trim(),
+            cor: categoria.color
+          });
+          categoriasMigradas.push({ id: response.data.id, name: response.data.nome, color: response.data.cor });
+          nomesExistentes.add(nomeNormalizado);
+        } catch (error) {
+          if (error.response?.status !== 409) throw error;
+        }
+      }
+
+      const categoriasAtualizadas = await api.get("/categorias-evento");
+      return categoriasAtualizadas.data.map(categoria => ({
+        id: categoria.id,
+        name: categoria.nome,
+        color: categoria.cor
+      }));
     } catch (error) {
       return categoriasDoServidor;
     }
