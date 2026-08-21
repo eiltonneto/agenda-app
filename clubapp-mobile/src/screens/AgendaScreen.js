@@ -494,6 +494,27 @@ const toggleAttended = async (evento) => { // Comparecido ?
       setCategoriasGlobais(novaLista);
       await AsyncStorage.setItem("@YourFlow:categories", JSON.stringify(novaLista));
     } catch (error) {
+      if (catEditing.isNew && error.response?.status === 409) {
+        try {
+          const response = await api.get("/categorias-evento");
+          const categoriasAtualizadas = response.data.map(categoria => ({
+            id: categoria.id,
+            name: categoria.nome,
+            color: categoria.cor
+          }));
+          setCategories(categoriasAtualizadas);
+          setCategoriasGlobais(categoriasAtualizadas);
+          await AsyncStorage.setItem("@YourFlow:categories", JSON.stringify(categoriasAtualizadas));
+          const categoriaCriada = categoriasAtualizadas.find(
+            categoria => categoria.name.trim().toLowerCase() === catEditing.name.trim().toLowerCase()
+          );
+          if (categoriaCriada) setSelectedCategory(categoriaCriada);
+          setModalCatVisivel(false);
+          return;
+        } catch (refreshError) {
+          return treatError(refreshError);
+        }
+      }
       return treatError(error);
     }
     if (catEditing.isNew || selectedCategory.id === catEditing.id) {

@@ -32,19 +32,20 @@ const upload = multer({ storage });
 router.post("/", async (req, res) => {
   try {
     const { nome, email, senha } = req.body;
+    const emailNormalizado = email?.trim().toLowerCase();
 
     // Validação de campos obrigatórios
-    if (!nome || !email || !senha) {
+    if (!nome || !emailNormalizado || !senha) {
       return res.status(400).json({ error: "Preencha nome, e-mail e senha para realizar o cadastro." });
     }
 
-    const userExists = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
+    const userExists = await prisma.usuario.findUnique({ where: { email: emailNormalizado } });
     if (userExists) return res.status(400).json({ error: "E-mail já cadastrado, faça login ou digite um e-mail novo para criar conta" });
 
     const senhaHash = await bcrypt.hash(senha, 8);
 
     const usuario = await prisma.usuario.create({
-      data: { nome, email: email.toLowerCase(), senhaHash }, 
+      data: { nome, email: emailNormalizado, senhaHash }, 
     });
 
     const { senhaHash: _, ...userSemSenha } = usuario;
