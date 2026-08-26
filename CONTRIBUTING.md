@@ -11,8 +11,8 @@ feature/* , fix/*  →  develop  →  main
 | Branch | Onde roda | Banco de dados | Propósito |
 |---|---|---|---|
 | `feature/*`, `fix/*` | Seu PC (`docker compose up`) | Postgres local (Docker) | Desenvolver e testar isoladamente |
-| `develop` | Vercel — URL fixa de preview (ver setup abaixo) | Postgres **dev** (Render, separado do de produção) | Testar tudo integrado antes de liberar |
-| `main` | Vercel + Render — produção | Postgres de **produção** (Render) | O que os usuários finais usam |
+| `develop` | Vercel — frontend web de preview | Neon **dev** | Testar tudo integrado antes de liberar |
+| `main` | Vercel — frontend web + Render — API | Neon **produção** | O que os usuários finais usam |
 
 > ⚠️ Nunca aponte o ambiente `develop` para o banco de produção. Um bug ou uma migration ruim testada em `develop` não pode arriscar dado real.
 
@@ -55,9 +55,9 @@ Esse PR final é o ponto de checagem antes de qualquer coisa chegar nos usuário
 
 Estes passos precisam ser feitos direto nos dashboards (Vercel / GitHub / Render) — não dá pra automatizar por aqui.
 
-### A. Banco de dados de "dev" separado (Render)
-1. No [Render Dashboard](https://dashboard.render.com), crie um **novo** Postgres (plano free), com nome tipo `agendaapp-db-dev`.
-2. Copie a **External Connection String** gerada.
+### A. Banco de dados de "dev" separado (Neon)
+1. No [Neon Console](https://console.neon.tech), crie um projeto ou branch de banco separado para desenvolvimento, com nome tipo `agendaapp-dev`.
+2. Copie a connection string do banco de desenvolvimento.
 3. Guarde — vai ser usada no passo C.
 
 ### B. URL fixa da Vercel para a branch `develop`
@@ -80,22 +80,18 @@ O campo pra restringir uma variável a uma branch específica fica escondido/var
 ```bash
 npm i -g vercel     # se ainda não tiver
 vercel login
-vercel link         # roda dentro da pasta do backend, conecta ao projeto certo
+vercel link         # roda dentro da pasta clubapp-mobile, conecta ao projeto do frontend
 ```
 
 Depois, para cada variável, adicione uma versão restrita à branch `develop` (o comando pede o valor via prompt):
 
 ```bash
-vercel env add DATABASE_URL preview develop
-vercel env add JWT_SECRET preview develop
-vercel env add CLOUDINARY_CLOUD_NAME preview develop
-vercel env add CLOUDINARY_API_KEY preview develop
-vercel env add CLOUDINARY_API_SECRET preview develop
+vercel env add EXPO_PUBLIC_API_URL preview develop
 ```
 
-- `DATABASE_URL` → cole a connection string do Postgres de **dev** criado no passo A (não a de produção!).
-- `JWT_SECRET` → pode repetir o mesmo valor ou usar outro, tanto faz (não protege dado real).
-- `CLOUDINARY_*` → se quiser mídia separada da de produção, crie uma pasta/preset de dev; senão, reaproveite as mesmas chaves de produção.
+- `EXPO_PUBLIC_API_URL` → URL do serviço de API de desenvolvimento no Render.
+
+As variáveis `DATABASE_URL` e `JWT_SECRET` pertencem ao serviço de backend no Render, não ao projeto frontend da Vercel.
 
 Uma variável adicionada assim (`preview develop`) só se aplica a deployments da branch `develop` — as demais branches de preview e a produção continuam usando os valores que já têm. Pra conferir o que ficou configurado:
 
@@ -105,7 +101,7 @@ vercel env ls preview
 
 Se preferir tentar pelo dashboard mesmo assim: **Settings → Environment Variables → Add New**, marque o ambiente **Preview** e procure uma opção de "branch específica" que aparece depois de marcar Preview (o nome/posição desse campo varia). Se não achar, a CLI acima é o caminho garantido.
 
-Confirme por último que os valores de **Production** continuam apontando para o banco de produção do Render, sem mudança.
+Confirme por último que `EXPO_PUBLIC_API_URL` em **Production** aponta para `https://agenda-app-i8nj.onrender.com`.
 
 ### D. Proteger a branch `main` no GitHub
 1. **Repositório → Settings → Branches → Add branch protection rule**.
