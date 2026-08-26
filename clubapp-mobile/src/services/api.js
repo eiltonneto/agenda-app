@@ -7,9 +7,10 @@ import { Platform } from "react-native";
 // 10.0.2.2 só existe dentro do emulador Android (alias para o localhost da máquina host).
 // Em navegador (expo start --web), iOS simulator e Node não faz sentido, então cai para localhost.
 const defaultBaseURL = Platform.OS === "android" ? "http://10.0.2.2:3333" : "http://localhost:3333";
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || defaultBaseURL;
 
 const api = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL || defaultBaseURL,
+  baseURL: API_URL,
 });
 
 export function setAuthToken(token) {
