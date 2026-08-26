@@ -76,18 +76,29 @@ export function AuthProvider({ children }) {
       const legado = await AsyncStorage.getItem("@YourFlow:categories");
       const categoriasLocais = legado ? JSON.parse(legado) : [];
       const nomesExistentes = new Set(categoriasDoServidor.map(categoria => categoria.name.toLowerCase()));
-      const categoriasMigradas = await Promise.all(
-        categoriasLocais
-          .filter(categoria => categoria.name && !nomesExistentes.has(categoria.name.trim().toLowerCase()))
-          .map(async categoria => {
-            const response = await api.post("/categorias-evento", {
-              nome: categoria.name.trim(),
-              cor: categoria.color
-            });
-            return { id: response.data.id, name: response.data.nome, color: response.data.cor };
-          })
-      );
-      return [...categoriasDoServidor, ...categoriasMigradas];
+      const categoriasMigradas = [];
+      for (const categoria of categoriasLocais) {
+        const nomeNormalizado = categoria.name?.trim().toLowerCase();
+        if (!nomeNormalizado || nomesExistentes.has(nomeNormalizado)) continue;
+
+        try {
+          const response = await api.post("/categorias-evento", {
+            nome: categoria.name.trim(),
+            cor: categoria.color
+          });
+          categoriasMigradas.push({ id: response.data.id, name: response.data.nome, color: response.data.cor });
+          nomesExistentes.add(nomeNormalizado);
+        } catch (error) {
+          if (error.response?.status !== 409) throw error;
+        }
+      }
+
+      const categoriasAtualizadas = await api.get("/categorias-evento");
+      return categoriasAtualizadas.data.map(categoria => ({
+        id: categoria.id,
+        name: categoria.nome,
+        color: categoria.cor
+      }));
     } catch (error) {
       return categoriasDoServidor;
     }
@@ -123,38 +134,31 @@ export function AuthProvider({ children }) {
 async function login(email, senha) {
     try {
       // Pega o Token no backend
-      const authResponse = await api.post("/login", { email, senha });
+      const authResponse = await api.post("/login", { email: email.trim().toLowerCase(), senha });
       const { user: userData, token } = authResponse.data;
 
       //  Coloca o crachá na porta da API para permitir as próximas requisições
       api.defaults.headers.Authorization = `Bearer ${token}`;
 
-      // BOOTSTRAP IMEDIATO: Puxa Completo do mês vigente
-      const bootResponse = await api.get('/bootstrap');
-      const { eventos, receitas, despesas, statusTrial } = bootResponse.data;
-      const categorias = await sincronizarCategoriasLegadas(bootResponse.data.categorias || []);
+      // Autentica imediatamente com a resposta do login. O bootstrap roda em
+      // segundo plano para que uma falha de sincronização não bloqueie a entrada.
+      const { eventos, receitas, despesas } = authResponse.data;
 
-      // Salva tudo no AsyncStorage primeiro.
       await AsyncStorage.multiSet([
         ["@YourFlow:token", token],
         ["@YourFlow:user", JSON.stringify(userData)],
         ["@YourFlow:eventos", JSON.stringify(eventos || [])],
         ["@YourFlow:receitas", JSON.stringify(receitas || [])],
         ["@YourFlow:despesas", JSON.stringify(despesas || [])],
-        ["@YourFlow:categorias", JSON.stringify(categorias)]
       ]);
 
-      // POPULA A MEMÓRIA RAM DO APP
       setEventosGlobais(eventos || []);
       setReceitasGlobais(receitas || []);
       setDespesasGlobais(despesas || []);
-      setCategoriasGlobais(categorias);
-      setStatusTrial(statusTrial || "ATIVO");
+      setStatusTrial("ATIVO");
+      setUser(userData);
 
-      // Muda a tela
-      // Como o 'signed' depende do 'user', ao setar isso o app navega pra Home.
-      // E como os dados já estão no estado acima, a tela nasce pronta, sem loading.
-      setUser(userData); 
+      loadBootstrapData();
 
     } catch (error) {
       console.error("Erro no fluxo de Login/Bootstrap:", error);

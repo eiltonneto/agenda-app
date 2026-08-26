@@ -14,11 +14,11 @@ O projeto foi desenvolvido como **monorepo**, contendo:
 
 # 🚀 Aplicação em Produção
 
-A API está disponível em:
+A API está disponível no Render:
 
-https://agenda-app-wheat.vercel.app/
+https://agenda-app-i8nj.onrender.com/
 
-Deploy realizado utilizando **Vercel**.
+O frontend web é exportado pelo Expo e publicado na **Vercel**.
 
 Para saber como funciona o fluxo `feature → develop (dev) → main (produção)`, veja o [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -135,7 +135,7 @@ Conteúdo esperado:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@db:5432/agendaapp?schema=public"
-JWT_SECRET="f4930353163359556133965586686733"
+JWT_SECRET="replace-with-a-long-random-secret"
 PORT=3333
 CLOUDINARY_CLOUD_NAME=""
 CLOUDINARY_API_KEY=""
