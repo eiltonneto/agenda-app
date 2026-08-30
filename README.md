@@ -62,41 +62,53 @@ yourflow
 
 ---
 
-# ⚙️ Guia de execução diária
+# ⚙️ Guia de execução local
 
-## 1️⃣ Subir o backend e o banco
+## 1️⃣ Preparar o ambiente local
 
-Abra um terminal na raiz do projeto:
+No terminal da raiz do projeto:
 
 ```bash
 cd C:\Users\JoseNeto\Projetos\agenda-app
 docker compose up --build
 ```
 
-Se o ambiente já foi criado antes e você só quer ligar novamente:
+Se o ambiente já foi criado antes, basta subir novamente:
 
 ```bash
 docker compose up
 ```
 
-Isso vai subir:
-- PostgreSQL
+Isso vai criar:
+- PostgreSQL local
 - backend Node.js
 - migrações do Prisma
 
-A API fica disponível em:
+A API local fica disponível em:
 
 ```text
 http://localhost:3333
 ```
 
-## 2️⃣ Ver logs do backend
+## 2️⃣ Ver logs do backend local
 
 ```bash
 docker compose logs -f backend
 ```
 
-## 3️⃣ Parar o ambiente
+## 3️⃣ Verificar a API local
+
+```bash
+curl http://localhost:3333/ping
+```
+
+Resposta esperada:
+
+```text
+pong
+```
+
+## 4️⃣ Parar o ambiente local
 
 ```bash
 docker compose down
@@ -108,7 +120,7 @@ Se quiser limpar também o banco local:
 docker compose down -v
 ```
 
-## 4️⃣ Rodar o app mobile
+## 5️⃣ Rodar o app mobile localmente
 
 Abra outro terminal:
 
@@ -122,7 +134,7 @@ Depois:
 - escaneie o QR Code com o Expo Go
 - ou rode em um emulador Android/iOS
 
-## 5️⃣ Arquivo de ambiente do backend
+## 6️⃣ Arquivo de ambiente do backend local
 
 Crie o arquivo `.env` a partir do exemplo:
 
@@ -137,38 +149,43 @@ Conteúdo esperado:
 DATABASE_URL="postgresql://postgres:postgres@db:5432/agendaapp?schema=public"
 JWT_SECRET="replace-with-a-long-random-secret"
 PORT=3333
+```
+
+As variáveis Cloudinary podem ficar vazias enquanto o upload não for reativado:
+
+```env
 CLOUDINARY_CLOUD_NAME=""
 CLOUDINARY_API_KEY=""
 CLOUDINARY_API_SECRET=""
 ```
 
-## 6️⃣ Arquivo de ambiente do mobile (opcional)
+## 7️⃣ Arquivo de ambiente do mobile local
 
-Por padrão o app **já escolhe o host certo sozinho**, de acordo com onde está rodando (veja [`src/services/api.js`](clubapp-mobile/src/services/api.js)):
+Por padrão o app **já escolhe o host certo sozinho**, conforme a plataforma em que está rodando:
 
 | Onde você está testando | Host usado automaticamente |
 |---|---|
 | Emulador Android (AVD) | `http://10.0.2.2:3333` |
 | Navegador (`expo start` + tecla `w`) | `http://localhost:3333` |
 | iOS Simulator | `http://localhost:3333` |
-| Celular físico (Expo Go / USB) | precisa do IP da sua máquina — veja abaixo |
+| Celular físico (Expo Go / USB) | precisa do IP da sua máquina |
 
-Você só precisa criar um `.env` se estiver testando em um **celular físico** na mesma rede Wi-Fi, ou se quiser forçar um host diferente do padrão:
+Você só precisa criar um arquivo `.env` se quiser forçar o host manualmente:
 
 ```bash
 cd clubapp-mobile
 copy .env.example .env
 ```
 
-Edite o valor com o IP da sua máquina na rede local (verifique com `ipconfig`):
+Exemplo:
 
 ```env
 EXPO_PUBLIC_API_URL=http://192.168.0.10:3333
 ```
 
-> ⚠️ Se você definir `EXPO_PUBLIC_API_URL`, ele **sempre** tem prioridade sobre a escolha automática — inclusive no navegador. Não deixe um `.env` com `10.0.2.2` esquecido se for testar via `w` (navegador), senão a conexão trava com `ERR_CONNECTION_TIMED_OUT`.
+> ⚠️ Se você definir `EXPO_PUBLIC_API_URL`, ele **sempre** tem prioridade sobre a escolha automática. Não deixe um `.env` com `10.0.2.2` esquecido ao testar no navegador, porque a conexão falha em `ERR_CONNECTION_TIMED_OUT`.
 
-## 7️⃣ Fluxo diário recomendado
+## 8️⃣ Fluxo diário recomendado
 
 ### Iniciar o dia
 ```bash
@@ -186,6 +203,80 @@ npx expo start
 ```bash
 docker compose down
 ```
+
+---
+
+# 🧭 Estado atual da infraestrutura
+
+Este projeto está organizado assim:
+
+- **Local**: Docker + PostgreSQL local
+- **Desenvolvimento**: Vercel Preview + Render dev + Neon dev
+- **Produção**: Vercel Production + Render prod + Neon prod
+
+## URLs esperadas
+
+### Backend local
+```text
+http://localhost:3333
+```
+
+### Backend dev
+```text
+https://agenda-app-dev.onrender.com
+```
+
+### Backend prod
+```text
+https://agenda-app-i8nj.onrender.com
+```
+
+### Frontend web dev
+```text
+URL Preview da Vercel (branch develop)
+```
+
+### Frontend web prod
+```text
+https://agenda-app-wheat.vercel.app
+```
+
+---
+
+# ⚠️ Solução rápida de problemas
+
+## Backend local não sobe
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+## App local não conecta com o backend
+1. Confirme que o backend local está de pé: `docker compose ps`
+2. Teste: `curl http://localhost:3333/ping`
+3. Se estiver no navegador e a conexão falhar, remova o `.env` do mobile para voltar ao host automático
+4. Se estiver em celular físico, ajuste o `EXPO_PUBLIC_API_URL` com o IP correto
+
+## Deploy Preview ou Production falha
+1. Confirme que `Root Directory` da Vercel é `clubapp-mobile`
+2. Confirme que o script `build:web` existe em `clubapp-mobile/package.json`
+3. Confirme que a variável `EXPO_PUBLIC_API_URL` usa o backend correto para cada ambiente
+4. Confirme que o Render backend usa o Neon correto e o `JWT_SECRET` do ambiente certo
+
+## Porta ocupada
+```bash
+docker compose ps
+```
+
+---
+
+# 📱 Funcionalidades
+
+## 🗓️ Agenda de Eventos
+- Visualização de calendário mensal
+- Indicadores visuais nos dias com eventos
+- Criação, edição e exclusão de eventos
+- Prevenção de conflitos de horário
 
 ---
 

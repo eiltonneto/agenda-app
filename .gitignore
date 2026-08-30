@@ -1,0 +1,12 @@
+# Local environment files
+backend/.env
+backend/.env.*
+!backend/.env.example
+clubapp-mobile/.env
+clubapp-mobile/.env.*
+!clubapp-mobile/.env.example
+
+# Local runtime artifacts
+backend/uploads/
+backend/node_modules/
+clubapp-mobile/node_modules/
